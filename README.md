@@ -1,14 +1,12 @@
 # Private Connect
 
-Private connectivity for distributed teams.
-
 Securely expose and test internal services across environments. Connect, expose, share access securely, and test services across any environment, no VPNs, no firewall rules.
 
 ## Install
 
 ```bash
 # Quick install (when releases are published)
-curl -fsSL https://get.privateconnect.io | bash
+curl -fsSL https://get.privateconnect.co/install.sh | bash
 
 # Or from source
 git clone <repo> && cd private-connect
@@ -57,8 +55,12 @@ First run opens browser for login. On servers, shows a code to enter from any de
 ### 2. Expose a service
 
 ```bash
-connect expose localhost:5432 --name prod-db
+connect expose localhost:5432 --name prod-db # Local service
+connect expose 192.168.1.50:8080 --name internal-api # LAN service  
+connect expose db.internal:5432 --name prod-db       # Internal DNS name
 ```
+
+The agent just needs network access to the target. So you could run an agent on a jump box and expose services on the internal network that only that box can reach.
 
 ### 3. From another environment, test connectivity
 
@@ -77,7 +79,10 @@ Output:
   ┌─────────────────────────────────────────┐
   │  DNS     ✓  OK                          │
   │  TCP     ✓  OK                          │
+  │  TLS     ✓  OK                          │
+  │  HTTP    ✓  200 OK                      │
   │  Latency    45ms                        │
+  │  From       local                       │
   └─────────────────────────────────────────┘
 ```
 
@@ -100,7 +105,7 @@ connect whoami                # Show agent info
 
 ```bash
 # Global (all commands)
--h, --hub <url>        Hub URL (default: http://localhost:3001)
+-h, --hub <url>        Hub URL (default: $CONNECT_HUB_URL or localhost:3001)
 -c, --config <path>    Config file (for multiple agents on same machine)
 
 # connect up
@@ -156,27 +161,15 @@ Open http://localhost:3000 to:
 ./scripts/status.sh         # Show running services
 ```
 
-### Database Setup
+### Database
 
-The API uses PostgreSQL. For local development:
+PostgreSQL is required. The start script handles this automatically via Docker.
 
 ```bash
-# Start PostgreSQL with Docker
+# Manual setup (if needed)
 docker compose up -d postgres
-
-# Set DATABASE_URL
-export DATABASE_URL="postgresql://securelog:securelog@localhost:5432/securelog"
-
-# Run migrations
-cd apps/api
-pnpm db:push
-pnpm db:seed
-```
-
-Or run everything with Docker Compose:
-
-```bash
-docker compose up
+cp apps/api/.env.example apps/api/.env
+cd apps/api && pnpm db:push
 ```
 
 ## License

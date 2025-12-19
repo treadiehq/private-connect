@@ -158,6 +158,12 @@ const { fetchAgent } = useApi();
 const agent = ref<Agent | null>(null);
 const loading = ref(true);
 
+// Dynamic page title
+const pageTitle = computed(() => 
+  agent.value ? `${agent.value.label} - Private Connect` : 'Agent - Private Connect'
+)
+useHead({ title: pageTitle })
+
 onMounted(async () => {
   try {
     agent.value = await fetchAgent(route.params.id as string);

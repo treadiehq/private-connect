@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Resend } from 'resend';
 
 interface SendMagicLinkOptions {
   to: string;
@@ -10,25 +11,17 @@ interface SendMagicLinkOptions {
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private resend: { emails: { send: (data: any) => Promise<any> } } | null = null;
+  private resend: Resend | null = null;
 
   constructor() {
     this.initResend();
   }
 
-  private async initResend() {
+  private initResend() {
     const apiKey = process.env.RESEND_API_KEY;
-    if (apiKey && process.env.NODE_ENV === 'production') {
-      try {
-        // Dynamic require to avoid TypeScript errors when resend is not installed
-        // This will only work at runtime if resend is installed
-        const requireResend = new Function('return require("resend")');
-        const { Resend } = requireResend();
-        this.resend = new Resend(apiKey);
-        this.logger.log('Resend email service initialized');
-      } catch (e) {
-        this.logger.warn('Resend not available, falling back to console');
-      }
+    if (apiKey) {
+      this.resend = new Resend(apiKey);
+      this.logger.log('Resend email service initialized');
     }
   }
 
@@ -46,7 +39,7 @@ export class EmailService {
       : `Click the link below to sign in to Private Connect:\n\n${magicLink}\n\nThis link expires in 15 minutes.\n\nIf you didn't request this, you can safely ignore this email.`;
 
     // In development or if Resend is not configured, log to console
-    if (!this.resend || process.env.NODE_ENV !== 'production') {
+    if (!this.resend) {
       this.logger.log('');
       this.logger.log('═══════════════════════════════════════════════════════════');
       this.logger.log('  📧 MAGIC LINK EMAIL (Development Mode)');

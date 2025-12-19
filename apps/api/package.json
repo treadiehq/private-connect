@@ -24,6 +24,7 @@
     "@prisma/client": "^5.8.0",
     "cookie-parser": "^1.4.7",
     "reflect-metadata": "^0.2.1",
+    "resend": "^4.0.0",
     "rxjs": "^7.8.1",
     "socket.io": "^4.7.4",
     "uuid": "^9.0.1",

@@ -375,6 +375,12 @@ const checking = ref(false);
 const showAgentDropdown = ref(false);
 const showShareModal = ref(false);
 
+// Dynamic page title
+const pageTitle = computed(() => 
+  service.value ? `${service.value.name} - Private Connect` : 'Service - Private Connect'
+)
+useHead({ title: pageTitle })
+
 const latestDiagnostic = computed<DiagnosticResult | null>(() => {
   return diagnostics.value[0] || null;
 });

@@ -75,6 +75,8 @@
 </template>
 
 <script setup lang="ts">
+useHead({ title: 'Log In - Private Connect' })
+
 definePageMeta({
   layout: false,
 });

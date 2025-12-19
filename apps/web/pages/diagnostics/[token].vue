@@ -104,6 +104,14 @@ const { fetchDiagnosticByShareToken } = useApi();
 const diagnostic = ref<DiagnosticResult | null>(null);
 const loading = ref(true);
 
+// Dynamic page title
+const pageTitle = computed(() => 
+  diagnostic.value?.service?.name 
+    ? `${diagnostic.value.service.name} Diagnostic - Private Connect` 
+    : 'Diagnostic - Private Connect'
+)
+useHead({ title: pageTitle })
+
 onMounted(async () => {
   try {
     diagnostic.value = await fetchDiagnosticByShareToken(route.params.token as string);

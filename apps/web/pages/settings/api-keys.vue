@@ -201,6 +201,8 @@
 </template>
 
 <script setup lang="ts">
+useHead({ title: 'API Keys - Private Connect' })
+
 interface ApiKey {
   id: string;
   name: string;

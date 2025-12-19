@@ -8,6 +8,9 @@ import { whoamiCommand } from './commands/whoami';
 import { discoverCommand } from './commands/discover';
 import { setConfigPath } from './config';
 
+// Default hub URL - can be overridden via CONNECT_HUB_URL env var
+const DEFAULT_HUB_URL = process.env.CONNECT_HUB_URL || 'http://localhost:3001';
+
 program
   .name('connect')
   .description('Private Connect Agent - Securely expose local services')
@@ -16,7 +19,7 @@ program
 program
   .command('up')
   .description('Start the agent and connect to the hub')
-  .option('-h, --hub <url>', 'Hub URL', 'http://localhost:3001')
+  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-k, --api-key <key>', 'Workspace API key')
   .option('-l, --label <label>', 'Environment label (default: hostname)')
   .option('-n, --name <name>', 'Agent name')
@@ -31,7 +34,7 @@ program
   .command('expose <target>')
   .description('Expose a local service through the tunnel (make something private available)')
   .option('-n, --name <name>', 'Service name', 'default')
-  .option('-h, --hub <url>', 'Hub URL', 'http://localhost:3001')
+  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-k, --api-key <key>', 'Workspace API key')
   .option('-p, --protocol <protocol>', 'Protocol hint: auto|tcp|http|https', 'auto')
   .option('-c, --config <path>', 'Config file path (for multiple agents)')
@@ -43,7 +46,7 @@ program
 program
   .command('reach <service>')
   .description('Test connectivity to an exposed service (access something private)')
-  .option('-h, --hub <url>', 'Hub URL', 'http://localhost:3001')
+  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-t, --timeout <ms>', 'Timeout in milliseconds', '5000')
   .option('--json', 'Output as JSON')
   .option('-c, --config <path>', 'Config file path (for multiple agents)')

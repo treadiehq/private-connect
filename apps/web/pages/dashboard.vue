@@ -101,6 +101,8 @@
 <script setup lang="ts">
 import type { Agent, Service } from '~/types';
 
+useHead({ title: 'Overview - Private Connect' })
+
 definePageMeta({
   middleware: 'auth',
 });

@@ -141,6 +141,8 @@
 <script setup lang="ts">
 import type { Service } from '~/types';
 
+useHead({ title: 'Services - Private Connect' })
+
 definePageMeta({
   middleware: 'auth',
 });

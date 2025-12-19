@@ -100,6 +100,8 @@
 </template>
 
 <script setup lang="ts">
+useHead({ title: 'Sign Up - Private Connect' })
+
 definePageMeta({
   layout: false,
 });
