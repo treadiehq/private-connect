@@ -1,0 +1,197 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User: account for authentication
+model User {
+  id            String        @id @default(uuid())
+  email         String        @unique
+  emailVerified Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  workspaces    Workspace[]
+  magicLinks    MagicLink[]
+  authSessions  AuthSession[]
+}
+
+// MagicLink: for passwordless authentication
+model MagicLink {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  type      String   // LOGIN | REGISTER
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// AuthSession: tracks user login sessions
+model AuthSession {
+  id        String    @id @default(uuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  lastUsedAt DateTime @default(now())
+  userAgent String?
+  ipAddress String?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Workspace: lightweight org/team boundary
+model Workspace {
+  id        String   @id @default(uuid())
+  ownerId   String
+  name      String   @unique
+  plan      String   @default("FREE") // FREE | PRO
+  createdAt DateTime @default(now())
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  agents    Agent[]
+  services  Service[]
+  apiKeys   ApiKey[]
+}
+
+// ApiKey: for workspace API access
+model ApiKey {
+  id          String    @id @default(uuid())
+  workspaceId String
+  name        String
+  key         String    @unique
+  keyPrefix   String    // First 8 chars for display (pc_xxxxxxxx...)
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, name])
+}
+
+model Agent {
+  id          String    @id @default(uuid())
+  workspaceId String
+  name        String?
+  label       String    @default("default") // environment label
+  tokenHash   String    @unique
+  lastSeenAt  DateTime  @default(now())
+  isOnline    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  services    Service[]
+  sourceDiagnostics DiagnosticResult[] @relation("SourceAgent")
+  sessions    Session[]
+}
+
+model Service {
+  id            String             @id @default(uuid())
+  workspaceId   String
+  agentId       String?            // null = external target service (no agent)
+  name          String
+  targetHost    String
+  targetPort    Int
+  tunnelPort    Int?
+  protocol      String             @default("auto") // auto | tcp | http | https
+  status        String             @default("UNKNOWN")
+  isExternal    Boolean            @default(false)  // true = external target, reached directly
+  lastCheckedAt DateTime?
+  createdAt     DateTime           @default(now())
+  workspace     Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agent         Agent?             @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  diagnostics   DiagnosticResult[]
+  sessions      Session[]
+  shares        ServiceShare[]
+
+  @@unique([workspaceId, name])
+}
+
+// ServiceShare: secure external sharing of services (cross-company access)
+model ServiceShare {
+  id              String    @id @default(uuid())
+  serviceId       String
+  token           String    @unique  // Secret access token
+  name            String              // Friendly name (e.g., "Stripe Integration Team")
+  description     String?             // Optional description
+  expiresAt       DateTime?           // null = never expires
+  revokedAt       DateTime?           // Set when revoked
+  
+  // Permissions
+  allowedPaths    String?             // JSON array of allowed path prefixes (null = all)
+  allowedMethods  String?             // JSON array: ["GET", "POST"] (null = all)
+  rateLimitPerMin Int?                // null = no limit
+  
+  // Audit
+  createdAt       DateTime  @default(now())
+  createdBy       String?             // User ID who created the share
+  lastAccessedAt  DateTime?
+  accessCount     Int       @default(0)
+  
+  service         Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  accessLogs      ShareAccessLog[]
+}
+
+// ShareAccessLog: audit trail for shared access
+model ShareAccessLog {
+  id          String   @id @default(uuid())
+  shareId     String
+  accessedAt  DateTime @default(now())
+  ipAddress   String?
+  userAgent   String?
+  path        String?
+  method      String?
+  statusCode  Int?
+  latencyMs   Int?
+  share       ServiceShare @relation(fields: [shareId], references: [id], onDelete: Cascade)
+}
+
+model DiagnosticResult {
+  id            String   @id @default(uuid())
+  serviceId     String
+  sourceAgentId String?  // null = from hub
+  sourceLabel   String?  // environment label of source agent
+  perspective   String   @default("hub") // hub | agent
+  createdAt     DateTime @default(now())
+  dnsStatus     String
+  tcpStatus     String
+  tlsStatus     String?
+  tlsDetails    String?  // JSON: issuer, subject, expiry, selfSigned, error
+  httpStatus    String?
+  httpDetails   String?  // JSON: statusCode, statusMessage, responseTime, error
+  latencyMs     Int?
+  message       String
+  raw           String?
+  shareToken    String?  @unique // for shareable links
+  service       Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  sourceAgent   Agent?   @relation("SourceAgent", fields: [sourceAgentId], references: [id], onDelete: SetNull)
+}
+
+// Session: tracks reach check sessions for auditing
+model Session {
+  id            String    @id @default(uuid())
+  serviceId     String
+  sourceAgentId String
+  startedAt     DateTime  @default(now())
+  endedAt       DateTime?
+  outcome       String?   // success | failure | timeout
+  service       Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  sourceAgent   Agent     @relation(fields: [sourceAgentId], references: [id], onDelete: Cascade)
+}
+
+// DeviceCode: for device authorization flow (like GitHub CLI, Tailscale)
+model DeviceCode {
+  id           String    @id @default(uuid())
+  deviceCode   String    @unique  // Long code for polling (secret)
+  userCode     String    @unique  // Short code user enters (ABCD-1234)
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+  verifiedAt   DateTime?
+  userId       String?             // Set when user verifies
+  workspaceId  String?             // Set when user verifies
+  apiKey       String?             // Generated API key for the agent
+  label        String?             // Agent label from initial request
+  agentName    String?             // Agent name from initial request
+}

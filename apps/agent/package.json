@@ -1,0 +1,31 @@
+{
+  "name": "agent",
+  "version": "0.1.0",
+  "private": true,
+  "bin": {
+    "connect": "./dist/cli.js"
+  },
+  "scripts": {
+    "dev": "tsx src/cli.ts",
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "build:binary": "bun build src/cli.ts --compile --outfile=bin/connect",
+    "build:binary:linux": "bun build src/cli.ts --compile --target=bun-linux-x64 --outfile=bin/connect-linux-x64",
+    "build:binary:linux-arm": "bun build src/cli.ts --compile --target=bun-linux-arm64 --outfile=bin/connect-linux-arm64",
+    "build:binary:macos": "bun build src/cli.ts --compile --target=bun-darwin-x64 --outfile=bin/connect-darwin-x64",
+    "build:binary:macos-arm": "bun build src/cli.ts --compile --target=bun-darwin-arm64 --outfile=bin/connect-darwin-arm64",
+    "build:binary:all": "npm run build:binary:linux && npm run build:binary:linux-arm && npm run build:binary:macos && npm run build:binary:macos-arm"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^11.1.0",
+    "socket.io-client": "^4.7.4",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/uuid": "^9.0.7",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "name": "private-connect",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Private Connect - Secure tunneling for internal services",
+  "packageManager": "pnpm@9.15.1",
+  "scripts": {
+    "dev": "pnpm --parallel --filter api --filter web dev",
+    "dev:api": "pnpm --filter api dev",
+    "dev:web": "pnpm --filter web dev",
+    "build": "pnpm --filter api build && pnpm --filter web build && pnpm --filter agent build",
+    "build:agent": "pnpm --filter agent build",
+    "lint": "pnpm -r lint",
+    "demo:server": "node scripts/demo-server.js",
+    "start": "./scripts/start.sh",
+    "start:dev": "./scripts/start.sh dev",
+    "start:docker": "./scripts/start.sh docker",
+    "start:all": "./scripts/start.sh all",
+    "stop": "./scripts/stop.sh",
+    "stop:dev": "./scripts/stop.sh dev",
+    "stop:docker": "./scripts/stop.sh docker",
+    "restart": "./scripts/restart.sh",
+    "restart:dev": "./scripts/restart.sh dev",
+    "restart:docker": "./scripts/restart.sh docker",
+    "status": "./scripts/status.sh",
+    "clean": "./scripts/clean.sh",
+    "fresh": "./scripts/clean.sh && ./scripts/start.sh",
+    "docker:up": "docker compose up --build -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "docker:rebuild": "docker compose down && docker compose build --no-cache && docker compose up -d",
+    "db:reset": "pnpm --filter api db:reset",
+    "db:studio": "pnpm --filter api db:studio"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@oxc-minify/binding-darwin-arm64": "^0.103.0",
+    "@oxc-parser/binding-darwin-arm64": "^0.103.0",
+    "@oxc-resolver/binding-darwin-arm64": "^11.16.0",
+    "@oxc-transform/binding-darwin-arm64": "^0.103.0"
+  }
+}

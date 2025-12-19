@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+      - "23000-23100:23000-23100"  # Tunnel ports range
+    environment:
+      - DATABASE_URL=file:/app/data/dev.db
+      - PORT=3001
+    volumes:
+      - api-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/v1/agents"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NUXT_PUBLIC_API_URL=http://localhost:3001
+    depends_on:
+      - api
+
+volumes:
+  api-data:
+

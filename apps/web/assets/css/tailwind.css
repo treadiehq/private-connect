@@ -1,0 +1,227 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Hide Nuxt loading indicator */
+.nuxt-loading-indicator {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+/* Focus ring utility */
+@layer utilities {
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 focus:ring-offset-black;
+  }
+}
+
+/* Smooth transitions for dark mode */
+* {
+  transition-property: background-color, border-color;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+
+/* Override for elements that shouldn't transition */
+.no-transition,
+.no-transition * {
+  transition: none !important;
+}
+
+/* Animation utilities */
+@layer utilities {
+  .animation-delay-100 {
+    animation-delay: 100ms;
+  }
+  .animation-delay-200 {
+    animation-delay: 200ms;
+  }
+  .animation-delay-300 {
+    animation-delay: 300ms;
+  }
+  .animation-delay-500 {
+    animation-delay: 500ms;
+  }
+}
+
+/* Glassmorphism utility */
+@layer components {
+  .glass {
+    @apply bg-white/[0.02] backdrop-blur-xl border border-white/[0.05];
+  }
+  
+  .glass-hover {
+    @apply glass hover:bg-white/[0.04] hover:border-white/[0.1] transition-all;
+  }
+}
+
+/* Gradient text utility */
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent;
+  }
+  
+  .text-gradient-blue {
+    @apply bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent;
+  }
+}
+
+/* Button glow effect */
+@layer components {
+  .btn-glow {
+    @apply relative overflow-hidden;
+  }
+  
+  .btn-glow::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full;
+    animation: btn-shine 3s ease-in-out infinite;
+  }
+}
+
+@keyframes btn-shine {
+  0% {
+    transform: translateX(-100%);
+  }
+  20%, 100% {
+    transform: translateX(100%);
+  }
+}
+
+body {
+	@apply bg-black text-white;
+}
+
+html {
+	font-family: -apple-system, BlinkMacSystemFont, Inter, Segoe UI, Roboto, Noto Sans, Ubuntu, sans-serif;
+	font-feature-settings: "calt", "dlig", "liga", "kern", "ss01", "ss02", "ss03", "ss04", "ss07", "ss08", "tnum", "cv02", "cv03", "cv04", "cv11";
+	font-synthesis: none;
+	scroll-behavior: smooth;
+	line-height: 1.5;
+	font-weight: 500;
+}
+
+/* .jetmono {
+	font-family: "JetBrains Mono", "SFMono-Regular", "Menlo", "Consolas", "ui-monospace", "Monaco", "Courier New", monospace;
+} */
+
+body, html {
+	@apply bg-black w-full;
+	min-height: 100vh;
+	overscroll-behavior: none;
+	@apply antialiased;
+}
+
+/* Prevent body scroll when modal is open */
+body.modal-open {
+	overflow: hidden;
+}
+
+::selection {
+	@apply text-blue-300;
+	background-color: rgb(147 197 253 / 0.15);
+}
+
+/* Smooth scrolling */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+*::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+	background-color: rgba(255, 255, 255, 0.1);
+	border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+	background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Focus styles */
+*:focus-visible {
+	outline: 2px solid rgba(255, 255, 255, 0.2);
+	outline-offset: 2px;
+	border-radius: 4px;
+}
+
+@media screen and (-webkit-min-device-pixel-ratio: 0) and (max-device-width: 1024px) {
+	select,
+	textarea,
+	input {
+		font-size: 16px;
+	}
+}
+
+.inner-container:before {
+	bottom: -1px;
+}
+
+.inner-container:after {
+	top: -1px;
+}
+
+.bottom-l:before {
+	@apply bg-white;
+	content: "";
+	width: 1px;
+	height: 9px;
+	@apply absolute;
+	top: -4px;
+}
+.bottom-l:after {
+	@apply bg-white;
+	content: "";
+	width: 9px;
+	height: 1px;
+	@apply absolute;
+	left: -4px;
+}
+
+
+.radial-gradient {
+	background: radial-gradient(circle, rgba(255,255,255,0.100000) 1%, rgba(0,0,0,0.000000000000005) 70%);
+}
+
+/* md */
+@media (min-width: 768px) {
+	.radial-gradient {
+		width: 550px;
+		height: 550px;
+	}
+}
+
+/* lg */
+@media (min-width: 1024px) {
+	.radial-gradient {
+		width: 950px;
+		height: 950px;
+	}
+}
