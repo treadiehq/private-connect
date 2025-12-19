@@ -1,6 +1,6 @@
 # Private Connect
 
-Securely expose and test internal services across environments. Connect, expose, share access securely, and test services across any environment, no VPNs, no firewall rules.
+Securely connect and test private services across any environment, no VPNs, no firewall rules.
 
 ## Install
 

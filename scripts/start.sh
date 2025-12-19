@@ -162,7 +162,7 @@ ensure_postgres() {
         print_status "Waiting for PostgreSQL to be ready..."
         local retries=30
         while [ $retries -gt 0 ]; do
-            if $COMPOSE_CMD exec -T postgres pg_isready -U securelog >/dev/null 2>&1; then
+            if $COMPOSE_CMD exec -T postgres pg_isready -U privateconnect >/dev/null 2>&1; then
                 print_success "PostgreSQL is ready"
                 return
             fi

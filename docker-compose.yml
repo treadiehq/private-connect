@@ -6,13 +6,13 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: securelog
-      POSTGRES_PASSWORD: securelog
-      POSTGRES_DB: securelog
+      POSTGRES_USER: privateconnect
+      POSTGRES_PASSWORD: privateconnect
+      POSTGRES_DB: privateconnect
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U securelog"]
+      test: ["CMD-SHELL", "pg_isready -U privateconnect"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -25,7 +25,7 @@ services:
       - "3001:3001"
       - "23000-23100:23000-23100"  # Tunnel ports range
     environment:
-      - DATABASE_URL=postgresql://securelog:securelog@postgres:5432/securelog
+      - DATABASE_URL=postgresql://privateconnect:privateconnect@postgres:5432/privateconnect
       - PORT=3001
     depends_on:
       postgres:
