@@ -30,18 +30,21 @@
       </div>
 
       <!-- Direct Connection Line -->
-      <div class="flex-1 max-w-32 sm:max-w-48 relative">
-        <div class="h-[2px] bg-gradient-to-r from-blue-300/50 via-purple-300/50 to-emerald-300/50 rounded-full"></div>
-        <div v-if="isHealthy" class="absolute inset-0 overflow-hidden">
-          <div class="w-4 h-[2px] bg-gradient-to-r from-transparent via-blue-300 to-transparent animate-flow"></div>
-        </div>
+      <div class="flex-1 max-w-32 sm:max-w-48 relative h-6">
+        <div class="absolute top-1/2 -translate-y-1/2 w-full h-[2px] bg-gradient-to-r from-blue-300/50 via-purple-300/50 to-emerald-300/50 rounded-full"></div>
+        <!-- Animated data packets -->
+        <template v-if="isHealthy">
+          <div class="data-packet" style="top: 50%; margin-top: -3px;"></div>
+          <div class="data-packet" style="top: 50%; margin-top: -3px;"></div>
+          <div class="data-packet" style="top: 50%; margin-top: -3px;"></div>
+        </template>
         <!-- All checks in one row -->
-        <div class="absolute -top-4 left-1/2 -translate-x-1/2 flex gap-1">
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 flex gap-1">
           <span 
             v-for="check in ['DNS', 'TCP', 'TLS', 'HTTP']" 
             :key="check"
             :class="[
-              'text-[8px] px-1 py-0.5 rounded font-medium',
+              'text-[8px] px-1 py-0.5 rounded font-medium transition-all duration-300',
               getCheckStatus(check) === 'OK' ? 'bg-emerald-300/20 text-emerald-300' : 
               getCheckStatus(check) === 'FAIL' ? 'bg-red-400/20 text-red-400' : 
               'bg-gray-500/20 text-gray-500'
@@ -51,7 +54,7 @@
           </span>
         </div>
         <!-- Direct badge -->
-        <div class="absolute -bottom-5 left-1/2 -translate-x-1/2">
+        <div class="absolute -bottom-4 left-1/2 -translate-x-1/2">
           <span class="text-[8px] px-2 py-0.5 rounded-full bg-purple-300/20 text-purple-300 font-medium">
             DIRECT
           </span>
@@ -105,17 +108,16 @@
       </div>
 
       <!-- Connection Line 1 -->
-      <div class="flex-1 max-w-16 sm:max-w-24 relative">
-        <div class="h-[2px] bg-gradient-to-r from-blue-300/50 to-purple-300/50 rounded-full"></div>
-        <!-- Animated data flow -->
-        <div 
-          v-if="isHealthy"
-          class="absolute inset-0 overflow-hidden"
-        >
-          <div class="w-4 h-[2px] bg-gradient-to-r from-transparent via-blue-300 to-transparent animate-flow"></div>
-        </div>
+      <div class="flex-1 max-w-16 sm:max-w-24 relative h-6">
+        <div class="absolute top-1/2 -translate-y-1/2 w-full h-[2px] bg-gradient-to-r from-blue-300/50 to-purple-300/50 rounded-full"></div>
+        <!-- Animated data packets -->
+        <template v-if="isHealthy">
+          <div class="data-packet" style="top: 50%; margin-top: -3px;"></div>
+          <div class="data-packet" style="top: 50%; margin-top: -3px;"></div>
+          <div class="data-packet" style="top: 50%; margin-top: -3px;"></div>
+        </template>
         <!-- Check marks -->
-        <div class="absolute -top-4 left-1/2 -translate-x-1/2 flex gap-1">
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 flex gap-1">
           <span 
             v-for="check in ['DNS', 'TCP']" 
             :key="check"
@@ -150,16 +152,16 @@
       </div>
 
       <!-- Connection Line 2 -->
-      <div class="flex-1 max-w-16 sm:max-w-24 relative">
-        <div class="h-[2px] bg-gradient-to-r from-purple-300/50 to-emerald-300/50 rounded-full"></div>
-        <div 
-          v-if="isHealthy"
-          class="absolute inset-0 overflow-hidden"
-        >
-          <div class="w-4 h-[2px] bg-gradient-to-r from-transparent via-purple-300 to-transparent animate-flow" style="animation-delay: 0.5s"></div>
-        </div>
+      <div class="flex-1 max-w-16 sm:max-w-24 relative h-6">
+        <div class="absolute top-1/2 -translate-y-1/2 w-full h-[2px] bg-gradient-to-r from-purple-300/50 to-emerald-300/50 rounded-full"></div>
+        <!-- Animated data packets (delayed) -->
+        <template v-if="isHealthy">
+          <div class="data-packet" style="top: 50%; margin-top: -3px; animation-delay: 0.3s;"></div>
+          <div class="data-packet" style="top: 50%; margin-top: -3px; animation-delay: 0.9s;"></div>
+          <div class="data-packet" style="top: 50%; margin-top: -3px; animation-delay: 1.5s;"></div>
+        </template>
         <!-- Check marks -->
-        <div class="absolute -top-4 left-1/2 -translate-x-1/2 flex gap-1">
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 flex gap-1">
           <span 
             v-for="check in ['TLS', 'HTTP']" 
             :key="check"
@@ -239,8 +241,34 @@ const getCheckStatus = (check: string) => {
 }
 
 @keyframes flow {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(400%); }
+  0% { transform: translateX(-100%); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateX(400%); opacity: 0; }
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes data-packet {
+  0% { 
+    transform: translateX(0) scale(0.8);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+    transform: translateX(10%) scale(1);
+  }
+  90% {
+    opacity: 1;
+    transform: translateX(90%) scale(1);
+  }
+  100% { 
+    transform: translateX(100%) scale(0.8);
+    opacity: 0;
+  }
 }
 
 .animate-float {
@@ -248,7 +276,30 @@ const getCheckStatus = (check: string) => {
 }
 
 .animate-flow {
-  animation: flow 2s linear infinite;
+  animation: flow 1.5s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s ease-in-out infinite;
+}
+
+/* Data packet animation */
+.data-packet {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: linear-gradient(135deg, #93c5fd 0%, #c4b5fd 100%);
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(147, 197, 253, 0.6);
+  animation: data-packet 2s ease-in-out infinite;
+}
+
+.data-packet:nth-child(2) {
+  animation-delay: 0.6s;
+}
+
+.data-packet:nth-child(3) {
+  animation-delay: 1.2s;
 }
 </style>
 

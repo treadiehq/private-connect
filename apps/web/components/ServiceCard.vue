@@ -1,12 +1,12 @@
 <template>
-  <div class="bg-white/[0.02] border border-white/[0.06] rounded-xl overflow-hidden hover:border-white/[0.1] transition-colors">
+  <div class="bg-white/[0.02] border border-white/[0.06] rounded-xl overflow-hidden hover:border-white/[0.1] transition-colors group">
     <!-- Header -->
     <div class="flex items-center justify-between px-5 py-4 border-b border-white/[0.04]">
       <div class="flex items-center gap-3">
         <div 
           :class="[
-            'w-8 h-8 rounded-lg flex items-center justify-center',
-            service.isExternal ? 'bg-purple-300/10' : 'bg-blue-300/10'
+            'w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300',
+            service.isExternal ? 'bg-purple-300/10 group-hover:bg-purple-300/20' : 'bg-blue-300/10 group-hover:bg-blue-300/20'
           ]"
         >
           <svg v-if="service.isExternal" class="w-4 h-4 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -33,18 +33,23 @@
       </NuxtLink>
     </div>
 
-    <!-- Status Row -->
-    <div class="flex items-center gap-2 px-5 py-3 border-b border-white/[0.04]">
-      <span 
-        :class="[
-          'w-2 h-2 rounded-full',
-          service.status === 'OK' ? 'bg-emerald-400' : service.status === 'FAIL' ? 'bg-red-400' : 'bg-gray-500'
-        ]"
-      ></span>
-      <span class="text-sm text-gray-300">
-        {{ service.status === 'OK' ? 'Healthy' : service.status === 'FAIL' ? 'Unhealthy' : 'Unknown' }}
-      </span>
-      <span v-if="service.isExternal" class="ml-2 text-xs text-gray-500">• External</span>
+    <!-- Status Row with animation -->
+    <div class="flex items-center justify-between px-5 py-3 border-b border-white/[0.04]">
+      <div class="flex items-center gap-2">
+        <span 
+          :class="[
+            'w-2 h-2 rounded-full transition-all duration-500',
+            service.status === 'OK' ? 'bg-emerald-400 status-pulse-ok' : service.status === 'FAIL' ? 'bg-red-400 status-pulse-fail' : 'bg-gray-500'
+          ]"
+        ></span>
+        <span class="text-sm text-gray-300">
+          {{ service.status === 'OK' ? 'Healthy' : service.status === 'FAIL' ? 'Unhealthy' : 'Unknown' }}
+        </span>
+        <span v-if="service.isExternal" class="ml-2 text-xs text-gray-500">• External</span>
+      </div>
+      
+      <!-- Latency Sparkline -->
+      <LatencySparkline v-if="latencyHistory.length > 1" :data="latencyHistory" />
     </div>
 
     <!-- Metrics Table -->
@@ -136,6 +141,16 @@ const latestDiagnostic = computed<DiagnosticResult | null>(() => {
   return props.service.diagnostics?.[0] || null;
 });
 
+// Get latency history from diagnostics
+const latencyHistory = computed<number[]>(() => {
+  if (!props.service.diagnostics) return [];
+  return props.service.diagnostics
+    .slice(0, 10)
+    .filter(d => d.latencyMs !== null)
+    .map(d => d.latencyMs as number)
+    .reverse(); // Oldest first
+});
+
 const getDnsStatus = computed(() => {
   if (!latestDiagnostic.value) return 'N/A';
   const status = latestDiagnostic.value.dnsStatus;
@@ -155,3 +170,23 @@ const formatTime = (date: string | null | undefined) => {
   return d.toLocaleDateString();
 };
 </script>
+
+<style scoped>
+@keyframes pulse-ok {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(52, 211, 153, 0); }
+}
+
+@keyframes pulse-fail {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(248, 113, 113, 0); }
+}
+
+.status-pulse-ok {
+  animation: pulse-ok 2s infinite;
+}
+
+.status-pulse-fail {
+  animation: pulse-fail 1.5s infinite;
+}
+</style>
