@@ -49,7 +49,7 @@ print_warning() {
 stop_dev() {
     print_status "Stopping development processes..."
 
-    # Kill processes by port
+    # Kill processes by port (excludes PostgreSQL which is managed by Docker)
     local ports=(3000 3001 9000)
     local killed=0
 

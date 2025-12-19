@@ -134,6 +134,48 @@ pkg_exec() {
     fi
 }
 
+# Ensure PostgreSQL is running (via Docker)
+ensure_postgres() {
+    if ! command_exists docker; then
+        print_warning "Docker not installed - assuming PostgreSQL is running externally"
+        return
+    fi
+
+    if ! docker info >/dev/null 2>&1; then
+        print_warning "Docker not running - assuming PostgreSQL is running externally"
+        return
+    fi
+
+    # Use 'docker compose' (v2) if available
+    if docker compose version >/dev/null 2>&1; then
+        COMPOSE_CMD="docker compose"
+    else
+        COMPOSE_CMD="docker-compose"
+    fi
+
+    # Check if postgres container is running
+    if ! $COMPOSE_CMD ps postgres 2>/dev/null | grep -q "running\|Up"; then
+        print_status "Starting PostgreSQL..."
+        $COMPOSE_CMD up -d postgres
+        
+        # Wait for PostgreSQL to be ready
+        print_status "Waiting for PostgreSQL to be ready..."
+        local retries=30
+        while [ $retries -gt 0 ]; do
+            if $COMPOSE_CMD exec -T postgres pg_isready -U securelog >/dev/null 2>&1; then
+                print_success "PostgreSQL is ready"
+                return
+            fi
+            retries=$((retries - 1))
+            sleep 1
+        done
+        print_error "PostgreSQL failed to start"
+        exit 1
+    else
+        print_success "PostgreSQL is already running"
+    fi
+}
+
 # Start in development mode
 start_dev() {
     print_header
@@ -163,11 +205,12 @@ start_dev() {
         (cd apps/api && pkg_exec db:generate)
     fi
 
-    # Push database schema if db doesn't exist
-    if [ ! -f "apps/api/prisma/dev.db" ]; then
-        print_status "Setting up database..."
-        (cd apps/api && pkg_exec db:push && pkg_exec db:seed)
-    fi
+    # Ensure PostgreSQL is running
+    ensure_postgres
+
+    # Push database schema
+    print_status "Syncing database schema..."
+    (cd apps/api && pkg_exec db:push)
 
     print_success "Starting API (port 3001) and Web (port 3000)..."
     echo ""
@@ -228,11 +271,12 @@ start_all() {
         (cd apps/api && pkg_exec db:generate)
     fi
 
-    # Push database schema if db doesn't exist
-    if [ ! -f "apps/api/prisma/dev.db" ]; then
-        print_status "Setting up database..."
-        (cd apps/api && pkg_exec db:push && pkg_exec db:seed)
-    fi
+    # Ensure PostgreSQL is running
+    ensure_postgres
+
+    # Push database schema
+    print_status "Syncing database schema..."
+    (cd apps/api && pkg_exec db:push)
 
     echo ""
     echo -e "${CYAN}Starting services:${NC}"

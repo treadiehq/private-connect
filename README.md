@@ -156,6 +156,29 @@ Open http://localhost:3000 to:
 ./scripts/status.sh         # Show running services
 ```
 
+### Database Setup
+
+The API uses PostgreSQL. For local development:
+
+```bash
+# Start PostgreSQL with Docker
+docker compose up -d postgres
+
+# Set DATABASE_URL
+export DATABASE_URL="postgresql://securelog:securelog@localhost:5432/securelog"
+
+# Run migrations
+cd apps/api
+pnpm db:push
+pnpm db:seed
+```
+
+Or run everything with Docker Compose:
+
+```bash
+docker compose up
+```
+
 ## License
 
 [FSL-1.1-MIT](LICENSE)
