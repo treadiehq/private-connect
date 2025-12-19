@@ -8,6 +8,9 @@ Securely connect and test private services across any environment, no VPNs, no f
 # Quick install (when releases are published)
 curl -fsSL https://privateconnect.co/install.sh | bash
 
+# Raw Github URL
+curl -fsSL https://raw.githubusercontent.com/treadiehq/private-connect/main/scripts/install.sh | bash
+
 # Or from source
 git clone https://github.com/treadiehq/private-connect.git && cd private-connect
 pnpm install

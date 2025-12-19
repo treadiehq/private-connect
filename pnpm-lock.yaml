@@ -29,6 +29,12 @@ importers:
       commander:
         specifier: ^11.1.0
         version: 11.1.0
+      inquirer:
+        specifier: ^8.2.6
+        version: 8.2.6
+      ora:
+        specifier: ^5.4.1
+        version: 5.4.1
       socket.io-client:
         specifier: ^4.7.4
         version: 4.8.1
@@ -36,6 +42,9 @@ importers:
         specifier: ^9.0.1
         version: 9.0.1
     devDependencies:
+      '@types/inquirer':
+        specifier: ^8.2.10
+        version: 8.2.12
       '@types/node':
         specifier: ^20.11.0
         version: 20.19.27
@@ -1746,6 +1755,9 @@ packages:
   '@types/http-errors@2.0.5':
     resolution: {integrity: sha512-r8Tayk8HJnX0FztbZN7oVqGccWgw98T/0neJphO91KkmOzug1KkofZURD4UaD5uH8AqcFLfdPErnBod0u71/qg==}
 
+  '@types/inquirer@8.2.12':
+    resolution: {integrity: sha512-YxURZF2ZsSjU5TAe06tW0M3sL4UI9AMPA6dd8I72uOtppzNafcY38xkYgCZ/vsVOAyNdzHmvtTpLWilOrbP0dQ==}
+
   '@types/istanbul-lib-coverage@2.0.6':
     resolution: {integrity: sha512-2QF/t/auWm0lsy8XtKVPG19v3sSOQlJe/YHZgfjb/KBBHOGSV+J2q/S671rcq9uTBrLAXmZpqJiaQbMT+zNU1w==}
 
@@ -1785,6 +1797,9 @@ packages:
 
   '@types/stack-utils@2.0.3':
     resolution: {integrity: sha512-9aEbYZ3TbYMznPdcdr3SmIrLXwC/AKZXQeCf9Pgao5CKb8CyHuEX5jzWPTkvregvhRJHcpRO6BFoGW9ycaOkYw==}
+
+  '@types/through@0.0.33':
+    resolution: {integrity: sha512-HsJ+z3QuETzP3cswwtzt2vEIiHBk/dCcHGhbmG5X3ecnwFD/lPrMpliGXxSCg03L9AhrdwA4Oz/qfspkDW+xGQ==}
 
   '@types/uuid@9.0.8':
     resolution: {integrity: sha512-jg+97EGIcY9AGHJJRaaPVgetKDsrTgbRjQ5Msgjh/DQKEFl0DtyRr/VCOyD1T2R1MNeWPK/u7JoGhlDZnKBAfA==}
@@ -7300,6 +7315,11 @@ snapshots:
 
   '@types/http-errors@2.0.5': {}
 
+  '@types/inquirer@8.2.12':
+    dependencies:
+      '@types/through': 0.0.33
+      rxjs: 7.8.2
+
   '@types/istanbul-lib-coverage@2.0.6': {}
 
   '@types/istanbul-lib-report@3.0.3':
@@ -7341,6 +7361,10 @@ snapshots:
       '@types/node': 20.19.27
 
   '@types/stack-utils@2.0.3': {}
+
+  '@types/through@0.0.33':
+    dependencies:
+      '@types/node': 20.19.27
 
   '@types/uuid@9.0.8': {}
 
