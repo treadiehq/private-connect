@@ -2,100 +2,115 @@
 set -e
 
 # Private Connect CLI Installer
-# Usage: curl -fsSL https://get.privateconnect.io | bash
+# Usage: curl -fsSL https://privateconnect.co/install.sh | bash
 
-VERSION="${VERSION:-latest}"
-INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
+REPO="treadiehq/private-connect"
 BINARY_NAME="connect"
+INSTALL_DIR="/usr/local/bin"
 
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+CYAN='\033[0;36m'
+NC='\033[0m'
 
-info() { echo -e "${BLUE}$1${NC}"; }
-success() { echo -e "${GREEN}$1${NC}"; }
-warn() { echo -e "${YELLOW}$1${NC}"; }
-error() { echo -e "${RED}$1${NC}"; exit 1; }
+echo -e "${CYAN}"
+echo "╔════════════════════════════════════════════╗"
+echo "║     Private Connect CLI Installer          ║"
+echo "╚════════════════════════════════════════════╝"
+echo -e "${NC}"
 
-# Detect OS and architecture
-detect_platform() {
-    OS="$(uname -s)"
-    ARCH="$(uname -m)"
-    
-    case "$OS" in
-        Linux)  OS="linux" ;;
-        Darwin) OS="darwin" ;;
-        *)      error "Unsupported OS: $OS" ;;
-    esac
-    
-    case "$ARCH" in
-        x86_64|amd64)   ARCH="x64" ;;
-        arm64|aarch64)  ARCH="arm64" ;;
-        *)              error "Unsupported architecture: $ARCH" ;;
-    esac
-    
-    PLATFORM="${OS}-${ARCH}"
-}
+# Detect OS
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+case "$OS" in
+  darwin) OS="darwin" ;;
+  linux) OS="linux" ;;
+  *)
+    echo -e "${RED}Error: Unsupported operating system: $OS${NC}"
+    echo "Supported: macOS (darwin), Linux"
+    exit 1
+    ;;
+esac
 
-# Check for required tools
-check_deps() {
-    if ! command -v curl &> /dev/null; then
-        error "curl is required but not installed"
-    fi
-}
+# Detect architecture
+ARCH=$(uname -m)
+case "$ARCH" in
+  x86_64|amd64) ARCH="x64" ;;
+  aarch64|arm64) ARCH="arm64" ;;
+  *)
+    echo -e "${RED}Error: Unsupported architecture: $ARCH${NC}"
+    echo "Supported: x64, arm64"
+    exit 1
+    ;;
+esac
 
-# Download and install
-install() {
-    detect_platform
-    check_deps
-    
-    echo ""
-    info "Installing Private Connect CLI..."
-    echo ""
-    info "  Platform: $PLATFORM"
-    info "  Install to: $INSTALL_DIR"
-    echo ""
-    
-    # For now, we'll build locally since we don't have a release server yet
-    # In production, this would download from a CDN:
-    # DOWNLOAD_URL="https://releases.privateconnect.io/${VERSION}/connect-${PLATFORM}"
-    
-    # Check if we're installing from local build
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    LOCAL_BINARY="${SCRIPT_DIR}/../apps/agent/bin/connect-${PLATFORM}"
-    LOCAL_DEFAULT="${SCRIPT_DIR}/../apps/agent/bin/connect"
-    
-    if [[ -f "$LOCAL_BINARY" ]]; then
-        info "Installing from local build: $LOCAL_BINARY"
-        BINARY_SOURCE="$LOCAL_BINARY"
-    elif [[ -f "$LOCAL_DEFAULT" ]]; then
-        info "Installing from local build: $LOCAL_DEFAULT"
-        BINARY_SOURCE="$LOCAL_DEFAULT"
-    else
-        error "Binary not found. Build first with: cd apps/agent && pnpm run build:binary"
-    fi
-    
-    # Install
-    if [[ -w "$INSTALL_DIR" ]]; then
-        cp "$BINARY_SOURCE" "$INSTALL_DIR/$BINARY_NAME"
-        chmod +x "$INSTALL_DIR/$BINARY_NAME"
-    else
-        info "Requesting sudo access to install to $INSTALL_DIR..."
-        sudo cp "$BINARY_SOURCE" "$INSTALL_DIR/$BINARY_NAME"
-        sudo chmod +x "$INSTALL_DIR/$BINARY_NAME"
-    fi
-    
-    echo ""
-    success "✓ Installed successfully!"
-    echo ""
-    info "  Run 'connect --help' to get started"
-    info "  Or 'connect up' to connect your first agent"
-    echo ""
-}
+echo -e "Detected: ${GREEN}${OS}-${ARCH}${NC}"
 
-# Run
-install
+# Get latest release version
+echo "Fetching latest release..."
+VERSION=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
 
+if [ -z "$VERSION" ]; then
+  echo -e "${YELLOW}Warning: Could not fetch latest version, using 'latest'${NC}"
+  VERSION="latest"
+fi
+
+echo -e "Version: ${GREEN}${VERSION}${NC}"
+
+# Build download URL
+BINARY_FILE="${BINARY_NAME}-${OS}-${ARCH}"
+if [ "$VERSION" = "latest" ]; then
+  DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/${BINARY_FILE}"
+else
+  DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${BINARY_FILE}"
+fi
+
+# Create temp directory
+TMP_DIR=$(mktemp -d)
+trap "rm -rf $TMP_DIR" EXIT
+
+# Download binary
+echo "Downloading ${BINARY_FILE}..."
+if ! curl -fsSL "$DOWNLOAD_URL" -o "$TMP_DIR/$BINARY_NAME"; then
+  echo -e "${RED}Error: Failed to download binary${NC}"
+  echo "URL: $DOWNLOAD_URL"
+  echo ""
+  echo "This could mean:"
+  echo "  - No release has been published yet"
+  echo "  - The binary for your platform is not available"
+  echo ""
+  echo "Try building from source instead:"
+  echo "  git clone https://github.com/${REPO}.git"
+  echo "  cd private-connect/apps/agent"
+  echo "  pnpm install && pnpm run build:binary"
+  exit 1
+fi
+
+# Make executable
+chmod +x "$TMP_DIR/$BINARY_NAME"
+
+# Install
+echo "Installing to ${INSTALL_DIR}..."
+if [ -w "$INSTALL_DIR" ]; then
+  mv "$TMP_DIR/$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
+else
+  echo -e "${YELLOW}Requires sudo to install to ${INSTALL_DIR}${NC}"
+  sudo mv "$TMP_DIR/$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
+fi
+
+# Verify installation
+if command -v $BINARY_NAME &> /dev/null; then
+  echo ""
+  echo -e "${GREEN}✓ Private Connect installed successfully!${NC}"
+  echo ""
+  echo "Get started:"
+  echo -e "  ${CYAN}connect up${NC}              # Start agent and authenticate"
+  echo -e "  ${CYAN}connect expose${NC} <target> # Expose a local service"
+  echo -e "  ${CYAN}connect reach${NC} <service> # Test connectivity"
+  echo -e "  ${CYAN}connect --help${NC}          # Show all commands"
+  echo ""
+else
+  echo -e "${RED}Error: Installation failed${NC}"
+  exit 1
+fi
