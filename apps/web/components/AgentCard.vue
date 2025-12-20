@@ -88,9 +88,9 @@
       </div>
 
       <!-- Uptime (if online) -->
-      <div v-if="agent.isOnline" class="flex items-center px-5 py-3">
+      <div v-if="agent.isOnline && agent.connectedAt" class="flex items-center px-5 py-3">
         <span class="flex-1 text-sm text-gray-400">Uptime</span>
-        <span class="w-32 text-sm text-gray-200 text-right">{{ calculateUptime(agent.lastSeenAt) }}</span>
+        <span class="w-32 text-sm text-gray-200 text-right">{{ calculateUptime(agent.connectedAt) }}</span>
       </div>
     </div>
   </div>
@@ -121,13 +121,13 @@ const formatTime = (date: string) => {
   return d.toLocaleDateString();
 };
 
-const calculateUptime = (lastSeenAt: string) => {
-  const lastSeen = new Date(lastSeenAt);
-  const now = new Date();
-  const diff = now.getTime() - lastSeen.getTime();
+const calculateUptime = (connectedAt: string | null) => {
+  if (!connectedAt) return 'Unknown';
   
-  // For demo, assume uptime is continuous since last seen
-  // In production, you'd track actual connection start time
+  const connected = new Date(connectedAt);
+  const now = new Date();
+  const diff = now.getTime() - connected.getTime();
+  
   if (diff < 60000) return 'Just started';
   
   const minutes = Math.floor(diff / 60000);

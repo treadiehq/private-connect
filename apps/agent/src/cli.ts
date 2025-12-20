@@ -6,6 +6,7 @@ import { exposeCommand } from './commands/expose';
 import { reachCommand } from './commands/reach';
 import { whoamiCommand } from './commands/whoami';
 import { discoverCommand } from './commands/discover';
+import { logoutCommand } from './commands/logout';
 import { setConfigPath } from './config';
 
 // Default hub URL - can be overridden via CONNECT_HUB_URL env var
@@ -75,6 +76,15 @@ program
   .action((options) => {
     if (options.config) setConfigPath(options.config);
     discoverCommand(options);
+  });
+
+program
+  .command('logout')
+  .description('Clear local credentials and log out')
+  .option('-c, --config <path>', 'Config file path (for multiple agents)')
+  .action((options) => {
+    if (options.config) setConfigPath(options.config);
+    logoutCommand(options);
   });
 
 program.parse();

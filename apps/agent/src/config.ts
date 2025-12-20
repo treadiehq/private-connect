@@ -97,3 +97,16 @@ export function ensureConfig(hubUrl: string, apiKey?: string, label?: string, na
 export function getDefaultLabel(): string {
   return os.hostname();
 }
+
+export function clearConfig(customPath?: string): boolean {
+  const configFile = customPath ? path.resolve(customPath) : activeConfigPath;
+  try {
+    if (fs.existsSync(configFile)) {
+      fs.unlinkSync(configFile);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}

@@ -102,6 +102,7 @@ connect up                    # Start agent, authenticate
 connect expose <host:port>    # Expose a local service
 connect reach <target>        # Test connectivity
 connect whoami                # Show agent info
+connect logout                # Clear local credentials
 ```
 
 ### Options

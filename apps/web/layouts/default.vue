@@ -116,7 +116,10 @@ const handlePrefetch = (path: string) => {
 };
 
 onMounted(() => {
-  const socket = getSocket();
+  // Connect socket globally for all authenticated pages
+  const { connect } = useSocket();
+  const socket = connect();
+  
   if (socket) {
     isSocketConnected.value = socket.connected;
     socket.on('connect', () => isSocketConnected.value = true);

@@ -28,12 +28,12 @@
       title="No services yet"
       description="Expose a local service to make it available through Private Connect."
       :commands="[
-        { comment: 'Connect an agent', command: 'connect up --api-key YOUR_API_KEY --label YOUR_LABEL' },
+        { comment: 'Connect an agent', command: 'connect up' },
         { comment: 'Expose a local service', command: 'connect expose localhost:3000 --name my-api' }
       ]"
     >
       <template #icon>
-        <svg class="w-12 h-12 text-blue-500/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg class="w-12 h-12 text-blue-300/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
         </svg>
       </template>
@@ -56,7 +56,7 @@
       <Transition name="modal">
         <div v-if="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center">
           <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="showAddModal = false"></div>
-          <div class="relative bg-gradient-to-br from-gray-900 to-black border border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4 animate-modal-in">
+          <div class="relative bg-black border border-gray-500/20 rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4 animate-modal-in">
             <h2 class="text-xl font-bold mb-1">Add External Service</h2>
             <p class="text-gray-400 text-sm mb-6">
               Register an external endpoint to track and test connectivity.
@@ -70,7 +70,7 @@
                     v-model="externalForm.name"
                     type="text"
                     placeholder="hcp-vault"
-                    class="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-all placeholder:text-gray-600"
+                    class="w-full px-4 py-3 bg-gray-500/10 border border-gray-500/10 rounded-lg focus:border-blue-300 focus:ring-1 focus:ring-blue-300 focus:outline-none transition-all placeholder:text-gray-600"
                     required
                   />
                 </div>
@@ -80,7 +80,7 @@
                     v-model="externalForm.targetHost"
                     type="text"
                     placeholder="vault.hashicorp.cloud"
-                    class="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-all placeholder:text-gray-600"
+                    class="w-full px-4 py-3 bg-gray-500/10 border border-gray-500/10 rounded-lg focus:border-blue-300 focus:ring-1 focus:ring-blue-300 focus:outline-none transition-all placeholder:text-gray-600"
                     required
                   />
                 </div>
@@ -93,7 +93,7 @@
                       placeholder="8200"
                       min="1"
                       max="65535"
-                      class="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-all placeholder:text-gray-600"
+                      class="w-full px-4 py-3 bg-gray-500/10 border border-gray-500/10 rounded-lg focus:border-blue-300 focus:ring-1 focus:ring-blue-300 focus:outline-none transition-all placeholder:text-gray-600"
                       required
                     />
                   </div>
@@ -101,7 +101,7 @@
                     <label class="block text-sm font-medium text-gray-300 mb-2">Protocol</label>
                     <select
                       v-model="externalForm.protocol"
-                      class="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-all"
+                      class="w-full px-4 py-3 bg-gray-500/10 border border-gray-500/10 rounded-lg focus:border-blue-300 focus:ring-1 focus:ring-blue-300 focus:outline-none transition-all"
                     >
                       <option value="auto">Auto-detect</option>
                       <option value="https">HTTPS</option>
@@ -118,14 +118,14 @@
                 <button
                   type="button"
                   @click="showAddModal = false"
-                  class="px-4 py-2.5 bg-white/[0.05] hover:bg-white/[0.1] text-gray-200 rounded-lg transition-all"
+                  class="px-4 py-2.5 bg-gray-500/10 hover:bg-gray-500/20 text-gray-200 rounded-lg transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   :disabled="creating"
-                  class="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold rounded-lg transition-all shadow-lg shadow-blue-500/25"
+                  class="px-4 py-2.5 bg-blue-300 hover:bg-blue-400 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold rounded-lg transition-all"
                 >
                   {{ creating ? 'Adding...' : 'Add Service' }}
                 </button>

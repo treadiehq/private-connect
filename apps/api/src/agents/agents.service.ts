@@ -21,11 +21,13 @@ export class AgentsService {
 
   async register(workspaceId: string, agentId: string, token: string, label?: string, name?: string) {
     const tokenHash = this.hashToken(token);
+    const now = new Date();
     
     const agent = await this.prisma.agent.upsert({
       where: { id: agentId },
       update: { 
-        lastSeenAt: new Date(),
+        lastSeenAt: now,
+        connectedAt: now, // Track when agent connected for uptime
         name: name || undefined,
         label: label || undefined,
         isOnline: true,
@@ -36,7 +38,8 @@ export class AgentsService {
         tokenHash,
         name,
         label: label || 'default',
-        lastSeenAt: new Date(),
+        lastSeenAt: now,
+        connectedAt: now,
         isOnline: true,
       },
       include: { workspace: true },
@@ -90,7 +93,11 @@ export class AgentsService {
   async setOnlineStatus(agentId: string, isOnline: boolean) {
     const agent = await this.prisma.agent.update({
       where: { id: agentId },
-      data: { isOnline },
+      data: { 
+        isOnline,
+        // Clear connectedAt when going offline
+        connectedAt: isOnline ? undefined : null,
+      },
     });
     
     this.realtimeGateway.broadcastAgentStatus(agentId, isOnline);
@@ -134,6 +141,7 @@ export class AgentsService {
         label: true,
         name: true,
         lastSeenAt: true,
+        connectedAt: true,
       },
     });
   }

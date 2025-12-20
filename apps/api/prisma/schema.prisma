@@ -79,6 +79,7 @@ model Agent {
   label       String    @default("default") // environment label
   tokenHash   String    @unique
   lastSeenAt  DateTime  @default(now())
+  connectedAt DateTime? // When the agent connected (for uptime tracking)
   isOnline    Boolean   @default(false)
   createdAt   DateTime  @default(now())
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

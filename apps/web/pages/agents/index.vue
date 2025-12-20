@@ -38,11 +38,11 @@
       title="No agents yet"
       description="Connect an agent to start exposing local services."
       :commands="[
-        { comment: 'Connect an agent', command: 'connect up --api-key YOUR_API_KEY --label YOUR_LABEL' }
+        { comment: 'Connect an agent', command: 'connect up' }
       ]"
     >
       <template #icon>
-        <svg class="w-12 h-12 text-purple-500/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg class="w-12 h-12 text-purple-300/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
       </template>

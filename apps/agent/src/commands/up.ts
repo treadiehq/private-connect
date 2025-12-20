@@ -1,7 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import * as net from 'net';
 import chalk from 'chalk';
-import { ensureConfig, AgentConfig, loadConfig, generateConfig, getConfigPath } from '../config';
+import { ensureConfig, AgentConfig, loadConfig, generateConfig, getConfigPath, clearConfig } from '../config';
 import { deviceAuthFlow } from '../device-auth';
 
 interface UpOptions {
@@ -66,7 +66,40 @@ export async function upCommand(options: UpOptions) {
   console.log();
   
   // Register with hub via HTTP first
-  await registerAgent(config);
+  let result = await registerAgent(config);
+  
+  // Handle 401 - invalid/stale credentials
+  if (!result.success && result.status === 401) {
+    console.log(chalk.yellow('⚠ Stored credentials are invalid or expired'));
+    console.log(chalk.cyan('  Clearing old config and re-authenticating...'));
+    console.log();
+    
+    // Clear the stale config
+    clearConfig();
+    
+    // Restart device auth flow
+    const authResult = await deviceAuthFlow(options.hub, options.label, options.name);
+    
+    if (!authResult) {
+      console.log(chalk.red('  ✗ Authentication failed'));
+      process.exit(1);
+    }
+    
+    // Save new config
+    config = generateConfig(options.hub, authResult.apiKey, options.label, options.name);
+    config.workspaceId = authResult.workspaceId;
+    
+    console.log(chalk.gray(`  New Agent ID: ${config.agentId}`));
+    console.log();
+    
+    // Try registration again with new credentials
+    result = await registerAgent(config);
+  }
+  
+  if (!result.success) {
+    console.error(chalk.red(`✗ Registration failed: ${result.error}`));
+    process.exit(1);
+  }
   
   // Connect via WebSocket
   const socket = connectToHub(config);
@@ -84,7 +117,13 @@ export async function upCommand(options: UpOptions) {
   });
 }
 
-async function registerAgent(config: AgentConfig) {
+interface RegistrationResult {
+  success: boolean;
+  status?: number;
+  error?: string;
+}
+
+async function registerAgent(config: AgentConfig): Promise<RegistrationResult> {
   try {
     const response = await fetch(`${config.hubUrl}/v1/agents/register`, {
       method: 'POST',
@@ -102,14 +141,14 @@ async function registerAgent(config: AgentConfig) {
     
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`Registration failed: ${response.status} - ${text}`);
+      return { success: false, status: response.status, error: text };
     }
     
     console.log(chalk.green('✓ Registered with hub'));
+    return { success: true };
   } catch (error: unknown) {
     const err = error as Error;
-    console.error(chalk.red(`✗ Registration failed: ${err.message}`));
-    throw error;
+    return { success: false, error: err.message };
   }
 }
 

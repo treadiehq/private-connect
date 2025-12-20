@@ -67,7 +67,7 @@
             </div>
             <div class="flex items-center px-5 py-3">
               <span class="flex-1 text-sm text-gray-400">Label</span>
-              <span class="w-40 text-sm text-gray-200 text-right font-mono">{{ agent.label }}</span>
+              <span class="text-sm text-gray-200 text-right font-mono whitespace-nowrap">{{ agent.label }}</span>
             </div>
             <div v-if="agent.name" class="flex items-center px-5 py-3">
               <span class="flex-1 text-sm text-gray-400">Name</span>

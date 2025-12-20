@@ -23,6 +23,7 @@ export interface Agent {
   name?: string;
   label: string;
   lastSeenAt: string;
+  connectedAt: string | null; // When the agent connected (for uptime tracking)
   isOnline: boolean;
   createdAt: string;
   services?: Service[];
