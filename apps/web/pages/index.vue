@@ -99,15 +99,58 @@
                   </div>
                   <div>
                     <label class="block text-sm font-medium text-gray-300 mb-2">Protocol</label>
-                    <select
-                      v-model="externalForm.protocol"
-                      class="w-full px-4 py-3 bg-gray-500/10 border border-gray-500/10 rounded-lg focus:border-blue-300 focus:ring-1 focus:ring-blue-300 focus:outline-none transition-all"
-                    >
-                      <option value="auto">Auto-detect</option>
-                      <option value="https">HTTPS</option>
-                      <option value="http">HTTP</option>
-                      <option value="tcp">TCP</option>
-                    </select>
+                    <div class="relative" data-protocol-dropdown>
+                      <button
+                        type="button"
+                        @click.stop="showProtocolDropdown = !showProtocolDropdown"
+                        class="w-full px-4 py-3 bg-gray-500/10 border border-gray-500/10 rounded-lg focus:border-blue-300 focus:ring-1 focus:ring-blue-300 focus:outline-none transition-all text-left flex items-center justify-between"
+                      >
+                        <span>{{ protocolOptions.find(p => p.value === externalForm.protocol)?.label }}</span>
+                        <svg 
+                          class="w-4 h-4 text-gray-400 transition-transform" 
+                          :class="{ 'rotate-180': showProtocolDropdown }"
+                          fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                        >
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      <Transition
+                        enter-active-class="transition ease-out duration-100"
+                        enter-from-class="opacity-0 scale-95"
+                        enter-to-class="opacity-100 scale-100"
+                        leave-active-class="transition ease-in duration-75"
+                        leave-from-class="opacity-100 scale-100"
+                        leave-to-class="opacity-0 scale-95"
+                      >
+                        <div 
+                          v-if="showProtocolDropdown"
+                          class="absolute z-50 mt-2 w-full bg-gray-900 border border-gray-500/20 rounded-lg shadow-xl overflow-hidden"
+                        >
+                          <button
+                            v-for="option in protocolOptions"
+                            :key="option.value"
+                            type="button"
+                            @click="externalForm.protocol = option.value; showProtocolDropdown = false"
+                            class="w-full px-4 py-3 text-left hover:bg-gray-500/10 transition-colors flex items-center justify-between group"
+                            :class="{ 'bg-blue-300/10': externalForm.protocol === option.value }"
+                          >
+                            <div>
+                              <span class="block text-sm" :class="externalForm.protocol === option.value ? 'text-blue-300' : 'text-gray-200'">
+                                {{ option.label }}
+                              </span>
+                              <span class="block text-xs text-gray-500">{{ option.description }}</span>
+                            </div>
+                            <svg 
+                              v-if="externalForm.protocol === option.value"
+                              class="w-4 h-4 text-blue-300" 
+                              fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                            >
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </button>
+                        </div>
+                      </Transition>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -163,6 +206,14 @@ const externalForm = ref({
   protocol: 'auto',
 });
 
+const showProtocolDropdown = ref(false);
+const protocolOptions = [
+  { value: 'auto', label: 'Auto-detect', description: 'Automatically detect the protocol' },
+  { value: 'https', label: 'HTTPS', description: 'Secure HTTP with TLS encryption' },
+  { value: 'http', label: 'HTTP', description: 'Plain HTTP without encryption' },
+  { value: 'tcp', label: 'TCP', description: 'Raw TCP connection' },
+];
+
 // Fetch services on mount
 onMounted(async () => {
   try {
@@ -182,6 +233,14 @@ onMounted(async () => {
       services.value[index] = updatedService;
     } else {
       services.value.unshift(updatedService);
+    }
+  });
+
+  // Close dropdown on click outside
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (!target.closest('[data-protocol-dropdown]')) {
+      showProtocolDropdown.value = false;
     }
   });
 });
