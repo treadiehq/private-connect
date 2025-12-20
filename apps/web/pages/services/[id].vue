@@ -2,7 +2,7 @@
   <div class="animate-fade-in">
     <!-- Breadcrumb Navigation -->
     <nav class="flex items-center gap-2 text-sm mb-8">
-      <NuxtLink to="/" class="text-gray-500 hover:text-white transition-colors">
+      <NuxtLink to="/services" class="text-gray-500 hover:text-white transition-colors">
         Services
       </NuxtLink>
       <svg class="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -348,7 +348,7 @@
       </div>
       <h2 class="text-2xl font-bold mb-2">Service not found</h2>
       <p class="text-gray-400 mb-6">The service you're looking for doesn't exist.</p>
-      <NuxtLink to="/" class="text-blue-300 hover:underline">
+      <NuxtLink to="/services" class="text-blue-300 hover:underline">
         ← Back to services
       </NuxtLink>
     </div>

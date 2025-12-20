@@ -11,7 +11,7 @@
       <div class="max-w-7xl mx-auto px-6 py-2.5">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-4">
-            <NuxtLink to="/" class="flex items-center gap-3 group">
+            <NuxtLink to="/services" class="flex items-center gap-3 group">
               <div class="relative flex items-center justify-center transition-shadow">
                 <!-- <svg class="w-3 h-3 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -77,14 +77,13 @@ const { getSocket } = useSocket();
 const { prefetchServices, prefetchAgents } = usePrefetch();
 
 const navItems = [
-  { path: '/', label: 'Services' },
+  { path: '/services', label: 'Services' },
   { path: '/agents', label: 'Agents' },
   { path: '/dashboard', label: 'Overview' },
 ];
 
 const isActive = (path: string) => {
-  if (path === '/') return route.path === '/';
-  return route.path.startsWith(path);
+  return route.path === path || route.path.startsWith(path + '/');
 };
 
 const activeIndex = computed(() => {
@@ -107,7 +106,7 @@ const isSocketConnected = ref(false);
 
 // Prefetch data on navigation hover
 const handlePrefetch = (path: string) => {
-  if (path === '/' || path === '/dashboard') {
+  if (path === '/services' || path === '/dashboard') {
     prefetchServices();
     prefetchAgents();
   } else if (path === '/agents') {

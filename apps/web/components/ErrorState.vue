@@ -74,7 +74,7 @@
       
       <NuxtLink
         v-if="showHome"
-        to="/"
+        to="/services"
         class="px-4 py-2.5 bg-white/[0.05] hover:bg-white/[0.1] text-gray-200 text-sm font-medium rounded-lg transition-all"
       >
         Go Home

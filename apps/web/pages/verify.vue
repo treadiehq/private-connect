@@ -1,6 +1,7 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center p-6 bg-black">
-    <div class="w-full max-w-md">
+  <div class="min-h-screen flex items-center justify-center p-6 bg-black relative">
+    <div class="radial-gradient absolute top-0 md:right-14 right-5"></div>
+    <div class="w-full max-w-md relative z-10">
       <!-- Logo -->
       <div class="text-center mb-8">
         <div class="inline-flex items-center gap-2 mb-3">
@@ -174,7 +175,7 @@ onMounted(async () => {
       // Returning user: redirect to dashboard
       success.value = true;
       setTimeout(() => {
-        router.push('/');
+        router.push('/services');
       }, 1500);
     }
   } catch (e: any) {
@@ -193,7 +194,7 @@ const copyApiKey = async () => {
 };
 
 const goToDashboard = () => {
-  router.push('/');
+  router.push('/services');
 };
 </script>
 
