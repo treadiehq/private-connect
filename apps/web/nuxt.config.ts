@@ -1,16 +1,15 @@
+import tailwindcss from '@tailwindcss/vite'
+
 export default defineNuxtConfig({
   devtools: { enabled: false },
-  modules: ['@nuxtjs/tailwindcss'],
+  modules: [],
   
-  tailwindcss: {
-    cssPath: '~/assets/css/tailwind.css',
-    configPath: 'tailwind.config.ts',
-  },
+  css: ['~/assets/css/main.css'],
   
   ssr: false,
   
-  // Disable Vite overlay
   vite: {
+    plugins: [tailwindcss()],
     server: {
       hmr: {
         overlay: false,

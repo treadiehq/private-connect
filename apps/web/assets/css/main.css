@@ -1,0 +1,229 @@
+@import "tailwindcss";
+
+/* Theme customization for Tailwind v4 */
+@theme {
+  /* Custom colors */
+  --color-slate-850: #172033;
+  --color-slate-950: #0a0f1a;
+  
+  --color-accent-50: #f0fdf9;
+  --color-accent-100: #ccfbef;
+  --color-accent-200: #99f6e0;
+  --color-accent-300: #5fe9ce;
+  --color-accent-400: #2dd4b8;
+  --color-accent-500: #14b8a6;
+  --color-accent-600: #0d9488;
+  --color-accent-700: #0f766e;
+  --color-accent-800: #115e59;
+  --color-accent-900: #134e4a;
+
+  /* Custom animations */
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-fade-in: fadeIn 0.4s ease-out;
+  --animate-slide-up: slideUp 0.5s ease-out both;
+  --animate-shimmer: shimmer 2s infinite linear;
+
+  @keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    0% { opacity: 0; transform: translateY(16px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+}
+
+/* Hide Nuxt loading indicator */
+.nuxt-loading-indicator {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Focus ring utility */
+@utility focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 focus:ring-offset-black;
+}
+
+/* Smooth transitions for dark mode */
+* {
+  transition-property: background-color, border-color;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+
+/* Override for elements that shouldn't transition */
+.no-transition,
+.no-transition * {
+  transition: none !important;
+}
+
+/* Animation delay utilities */
+@utility animation-delay-100 {
+  animation-delay: 100ms;
+}
+@utility animation-delay-200 {
+  animation-delay: 200ms;
+}
+@utility animation-delay-300 {
+  animation-delay: 300ms;
+}
+@utility animation-delay-500 {
+  animation-delay: 500ms;
+}
+
+/* Glassmorphism components */
+@utility glass {
+  @apply bg-white/[0.02] backdrop-blur-xl border border-white/[0.05];
+}
+
+@utility glass-hover {
+  @apply bg-white/[0.02] backdrop-blur-xl border border-white/[0.05] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all;
+}
+
+/* Gradient text utilities */
+@utility text-gradient {
+  @apply bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent;
+}
+
+@utility text-gradient-blue {
+  @apply bg-gradient-to-r from-blue-300 to-blue-400 bg-clip-text text-transparent;
+}
+
+/* Button glow effect */
+@utility btn-glow {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-glow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transform: translateX(-100%);
+  animation: btn-shine 3s ease-in-out infinite;
+}
+
+@keyframes btn-shine {
+  0% {
+    transform: translateX(-100%);
+  }
+  20%, 100% {
+    transform: translateX(100%);
+  }
+}
+
+body {
+  @apply bg-black text-white;
+}
+
+html {
+  font-family: -apple-system, BlinkMacSystemFont, Inter, Segoe UI, Roboto, Noto Sans, Ubuntu, sans-serif;
+  font-feature-settings: "calt", "dlig", "liga", "kern", "ss01", "ss02", "ss03", "ss04", "ss07", "ss08", "tnum", "cv02", "cv03", "cv04", "cv11";
+  font-synthesis: none;
+  scroll-behavior: smooth;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+body, html {
+  @apply bg-black w-full antialiased;
+  min-height: 100vh;
+  overscroll-behavior: none;
+}
+
+/* Prevent body scroll when modal is open */
+body.modal-open {
+  overflow: hidden;
+}
+
+::selection {
+  @apply text-blue-300;
+  background-color: rgb(147 197 253 / 0.15);
+}
+
+/* Smooth scrolling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.2);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media screen and (-webkit-min-device-pixel-ratio: 0) and (max-device-width: 1024px) {
+  select,
+  textarea,
+  input {
+    font-size: 16px;
+  }
+}
+
+.radial-gradient {
+  background: radial-gradient(circle, rgba(255,255,255,0.1) 1%, rgba(0,0,0,0.000000000000005) 70%);
+}
+
+/* md */
+@media (min-width: 768px) {
+  .radial-gradient {
+    width: 550px;
+    height: 550px;
+  }
+}
+
+/* lg */
+@media (min-width: 1024px) {
+  .radial-gradient {
+    width: 950px;
+    height: 950px;
+  }
+}
+

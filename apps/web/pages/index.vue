@@ -3,7 +3,7 @@
     <div class="radial-gradient absolute top-0 md:right-14 right-5"></div>
     <!-- Navigation -->
     <nav class=" bg-black/80 backdrop-blur-sm sticky top-0 z-50">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-15">
           <!-- Logo -->
           <div class="flex items-center">
@@ -272,7 +272,7 @@
 
 <script setup lang="ts">
 useHead({ 
-  title: 'Private Connect - Securely connect to private services from anywhere',
+  title: 'Private Connect',
   meta: [
     { name: 'description', content: 'Connect to private services across any environment. No VPNs, no firewall rules, no port forwarding.' }
   ]
