@@ -1,9 +1,12 @@
-FROM node:20-alpine
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Install OpenSSL for Prisma
+RUN apk add --no-cache openssl
+
 # Install pnpm
-RUN corepack enable && corepack prepare pnpm@8.15.0 --activate
+RUN corepack enable && corepack prepare pnpm@9.15.1 --activate
 
 # Copy package files
 COPY package.json pnpm-lock.yaml* ./
@@ -21,15 +24,24 @@ COPY . .
 # Build
 RUN pnpm build
 
-# Create data directory
-RUN mkdir -p /app/data
+# Production stage
+FROM node:20-alpine AS production
 
-# Initialize database
-ENV DATABASE_URL="file:/app/data/dev.db"
-RUN pnpm db:push
+WORKDIR /app
 
+# Install OpenSSL for Prisma and pnpm for commands
+RUN apk add --no-cache openssl && \
+    corepack enable && corepack prepare pnpm@9.15.1 --activate
+
+# Copy built assets and dependencies
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/package.json ./
+
+# Railway injects PORT env var
+ENV NODE_ENV=production
 EXPOSE 3001
-EXPOSE 23000-23100
 
-CMD ["node", "dist/main"]
-
+# Start command: run migrations then start the server
+CMD ["sh", "-c", "pnpm db:push && node dist/main"]
