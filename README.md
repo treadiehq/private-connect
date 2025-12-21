@@ -9,7 +9,7 @@ Securely connect and test private services across any environment, no VPNs, no f
 curl -fsSL https://privateconnect.co/install.sh | bash
 
 # Raw Github URL
-curl -fsSL https://raw.githubusercontent.com/treadiehq/private-connect/main/scripts/install.sh | bash
+# curl -fsSL https://raw.githubusercontent.com/treadiehq/private-connect/main/scripts/install.sh | bash
 
 # Or from source
 git clone https://github.com/treadiehq/private-connect.git && cd private-connect
@@ -102,6 +102,7 @@ connect up                    # Start agent, authenticate
 connect expose <host:port>    # Expose a local service
 connect reach <target>        # Test connectivity
 connect whoami                # Show agent info
+connect update                # Update CLI to latest version
 connect logout                # Clear local credentials
 ```
 
@@ -125,6 +126,9 @@ connect logout                # Clear local credentials
 # connect reach
 -t, --timeout <ms>     Timeout (default: 5000)
 --json                 JSON output
+
+# connect update
+-f, --force            Force update even if on latest
 ```
 
 ### Multiple Agents (Same Machine)
