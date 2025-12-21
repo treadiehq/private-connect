@@ -2,7 +2,13 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
 
+// Immediate logging before any async operations
+console.log('=== MAIN.TS LOADED ===');
+console.log('Node version:', process.version);
+console.log('CWD:', process.cwd());
+
 async function bootstrap() {
+  console.log('=== BOOTSTRAP STARTING ===');
   console.log('Starting NestJS application...');
   console.log('PORT:', process.env.PORT);
   console.log('NODE_ENV:', process.env.NODE_ENV);
@@ -33,13 +39,25 @@ async function bootstrap() {
   });
 
   const port = process.env.PORT || 3001;
+  console.log(`=== STARTING LISTENER ON PORT ${port} ===`);
   // Listen on 0.0.0.0 for Railway/Docker
   await app.listen(port, '0.0.0.0');
   console.log(`🚀 Private Connect API running on port ${port}`);
+  console.log('=== APP READY FOR REQUESTS ===');
 }
 
+// Catch any uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('=== UNCAUGHT EXCEPTION ===', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('=== UNHANDLED REJECTION ===', reason);
+});
+
 bootstrap().catch((err) => {
-  console.error('Failed to start application:', err);
+  console.error('=== BOOTSTRAP FAILED ===', err);
   process.exit(1);
 });
 
