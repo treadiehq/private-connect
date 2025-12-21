@@ -2,10 +2,11 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
 
-// Immediate logging before any async operations
-console.log('=== MAIN.TS LOADED ===');
-console.log('Node version:', process.version);
-console.log('CWD:', process.cwd());
+// Immediate logging before any async operations - use stderr for unbuffered output
+console.error('=== MAIN.TS LOADED ===');
+console.error('Node version:', process.version);
+console.error('CWD:', process.cwd());
+console.error('Files in dist:', require('fs').readdirSync('.').join(', '));
 
 async function bootstrap() {
   console.log('=== BOOTSTRAP STARTING ===');
