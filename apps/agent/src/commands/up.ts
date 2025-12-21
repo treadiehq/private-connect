@@ -163,6 +163,7 @@ function connectToHub(config: AgentConfig): Socket {
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
+    timeout: 60000,  // Connection timeout
   });
 
   // Track active connections for tunneling

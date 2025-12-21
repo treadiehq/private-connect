@@ -17,6 +17,8 @@ import { AgentsService } from '../agents/agents.service';
   cors: {
     origin: '*',
   },
+  pingTimeout: 60000,    // 60 seconds to wait for pong
+  pingInterval: 25000,   // Send ping every 25 seconds
 })
 export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
