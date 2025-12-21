@@ -44,7 +44,9 @@ ${magicLink}
 This link expires in 15 minutes.
 
 If you didn't request this, you can safely ignore this email.`
-      : `Click the link below to sign in to Private Connect:
+      : `Welcome back to Private Connect!
+
+Click the link below to sign in:
 
 ${magicLink}
 
