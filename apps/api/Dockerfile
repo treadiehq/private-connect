@@ -41,7 +41,6 @@ COPY --from=builder /app/package.json ./
 
 # Environment
 ENV NODE_ENV=production
-ENV PORT=3001
 
 # Start command: run migrations then start the server
 CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/main"]
