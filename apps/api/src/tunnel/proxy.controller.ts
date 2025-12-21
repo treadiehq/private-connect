@@ -5,6 +5,7 @@ import { ServicesService } from '../services/services.service';
 @Controller('w')
 export class ProxyController {
   constructor(
+    @Inject(forwardRef(() => ServicesService))
     private servicesService: ServicesService,
   ) {}
 
