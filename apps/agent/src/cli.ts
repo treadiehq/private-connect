@@ -10,7 +10,8 @@ import { logoutCommand } from './commands/logout';
 import { setConfigPath } from './config';
 
 // Default hub URL - can be overridden via CONNECT_HUB_URL env var
-const DEFAULT_HUB_URL = process.env.CONNECT_HUB_URL || 'http://localhost:3001';
+// Set CONNECT_HUB_URL or use --hub flag for production
+const DEFAULT_HUB_URL = process.env.CONNECT_HUB_URL || 'https://api.privateconnect.co';
 
 program
   .name('connect')

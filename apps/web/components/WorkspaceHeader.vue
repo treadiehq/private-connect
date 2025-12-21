@@ -4,7 +4,7 @@
     <template v-if="isAuthenticated && workspace">
       <div class="flex items-center gap-3">
         <!-- Plan badge -->
-        <span 
+        <!-- <span 
           :class="[
             'px-2 py-0.5 text-[10px] font-medium rounded border border-gray-500/10',
             (workspaceData?.workspace?.plan || 'FREE') === 'PRO' 
@@ -14,15 +14,15 @@
         >
           {{ workspaceData?.workspace?.plan || 'FREE' }}
         </span>
-        
+         -->
         <!-- Upgrade button -->
-        <button
+        <!-- <button
           v-if="(workspaceData?.workspace?.plan || 'FREE') === 'FREE'"
           @click="handleUpgrade"
           class="px-2 py-1 text-[10px] font-medium bg-blue-300 hover:bg-blue-400 text-black rounded transition-colors"
         >
           Upgrade
-        </button>
+        </button> -->
 
         <!-- Avatar dropdown -->
         <div class="relative">
