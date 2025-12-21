@@ -9,7 +9,7 @@ import { z } from 'zod';
 const RegisterServiceSchema = z.object({
   agentId: z.string().uuid(),
   name: z.string().min(1).max(100),
-  targetHost: z.string().min(1),
+  targetHost: z.string().min(1).max(253), // Max DNS hostname length
   targetPort: z.number().int().min(1).max(65535),
   protocol: z.enum(['auto', 'tcp', 'http', 'https']).optional().default('auto'),
   isPublic: z.boolean().optional().default(false),
@@ -23,7 +23,7 @@ const ReachSchema = z.object({
 
 const ExternalServiceSchema = z.object({
   name: z.string().min(1).max(100),
-  targetHost: z.string().min(1),
+  targetHost: z.string().min(1).max(253), // Max DNS hostname length
   targetPort: z.number().int().min(1).max(65535),
   protocol: z.enum(['auto', 'tcp', 'http', 'https']).optional().default('auto'),
 });

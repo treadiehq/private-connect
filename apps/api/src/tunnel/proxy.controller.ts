@@ -1,6 +1,12 @@
 import { Controller, All, Req, Res, Param, Inject, forwardRef } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ServicesService } from '../services/services.service';
+import { proxyRateLimiter, proxySubdomainLimiter } from '../common/rate-limiter';
+
+// Security limits
+const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_PATH_LENGTH = 2048;
+const MAX_HEADER_SIZE = 8192;
 
 @Controller('w')
 export class ProxyController {
@@ -39,6 +45,37 @@ export class ProxyController {
     req: Request,
     res: Response,
   ) {
+    // Get client IP
+    const clientIp = req.ip || req.headers['x-forwarded-for']?.toString().split(',')[0] || 'unknown';
+
+    // Rate limit by IP
+    if (!proxyRateLimiter.isAllowed(clientIp)) {
+      res.setHeader('Retry-After', proxyRateLimiter.getResetTime(clientIp).toString());
+      res.setHeader('X-RateLimit-Remaining', '0');
+      return res.status(429).json({
+        error: 'Too many requests',
+        message: 'Rate limit exceeded. Please slow down.',
+        retryAfter: proxyRateLimiter.getResetTime(clientIp),
+      });
+    }
+
+    // Rate limit by subdomain
+    if (!proxySubdomainLimiter.isAllowed(subdomain)) {
+      return res.status(429).json({
+        error: 'Too many requests',
+        message: 'This service is receiving too many requests.',
+        retryAfter: proxySubdomainLimiter.getResetTime(subdomain),
+      });
+    }
+
+    // Validate path length
+    if (targetPath.length > MAX_PATH_LENGTH) {
+      return res.status(414).json({
+        error: 'URI too long',
+        message: `Path exceeds maximum length of ${MAX_PATH_LENGTH} characters`,
+      });
+    }
+
     // Find service by subdomain
     const service = await this.servicesService.findBySubdomain(subdomain);
     
@@ -82,6 +119,9 @@ export class ProxyController {
         }
       }
       
+      // Add rate limit headers
+      res.setHeader('X-RateLimit-Remaining', proxyRateLimiter.getRemaining(clientIp).toString());
+      
       res.status(response.status).send(response.body);
     } catch (error) {
       console.error('Proxy error:', error);
@@ -101,9 +141,15 @@ export class ProxyController {
     const queryString = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
     const targetUrl = `http://localhost:${tunnelPort}${targetPath || '/'}${queryString}`;
     
-    // Collect request body
+    // Collect request body with size limit
     const chunks: Buffer[] = [];
+    let totalSize = 0;
+    
     for await (const chunk of req) {
+      totalSize += chunk.length;
+      if (totalSize > MAX_BODY_SIZE) {
+        throw new Error(`Request body exceeds maximum size of ${MAX_BODY_SIZE / 1024 / 1024}MB`);
+      }
       chunks.push(chunk);
     }
     const body = Buffer.concat(chunks);

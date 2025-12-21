@@ -1,6 +1,7 @@
-import { Controller, Post, Get, Body, Query, Req, Res, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, Req, Res, UnauthorizedException, HttpException, HttpStatus } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
+import { authRateLimiter } from '../common/rate-limiter';
 
 interface RegisterDto {
   email: string;
@@ -16,7 +17,16 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('register')
-  async register(@Body() body: RegisterDto) {
+  async register(@Body() body: RegisterDto, @Req() req: Request) {
+    // Rate limit by IP
+    const clientIp = req.ip || req.headers['x-forwarded-for']?.toString().split(',')[0] || 'unknown';
+    if (!authRateLimiter.isAllowed(`register:${clientIp}`)) {
+      throw new HttpException(
+        { error: 'Too many requests', message: 'Please wait before trying again.', retryAfter: authRateLimiter.getResetTime(`register:${clientIp}`) },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     if (!body.email || !body.workspaceName) {
       throw new UnauthorizedException('Email and workspace name are required');
     }
@@ -24,7 +34,16 @@ export class AuthController {
   }
 
   @Post('login')
-  async login(@Body() body: LoginDto) {
+  async login(@Body() body: LoginDto, @Req() req: Request) {
+    // Rate limit by IP
+    const clientIp = req.ip || req.headers['x-forwarded-for']?.toString().split(',')[0] || 'unknown';
+    if (!authRateLimiter.isAllowed(`login:${clientIp}`)) {
+      throw new HttpException(
+        { error: 'Too many requests', message: 'Please wait before trying again.', retryAfter: authRateLimiter.getResetTime(`login:${clientIp}`) },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     if (!body.email) {
       throw new UnauthorizedException('Email is required');
     }
