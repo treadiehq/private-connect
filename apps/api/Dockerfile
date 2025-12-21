@@ -42,5 +42,5 @@ COPY --from=builder /app/package.json ./
 # Environment
 ENV NODE_ENV=production
 
-# Start command: run migrations then start the server
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/main"]
+# Default start command (Railway overrides via railway.toml)
+CMD ["node", "dist/main"]
