@@ -31,12 +31,26 @@ export class EmailService {
     const magicLink = `${baseUrl}/verify?token=${token}`;
 
     const subject = type === 'REGISTER' 
-      ? `Complete your Private Connect signup`
-      : `Sign in to Private Connect`;
+      ? 'Complete your Private Connect signup'
+      : 'Sign in to Private Connect';
 
     const text = type === 'REGISTER'
-      ? `Welcome to Private Connect!\n\nClick the link below to verify your email and access your workspace "${workspaceName}":\n\n${magicLink}\n\nThis link expires in 15 minutes.\n\nIf you didn't request this, you can safely ignore this email.`
-      : `Click the link below to sign in to Private Connect:\n\n${magicLink}\n\nThis link expires in 15 minutes.\n\nIf you didn't request this, you can safely ignore this email.`;
+      ? `Welcome to Private Connect!
+
+Click the link below to verify your email and access your workspace "${workspaceName}":
+
+${magicLink}
+
+This link expires in 15 minutes.
+
+If you didn't request this, you can safely ignore this email.`
+      : `Click the link below to sign in to Private Connect:
+
+${magicLink}
+
+This link expires in 15 minutes.
+
+If you didn't request this, you can safely ignore this email.`;
 
     // In development or if Resend is not configured, log to console
     if (!this.resend) {
@@ -55,77 +69,19 @@ export class EmailService {
       return;
     }
 
-    // Production: send via Resend
+    // Production: send via Resend (plain text only)
     try {
       await this.resend.emails.send({
         from: process.env.EMAIL_FROM || 'Private Connect <noreply@privateconnect.dev>',
         to,
         subject,
         text,
-        html: this.generateHtmlEmail(type, magicLink, workspaceName),
       });
       this.logger.log(`Magic link email sent to ${to}`);
     } catch (error) {
       this.logger.error(`Failed to send email to ${to}:`, error);
       throw new Error('Failed to send magic link email');
     }
-  }
-
-  private generateHtmlEmail(type: 'LOGIN' | 'REGISTER', magicLink: string, workspaceName?: string): string {
-    const title = type === 'REGISTER' ? 'Complete Your Signup' : 'Sign In';
-    const greeting = type === 'REGISTER' 
-      ? `Welcome to Private Connect!` 
-      : `Sign in to your account`;
-    const message = type === 'REGISTER'
-      ? `Click the button below to verify your email and access your workspace "${workspaceName}".`
-      : `Click the button below to sign in to Private Connect.`;
-    const buttonText = type === 'REGISTER' ? 'Verify Email' : 'Sign In';
-
-    return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
-</head>
-<body style="margin: 0; padding: 0; background-color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0f172a; padding: 40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="100%" max-width="500" cellpadding="0" cellspacing="0" style="background-color: #1e293b; border-radius: 12px; padding: 40px;">
-          <tr>
-            <td align="center" style="padding-bottom: 24px;">
-              <h1 style="color: #14b8a6; margin: 0; font-size: 24px;">⚡ Private Connect</h1>
-            </td>
-          </tr>
-          <tr>
-            <td align="center" style="padding-bottom: 16px;">
-              <h2 style="color: #f8fafc; margin: 0; font-size: 20px;">${greeting}</h2>
-            </td>
-          </tr>
-          <tr>
-            <td align="center" style="padding-bottom: 32px;">
-              <p style="color: #94a3b8; margin: 0; font-size: 16px; line-height: 24px;">${message}</p>
-            </td>
-          </tr>
-          <tr>
-            <td align="center" style="padding-bottom: 32px;">
-              <a href="${magicLink}" style="display: inline-block; background-color: #14b8a6; color: #0f172a; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">${buttonText}</a>
-            </td>
-          </tr>
-          <tr>
-            <td align="center">
-              <p style="color: #64748b; margin: 0; font-size: 14px;">This link expires in 15 minutes.</p>
-              <p style="color: #475569; margin: 16px 0 0 0; font-size: 12px;">If you didn't request this, you can safely ignore this email.</p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
   }
 }
 

@@ -7,7 +7,11 @@ import { reachCommand } from './commands/reach';
 import { whoamiCommand } from './commands/whoami';
 import { discoverCommand } from './commands/discover';
 import { logoutCommand } from './commands/logout';
+import { updateCommand } from './commands/update';
 import { setConfigPath } from './config';
+
+// Version - keep in sync with package.json
+const VERSION = '0.1.5';
 
 // Default hub URL - can be overridden via CONNECT_HUB_URL env var
 // Set CONNECT_HUB_URL or use --hub flag for production
@@ -16,7 +20,7 @@ const DEFAULT_HUB_URL = process.env.CONNECT_HUB_URL || 'https://api.privateconne
 program
   .name('connect')
   .description('Private Connect Agent - Securely expose local services')
-  .version('0.1.0');
+  .version(VERSION);
 
 program
   .command('up')
@@ -86,6 +90,14 @@ program
   .action((options) => {
     if (options.config) setConfigPath(options.config);
     logoutCommand(options);
+  });
+
+program
+  .command('update')
+  .description('Update the CLI to the latest version')
+  .option('-f, --force', 'Force update even if already on latest version')
+  .action((options) => {
+    updateCommand(options);
   });
 
 program.parse();
