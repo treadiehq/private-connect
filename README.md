@@ -102,6 +102,22 @@ Output:
 connect reach https://vault.example.com:8200
 ```
 
+### Public URLs (for webhooks)
+
+Expose a local service with a public URL for testing webhooks from Stripe, GitHub, etc:
+
+```bash
+connect expose localhost:3000 --name my-webhook --public
+```
+
+Output:
+```
+🌐 Public URL: https://privateconnect.co/w/a1b2c3d4
+   External services (Stripe, GitHub, etc.) can send webhooks to this URL
+```
+
+Use this URL in your Stripe/GitHub webhook settings to receive events on your local machine.
+
 ## CLI Reference
 
 ```bash
@@ -129,6 +145,7 @@ connect logout                # Clear local credentials
 # connect expose
 -n, --name <name>      Service name
 -p, --protocol <type>  auto|tcp|http|https
+--public               Get a public URL for webhooks
 
 # connect reach
 -t, --timeout <ms>     Timeout (default: 5000)

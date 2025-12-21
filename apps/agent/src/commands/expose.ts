@@ -7,6 +7,7 @@ interface ExposeOptions {
   hub: string;
   apiKey?: string;
   protocol: string;
+  public?: boolean;
   config?: string;
 }
 
@@ -61,7 +62,7 @@ export async function exposeCommand(target: string, options: ExposeOptions) {
   await registerAgent(config);
 
   // Register service with hub
-  const service = await registerService(config.agentId, options.name, host, port, options.protocol, config);
+  const service = await registerService(config.agentId, options.name, host, port, options.protocol, options.public || false, config);
   
   if (!service) {
     console.error(chalk.red('✗ Failed to register service'));
@@ -72,6 +73,11 @@ export async function exposeCommand(target: string, options: ExposeOptions) {
   console.log(chalk.gray(`   Service ID: ${service.id}`));
   console.log(chalk.gray(`   Tunnel Port: ${service.tunnelPort}`));
   console.log(chalk.gray(`   Protocol: ${service.protocol}`));
+  
+  if (service.publicUrl) {
+    console.log(chalk.cyan(`\n🌐 Public URL: ${service.publicUrl}`));
+    console.log(chalk.gray(`   External services (Stripe, GitHub, etc.) can send webhooks to this URL`));
+  }
 
   // Connect via WebSocket and set up tunnel
   const socket = io(`${config.hubUrl}/agent`, {
@@ -213,8 +219,9 @@ async function registerService(
   targetHost: string,
   targetPort: number,
   protocol: string,
+  isPublic: boolean,
   config: { hubUrl: string; apiKey: string },
-): Promise<{ id: string; tunnelPort: number; protocol: string } | null> {
+): Promise<{ id: string; tunnelPort: number; protocol: string; isPublic: boolean; publicUrl: string | null } | null> {
   try {
     const response = await fetch(`${config.hubUrl}/v1/services/register`, {
       method: 'POST',
@@ -228,6 +235,7 @@ async function registerService(
         targetHost,
         targetPort,
         protocol,
+        isPublic,
       }),
     });
 
@@ -237,7 +245,7 @@ async function registerService(
       return null;
     }
 
-    const data = await response.json() as { service: { id: string; tunnelPort: number; protocol: string } };
+    const data = await response.json() as { service: { id: string; tunnelPort: number; protocol: string; isPublic: boolean; publicUrl: string | null } };
     return data.service;
   } catch (error: unknown) {
     const err = error as Error;

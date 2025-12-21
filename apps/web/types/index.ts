@@ -40,6 +40,8 @@ export interface Service {
   protocol: string;
   status: 'OK' | 'FAIL' | 'UNKNOWN';
   isExternal: boolean;     // true for external target services
+  isPublic: boolean;       // true for publicly accessible via subdomain
+  publicSubdomain: string | null;  // e.g., "abc123" -> abc123.privateconnect.co
   lastCheckedAt: string | null;
   createdAt: string;
   agent?: Agent;

@@ -43,6 +43,7 @@ program
   .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-k, --api-key <key>', 'Workspace API key')
   .option('-p, --protocol <protocol>', 'Protocol hint: auto|tcp|http|https', 'auto')
+  .option('--public', 'Make service publicly accessible via URL (for webhooks)')
   .option('-c, --config <path>', 'Config file path (for multiple agents)')
   .action((target, options) => {
     if (options.config) setConfigPath(options.config);

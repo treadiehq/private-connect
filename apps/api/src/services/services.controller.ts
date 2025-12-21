@@ -12,6 +12,7 @@ const RegisterServiceSchema = z.object({
   targetHost: z.string().min(1),
   targetPort: z.number().int().min(1).max(65535),
   protocol: z.enum(['auto', 'tcp', 'http', 'https']).optional().default('auto'),
+  isPublic: z.boolean().optional().default(false),
 });
 
 const ReachSchema = z.object({
@@ -54,7 +55,7 @@ export class ServicesController {
       throw new HttpException('Invalid or missing API key', HttpStatus.UNAUTHORIZED);
     }
 
-    const { agentId, name, targetHost, targetPort, protocol } = parsed.data;
+    const { agentId, name, targetHost, targetPort, protocol, isPublic } = parsed.data;
     
     try {
       const service = await this.servicesService.register(
@@ -64,6 +65,7 @@ export class ServicesController {
         targetHost,
         targetPort,
         protocol,
+        isPublic,
       );
       
       // Notify UI
@@ -77,6 +79,10 @@ export class ServicesController {
           tunnelPort: service.tunnelPort,
           status: service.status,
           protocol: service.protocol,
+          isPublic: service.isPublic,
+          publicUrl: service.publicSubdomain 
+            ? this.servicesService.getPublicUrl(service.publicSubdomain)
+            : null,
         }
       };
     } catch (error: unknown) {

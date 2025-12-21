@@ -89,23 +89,25 @@ model Agent {
 }
 
 model Service {
-  id            String             @id @default(uuid())
-  workspaceId   String
-  agentId       String?            // null = external target service (no agent)
-  name          String
-  targetHost    String
-  targetPort    Int
-  tunnelPort    Int?
-  protocol      String             @default("auto") // auto | tcp | http | https
-  status        String             @default("UNKNOWN")
-  isExternal    Boolean            @default(false)  // true = external target, reached directly
-  lastCheckedAt DateTime?
-  createdAt     DateTime           @default(now())
-  workspace     Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  agent         Agent?             @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  diagnostics   DiagnosticResult[]
-  sessions      Session[]
-  shares        ServiceShare[]
+  id              String             @id @default(uuid())
+  workspaceId     String
+  agentId         String?            // null = external target service (no agent)
+  name            String
+  targetHost      String
+  targetPort      Int
+  tunnelPort      Int?
+  protocol        String             @default("auto") // auto | tcp | http | https
+  status          String             @default("UNKNOWN")
+  isExternal      Boolean            @default(false)  // true = external target, reached directly
+  isPublic        Boolean            @default(false)  // true = publicly accessible via subdomain
+  publicSubdomain String?            @unique          // e.g., "abc123" -> abc123.privateconnect.co
+  lastCheckedAt   DateTime?
+  createdAt       DateTime           @default(now())
+  workspace       Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agent           Agent?             @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  diagnostics     DiagnosticResult[]
+  sessions        Session[]
+  shares          ServiceShare[]
 
   @@unique([workspaceId, name])
 }

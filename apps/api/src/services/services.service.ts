@@ -8,6 +8,9 @@ import { randomBytes } from 'crypto';
 const TUNNEL_PORT_MIN = 23000;
 const TUNNEL_PORT_MAX = 23999;
 
+// Public URL base
+const PUBLIC_URL_BASE = process.env.PUBLIC_URL_BASE || 'https://privateconnect.co';
+
 @Injectable()
 export class ServicesService {
   private usedPorts = new Set<number>();
@@ -45,6 +48,22 @@ export class ServicesService {
     this.usedPorts.delete(port);
   }
 
+  private generateSubdomain(): string {
+    // Generate a short, URL-safe random subdomain (8 chars)
+    return randomBytes(4).toString('hex');
+  }
+
+  getPublicUrl(subdomain: string): string {
+    return `${PUBLIC_URL_BASE}/w/${subdomain}`;
+  }
+
+  async findBySubdomain(subdomain: string) {
+    return this.prisma.service.findUnique({
+      where: { publicSubdomain: subdomain },
+      include: { agent: true },
+    });
+  }
+
   async register(
     workspaceId: string,
     agentId: string,
@@ -52,6 +71,7 @@ export class ServicesService {
     targetHost: string,
     targetPort: number,
     protocol: string = 'auto',
+    isPublic: boolean = false,
   ) {
     // Check plan limits
     const usage = await this.workspaceService.getUsage(workspaceId);
@@ -70,6 +90,9 @@ export class ServicesService {
 
     const tunnelPort = this.allocatePort();
     
+    // Generate public subdomain if requested
+    const publicSubdomain = isPublic ? this.generateSubdomain() : null;
+    
     const service = await this.prisma.service.upsert({
       where: { workspaceId_name: { workspaceId, name } },
       update: {
@@ -79,6 +102,8 @@ export class ServicesService {
         protocol,
         status: 'UNKNOWN',
         agentId,
+        isPublic,
+        publicSubdomain: isPublic ? publicSubdomain : null,
       },
       create: {
         workspaceId,
@@ -89,6 +114,8 @@ export class ServicesService {
         tunnelPort,
         protocol,
         status: 'UNKNOWN',
+        isPublic,
+        publicSubdomain,
       },
       include: { agent: true },
     });
