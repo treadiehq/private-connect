@@ -38,6 +38,12 @@ async function bootstrap() {
     credentials: true,
   });
 
+  // Simple health check endpoint that doesn't need database
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.get('/health', (req: any, res: any) => {
+    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
   const port = process.env.PORT || 3001;
   console.log(`=== STARTING LISTENER ON PORT ${port} ===`);
   // Listen on 0.0.0.0 for Railway/Docker

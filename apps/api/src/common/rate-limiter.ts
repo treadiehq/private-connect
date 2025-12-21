@@ -17,8 +17,9 @@ export class RateLimiter {
     this.windowMs = windowMs;
     this.maxRequests = maxRequests;
 
-    // Cleanup old entries every minute
-    setInterval(() => this.cleanup(), 60000);
+    // Cleanup old entries every minute (use unref so it doesn't keep process alive during shutdown)
+    const interval = setInterval(() => this.cleanup(), 60000);
+    interval.unref();
   }
 
   /**

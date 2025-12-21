@@ -3,8 +3,8 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "npx prisma db push --skip-generate --accept-data-loss && node dist/main"
-healthcheckPath = "/v1/agents"
+startCommand = "npx prisma db push --skip-generate --accept-data-loss && node dist/main.js"
+healthcheckPath = "/health"
 healthcheckTimeout = 300
 numReplicas = 1
 restartPolicyType = "ON_FAILURE"
