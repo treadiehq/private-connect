@@ -110,14 +110,6 @@ Expose a local service with a public URL for testing webhooks from Stripe, GitHu
 connect expose localhost:3000 --name my-webhook --public
 ```
 
-Output:
-```
-🌐 Public URL: https://privateconnect.co/w/a1b2c3d4
-   External services (Stripe, GitHub, etc.) can send webhooks to this URL
-```
-
-Use this URL in your Stripe/GitHub webhook settings to receive events on your local machine.
-
 ## CLI Reference
 
 ```bash
