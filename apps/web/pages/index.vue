@@ -39,10 +39,8 @@
         <div class="">
           <h1 class="mx-auto w-full text-balance text-center font-semibold tracking-tight text-white text-2xl !leading-[1.2] sm:text-4xl md:text-5xl">
             <!-- Connect to private services<span class="text-blue-300"> from anywhere</span> -->
-            <!-- Finally know why your services can't connect -->
             We've all done the
             <span class="text-blue-300 font-mono">SSH + curl</span> dance.
-            <!-- SSH into a server just to run <span class="text-blue-300 font-mono">curl</span>? There's a better way -->
           </h1>
           
           <!-- Subheading -->
@@ -209,24 +207,6 @@
       </div>
     </section> -->
 
-    <!-- CTA -->
-    <!-- <section class="py-20 px-6">
-      <div class="max-w-3xl mx-auto text-center">
-        <h2 class="text-3xl font-bold mb-4">Ready to connect?</h2>
-        <p class="text-gray-400 mb-8">Get started in minutes. Free for small teams.</p>
-        <NuxtLink 
-          to="/register" 
-          class="inline-flex items-center gap-2 px-8 py-4 bg-blue-300 hover:bg-blue-400 text-black font-semibold rounded-xl transition-all hover:-translate-y-0.5 text-lg"
-        >
-          Start for Free
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-          </svg>
-        </NuxtLink>
-      </div>
-    </section> -->
-
-    <!-- Footer -->
     <!-- Footer -->
     <footer aria-labelledby="footer-heading" class="pt-14">
       <h2 id="footer-heading" class="sr-only">Footer</h2>
