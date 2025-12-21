@@ -29,6 +29,9 @@ model MagicLink {
   usedAt    DateTime?
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt]) // For cleanup of expired links
 }
 
 // AuthSession: tracks user login sessions
@@ -42,6 +45,9 @@ model AuthSession {
   userAgent String?
   ipAddress String?
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt]) // For cleanup of expired sessions
 }
 
 // Workspace: lightweight org/team boundary
@@ -86,6 +92,9 @@ model Agent {
   services    Service[]
   sourceDiagnostics DiagnosticResult[] @relation("SourceAgent")
   sessions    Session[]
+
+  @@index([workspaceId])
+  @@index([isOnline]) // For filtering online agents
 }
 
 model Service {
@@ -110,6 +119,9 @@ model Service {
   shares          ServiceShare[]
 
   @@unique([workspaceId, name])
+  @@index([workspaceId])
+  @@index([agentId])
+  @@index([status]) // For filtering by status
 }
 
 // ServiceShare: secure external sharing of services (cross-company access)
@@ -135,6 +147,8 @@ model ServiceShare {
   
   service         Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   accessLogs      ShareAccessLog[]
+
+  @@index([serviceId])
 }
 
 // ShareAccessLog: audit trail for shared access
@@ -149,6 +163,8 @@ model ShareAccessLog {
   statusCode  Int?
   latencyMs   Int?
   share       ServiceShare @relation(fields: [shareId], references: [id], onDelete: Cascade)
+
+  @@index([shareId, accessedAt(sort: Desc)]) // For fetching recent logs by share
 }
 
 model DiagnosticResult {
@@ -170,6 +186,9 @@ model DiagnosticResult {
   shareToken    String?  @unique // for shareable links
   service       Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   sourceAgent   Agent?   @relation("SourceAgent", fields: [sourceAgentId], references: [id], onDelete: SetNull)
+
+  @@index([serviceId, createdAt(sort: Desc)]) // For fetching recent diagnostics by service
+  @@index([sourceAgentId])
 }
 
 // Session: tracks reach check sessions for auditing
@@ -182,6 +201,9 @@ model Session {
   outcome       String?   // success | failure | timeout
   service       Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   sourceAgent   Agent     @relation(fields: [sourceAgentId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId])
+  @@index([sourceAgentId])
 }
 
 // DeviceCode: for device authorization flow (like GitHub CLI, Tailscale)
@@ -197,4 +219,6 @@ model DeviceCode {
   apiKey       String?             // Generated API key for the agent
   label        String?             // Agent label from initial request
   agentName    String?             // Agent name from initial request
+
+  @@index([expiresAt]) // For cleanup of expired codes
 }
