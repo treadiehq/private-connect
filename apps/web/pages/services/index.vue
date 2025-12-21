@@ -69,7 +69,7 @@
                   <input
                     v-model="externalForm.name"
                     type="text"
-                    placeholder="hcp-vault"
+                    placeholder="google"
                     class="w-full px-4 py-3 bg-gray-500/10 border border-gray-500/10 rounded-lg focus:border-blue-300 focus:ring-1 focus:ring-blue-300 focus:outline-none transition-all placeholder:text-gray-600"
                     required
                   />
@@ -79,7 +79,7 @@
                   <input
                     v-model="externalForm.targetHost"
                     type="text"
-                    placeholder="vault.hashicorp.cloud"
+                    placeholder="google.com"
                     class="w-full px-4 py-3 bg-gray-500/10 border border-gray-500/10 rounded-lg focus:border-blue-300 focus:ring-1 focus:ring-blue-300 focus:outline-none transition-all placeholder:text-gray-600"
                     required
                   />
@@ -124,7 +124,7 @@
                       >
                         <div 
                           v-if="showProtocolDropdown"
-                          class="absolute z-50 mt-2 w-full bg-gray-900 border border-gray-500/20 rounded-lg shadow-xl overflow-hidden"
+                          class="absolute z-50 mt-2 w-full bg-black border border-gray-500/20 rounded-lg shadow-xl overflow-hidden"
                         >
                           <button
                             v-for="option in protocolOptions"
@@ -132,7 +132,7 @@
                             type="button"
                             @click="externalForm.protocol = option.value; showProtocolDropdown = false"
                             class="w-full px-4 py-3 text-left hover:bg-gray-500/10 transition-colors flex items-center justify-between group"
-                            :class="{ 'bg-blue-300/10': externalForm.protocol === option.value }"
+                            :class="{ 'bg-gray-500/10': externalForm.protocol === option.value }"
                           >
                             <div>
                               <span class="block text-sm" :class="externalForm.protocol === option.value ? 'text-blue-300' : 'text-gray-200'">
@@ -161,14 +161,14 @@
                 <button
                   type="button"
                   @click="showAddModal = false"
-                  class="px-4 py-2.5 bg-gray-500/10 hover:bg-gray-500/20 text-gray-200 rounded-lg transition-all"
+                  class="px-4 py-2.5 bg-gray-500/10 border border-gray-500/10 hover:bg-gray-500/20 text-sm text-gray-200 rounded-lg transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   :disabled="creating"
-                  class="px-4 py-2.5 bg-blue-300 hover:bg-blue-400 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold rounded-lg transition-all"
+                  class="px-4 py-2.5 bg-blue-300 hover:bg-blue-400 text-sm disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold rounded-lg transition-all"
                 >
                   {{ creating ? 'Adding...' : 'Add Service' }}
                 </button>
