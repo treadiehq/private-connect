@@ -4,7 +4,7 @@ set -e
 # Private Connect CLI Installer
 # Usage: curl -fsSL https://privateconnect.co/install.sh | bash
 
-DOWNLOAD_BASE="https://privateconnect.co/releases"
+REPO="treadiehq/private-connect"
 BINARY_NAME="connect"
 INSTALL_DIR="/usr/local/bin"
 
@@ -47,9 +47,24 @@ esac
 
 echo -e "Detected: ${GREEN}${OS}-${ARCH}${NC}"
 
+# Get latest release version
+echo "Fetching latest release..."
+VERSION=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+
+if [ -z "$VERSION" ]; then
+  echo -e "${YELLOW}Warning: Could not fetch latest version, using 'latest'${NC}"
+  VERSION="latest"
+fi
+
+echo -e "Version: ${GREEN}${VERSION}${NC}"
+
 # Build download URL
 BINARY_FILE="${BINARY_NAME}-${OS}-${ARCH}"
-DOWNLOAD_URL="${DOWNLOAD_BASE}/${BINARY_FILE}"
+if [ "$VERSION" = "latest" ]; then
+  DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/${BINARY_FILE}"
+else
+  DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${BINARY_FILE}"
+fi
 
 # Create temp directory
 TMP_DIR=$(mktemp -d)
@@ -62,8 +77,13 @@ if ! curl -fsSL "$DOWNLOAD_URL" -o "$TMP_DIR/$BINARY_NAME"; then
   echo "URL: $DOWNLOAD_URL"
   echo ""
   echo "This could mean:"
+  echo "  - No release has been published yet"
   echo "  - The binary for your platform is not available"
-  echo "  - Network connectivity issues"
+  echo ""
+  echo "Try building from source instead:"
+  echo "  git clone https://github.com/${REPO}.git"
+  echo "  cd private-connect/apps/agent"
+  echo "  pnpm install && pnpm run build:binary"
   exit 1
 fi
 
