@@ -39,9 +39,9 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./
 
-# Railway injects PORT env var
+# Environment
 ENV NODE_ENV=production
-EXPOSE 3001
+ENV PORT=3001
 
 # Start command: run migrations then start the server
-CMD ["sh", "-c", "pnpm db:push && node dist/main"]
+CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/main"]
