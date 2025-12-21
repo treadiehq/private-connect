@@ -28,6 +28,16 @@ pnpm run build:binary
 ./scripts/install.sh
 ```
 
+## Live
+
+Try the product live at **https://privateconnect.co**
+
+## Community & Support
+
+Join our Discord community for discussions, support, and updates:
+
+[![Discord](https://img.shields.io/badge/Discord-Join%20our%20community-7289DA?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/KqdBcqRk5E)
+
 ## How It Works
 
 Run agents in different environments. Each agent connects to the hub and can expose or reach services.
