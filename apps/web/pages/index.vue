@@ -38,7 +38,11 @@
       <div class="text-center">
         <div class="">
           <h1 class="mx-auto w-full text-balance text-center font-semibold tracking-tight text-white text-2xl !leading-[1.2] sm:text-4xl md:text-5xl">
-            Connect to private services<span class="text-blue-300"> from anywhere</span>
+            <!-- Connect to private services<span class="text-blue-300"> from anywhere</span> -->
+            <!-- Finally know why your services can't connect -->
+            We've all done the
+            <span class="text-blue-300 font-mono">SSH + curl</span> dance.
+            <!-- SSH into a server just to run <span class="text-blue-300 font-mono">curl</span>? There's a better way -->
           </h1>
           
           <!-- Subheading -->
@@ -91,8 +95,16 @@
                 <span class="text-emerald-300">$</span>
                 <span class="text-gray-200">connect reach prod-db</span>
               </div>
-              <div class="mt-2 text-emerald-300">
-                ✓ REACHABLE — TCP OK, Latency 45ms
+              <div class="mt-3">
+                <div class="text-emerald-400 font-semibold mb-2">✓ REACHABLE</div>
+                <div class="text-gray-500 text-xs">┌─────────────────────────────────────────┐</div>
+                <div class="text-xs"><span class="text-gray-500">│</span>  DNS     <span class="text-emerald-400">✓</span>  <span class="text-emerald-400">OK</span> <span class="text-gray-600">(10.0.1.5)</span>               <span class="text-gray-500">│</span></div>
+                <div class="text-xs"><span class="text-gray-500">│</span>  TCP     <span class="text-emerald-400">✓</span>  <span class="text-emerald-400">OK</span>                           <span class="text-gray-500">│</span></div>
+                <div class="text-xs"><span class="text-gray-500">│</span>  TLS     <span class="text-emerald-400">✓</span>  <span class="text-emerald-400">OK</span>                           <span class="text-gray-500">│</span></div>
+                <div class="text-xs"><span class="text-gray-500">│</span>  HTTP    <span class="text-emerald-400">✓</span>  <span class="text-emerald-400">200 OK</span>                       <span class="text-gray-500">│</span></div>
+                <div class="text-xs"><span class="text-gray-500">│</span>  Latency    <span class="text-blue-300">45ms</span>                        <span class="text-gray-500">│</span></div>
+                <div class="text-xs"><span class="text-gray-500">│</span>  From       <span class="text-purple-300">my-laptop</span>                   <span class="text-gray-500">│</span></div>
+                <div class="text-gray-500 text-xs">└─────────────────────────────────────────┘</div>
               </div>
             </div>
           </div>
