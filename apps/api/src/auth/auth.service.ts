@@ -3,6 +3,48 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from './email.service';
 import { randomBytes } from 'crypto';
 
+// Reserved workspace names that cannot be used
+const RESERVED_WORKSPACE_NAMES = [
+  'admin',
+  'api',
+  'app',
+  'auth',
+  'billing',
+  'blog',
+  'cdn',
+  'connect',
+  'dashboard',
+  'demo',
+  'dev',
+  'docs',
+  'help',
+  'home',
+  'hub',
+  'internal',
+  'login',
+  'mail',
+  'privateconnect',
+  'private-connect',
+  'prod',
+  'production',
+  'register',
+  'root',
+  'settings',
+  'signup',
+  'staging',
+  'status',
+  'support',
+  'system',
+  'test',
+  'www',
+  'privateconnect',
+  'private-connect',
+  'privateconnect.co',
+  'private-connect.co',
+  'treadie',
+  'airatelimit',
+];
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -22,6 +64,11 @@ export class AuthService {
 
     if (normalizedWorkspaceName.length > 50) {
       throw new BadRequestException('Workspace name must be less than 50 characters');
+    }
+
+    // Check for reserved names
+    if (RESERVED_WORKSPACE_NAMES.includes(normalizedWorkspaceName.toLowerCase())) {
+      throw new BadRequestException('This workspace name is reserved. Please choose a different name.');
     }
 
     // Check if user already exists
