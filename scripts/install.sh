@@ -87,7 +87,7 @@ if command -v $BINARY_NAME &> /dev/null; then
   echo "Get started:"
   echo -e "  ${CYAN}connect up${NC}              # Start agent and authenticate"
   echo -e "  ${CYAN}connect expose${NC} <target> # Expose a local service"
-  echo -e "  ${CYAN}connect reach${NC} <service> # Test connectivity"
+  echo -e "  ${CYAN}connect reach${NC} <service> # Test & connect to a service"
   echo -e "  ${CYAN}connect --help${NC}          # Show all commands"
   echo ""
 else

@@ -72,7 +72,7 @@ connect expose db.internal:5432 --name prod-db       # Internal DNS name
 
 The agent just needs network access to the target. So you could run an agent on a jump box and expose services on the internal network that only that box can reach.
 
-### 3. From another environment, test connectivity
+### 3. From another environment, connect to the service and test connectivity
 
 ```bash
 # On your laptop or staging server
@@ -94,7 +94,13 @@ Output:
   │  Latency    45ms                        │
   │  From       local                       │
   └─────────────────────────────────────────┘
+
+  ✓ Connected to prod-db on localhost:5432
 ```
+
+You can now connect to `localhost:5432` as if the database was running locally.
+
+> **expose vs reach**: Use `expose` on the machine with the service. Use `reach` on the machine where you want to access it.
 
 ### Quick test (no agent needed)
 
@@ -114,8 +120,8 @@ connect expose localhost:3000 --name my-webhook --public
 
 ```bash
 connect up                    # Start agent, authenticate
-connect expose <host:port>    # Expose a local service
-connect reach <target>        # Test connectivity
+connect expose <host:port>    # Expose a service (run on the server)
+connect reach <service>       # Connect to a service or Test connectivity (run on your laptop)
 connect whoami                # Show agent info
 connect update                # Update CLI to latest version
 connect logout                # Clear local credentials
@@ -140,7 +146,9 @@ connect logout                # Clear local credentials
 --public               Get a public URL for webhooks
 
 # connect reach
+-p, --port <port>      Local port (default: same as service)
 -t, --timeout <ms>     Timeout (default: 5000)
+--check                Only run diagnostics, don't create tunnel
 --json                 JSON output
 
 # connect update

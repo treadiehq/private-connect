@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import * as net from 'net';
 import { v4 as uuidv4 } from 'uuid';
+import { PrismaService } from '../prisma/prisma.service';
 
 interface AgentConnection {
   agentId: string;
@@ -25,11 +26,31 @@ interface PendingConnection {
   timeout: NodeJS.Timeout;
 }
 
+/**
+ * Bridge between a reaching agent and an exposing agent
+ * Data flows: Reaching Agent <-> Hub <-> Exposing Agent
+ */
+interface AgentBridge {
+  connectionId: string;
+  serviceId: string;
+  reachingAgentId: string;
+  reachingSocket: any; // WebSocket of reaching agent
+  exposingAgentId: string;
+  exposingSocket: any; // WebSocket of exposing agent
+  targetHost: string;
+  targetPort: number;
+  ready: boolean;
+  timeout: NodeJS.Timeout;
+}
+
 @Injectable()
 export class TunnelService {
   private readonly logger = new Logger(TunnelService.name);
   private agents = new Map<string, AgentConnection>();
   private pendingConnections = new Map<string, PendingConnection>();
+  private agentBridges = new Map<string, AgentBridge>();
+
+  constructor(private prisma: PrismaService) {}
 
   registerAgent(agentId: string, socket: any) {
     this.logger.log(`Agent registered: ${agentId}`);
@@ -178,6 +199,11 @@ export class TunnelService {
    * Now we pipe data between client and agent.
    */
   handleAgentDialSuccess(connectionId: string, agentId: string) {
+    // First check if this is an agent bridge
+    if (this.handleAgentDialSuccessForBridge(connectionId)) {
+      return;
+    }
+
     const pending = this.pendingConnections.get(connectionId);
     if (!pending) {
       this.logger.warn(`No pending connection for ${connectionId}`);
@@ -195,6 +221,11 @@ export class TunnelService {
    * Receive data from agent for a connection
    */
   handleAgentData(connectionId: string, data: Buffer) {
+    // First check if this is an agent bridge
+    if (this.handleAgentDataForBridge(connectionId, data)) {
+      return;
+    }
+
     const pending = this.pendingConnections.get(connectionId);
     if (pending && !pending.clientSocket.destroyed) {
       pending.clientSocket.write(data);
@@ -218,6 +249,11 @@ export class TunnelService {
    * Handle connection close from agent
    */
   handleAgentClose(connectionId: string) {
+    // First check if this is an agent bridge
+    if (this.handleAgentCloseForBridge(connectionId)) {
+      return;
+    }
+
     const pending = this.pendingConnections.get(connectionId);
     if (pending) {
       clearTimeout(pending.timeout);
@@ -246,6 +282,150 @@ export class TunnelService {
         this.logger.log(`Stopped tunnel listener for service ${serviceId}`);
       }
     }
+  }
+
+  /**
+   * Create a bridge between a reaching agent and an exposing agent.
+   * This allows agent-to-agent connectivity through the hub.
+   */
+  async createAgentBridge(
+    connectionId: string,
+    serviceId: string,
+    reachingAgentId: string,
+    reachingSocket: any,
+  ): Promise<void> {
+    // Find the service and its exposing agent
+    const service = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      include: { agent: true },
+    });
+
+    if (!service) {
+      throw new Error('Service not found');
+    }
+
+    if (!service.agentId) {
+      throw new Error('Service has no associated agent');
+    }
+
+    const exposingAgent = this.agents.get(service.agentId);
+    if (!exposingAgent) {
+      throw new Error('Exposing agent is not connected');
+    }
+
+    this.logger.log(`Creating bridge ${connectionId}: ${reachingAgentId} -> ${service.agentId} for ${service.name}`);
+
+    // Set up timeout
+    const timeout = setTimeout(() => {
+      this.logger.error(`Bridge ${connectionId} timed out waiting for dial`);
+      const bridge = this.agentBridges.get(connectionId);
+      if (bridge) {
+        bridge.reachingSocket.emit('reach_error', { connectionId, error: 'Connection timeout' });
+        this.agentBridges.delete(connectionId);
+      }
+    }, 10000);
+
+    // Create the bridge
+    const bridge: AgentBridge = {
+      connectionId,
+      serviceId,
+      reachingAgentId,
+      reachingSocket,
+      exposingAgentId: service.agentId,
+      exposingSocket: exposingAgent.socket,
+      targetHost: service.targetHost,
+      targetPort: service.targetPort,
+      ready: false,
+      timeout,
+    };
+
+    this.agentBridges.set(connectionId, bridge);
+
+    // Ask the exposing agent to dial the target
+    exposingAgent.socket.emit('dial', {
+      connectionId,
+      targetHost: service.targetHost,
+      targetPort: service.targetPort,
+      serviceId,
+    });
+  }
+
+  /**
+   * Called when the exposing agent confirms dial success.
+   * Updated to handle both TCP client connections and agent bridges.
+   */
+  handleAgentDialSuccessForBridge(connectionId: string) {
+    const bridge = this.agentBridges.get(connectionId);
+    if (bridge) {
+      clearTimeout(bridge.timeout);
+      bridge.ready = true;
+      this.logger.log(`Bridge ${connectionId} ready`);
+      
+      // Notify the reaching agent that the connection is ready
+      bridge.reachingSocket.emit('reach_ready', { connectionId });
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Handle data from reaching agent -> exposing agent
+   */
+  handleReachData(connectionId: string, data: Buffer) {
+    const bridge = this.agentBridges.get(connectionId);
+    if (bridge && bridge.ready) {
+      // Forward to exposing agent
+      bridge.exposingSocket.emit('data', {
+        connectionId,
+        data: data.toString('base64'),
+      });
+    }
+  }
+
+  /**
+   * Handle data from exposing agent -> reaching agent (for bridges)
+   */
+  handleAgentDataForBridge(connectionId: string, data: Buffer): boolean {
+    const bridge = this.agentBridges.get(connectionId);
+    if (bridge && bridge.ready) {
+      // Forward to reaching agent
+      bridge.reachingSocket.emit('reach_data', {
+        connectionId,
+        data: data.toString('base64'),
+      });
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Handle close from reaching agent
+   */
+  handleReachClose(connectionId: string) {
+    const bridge = this.agentBridges.get(connectionId);
+    if (bridge) {
+      clearTimeout(bridge.timeout);
+      // Tell exposing agent to close
+      bridge.exposingSocket.emit('close', { connectionId });
+      this.agentBridges.delete(connectionId);
+      this.logger.log(`Bridge ${connectionId} closed by reaching agent`);
+    }
+  }
+
+  /**
+   * Handle close from exposing agent (for bridges)
+   */
+  handleAgentCloseForBridge(connectionId: string): boolean {
+    const bridge = this.agentBridges.get(connectionId);
+    if (bridge) {
+      clearTimeout(bridge.timeout);
+      // Tell reaching agent to close
+      bridge.reachingSocket.emit('reach_close', { connectionId });
+      this.agentBridges.delete(connectionId);
+      this.logger.log(`Bridge ${connectionId} closed by exposing agent`);
+      return true;
+    }
+    return false;
   }
 }
 

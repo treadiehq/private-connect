@@ -52,9 +52,11 @@ program
 
 program
   .command('reach <service>')
-  .description('Test connectivity to an exposed service (access something private)')
+  .description('Connect to an exposed service and create a local tunnel')
   .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-t, --timeout <ms>', 'Timeout in milliseconds', '5000')
+  .option('-p, --port <port>', 'Local port to listen on (default: same as service port)')
+  .option('--check', 'Only run diagnostics, do not create local tunnel')
   .option('--json', 'Output as JSON')
   .option('-c, --config <path>', 'Config file path (for multiple agents)')
   .action((service, options) => {

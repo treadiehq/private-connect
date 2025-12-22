@@ -152,5 +152,57 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     this.tunnelService.handleAgentClose(data.connectionId);
   }
+
+  /**
+   * Handle reach_connect: A reaching agent wants to connect to a service
+   * exposed by another agent. We bridge the two agents via WebSocket.
+   */
+  @SubscribeMessage('reach_connect')
+  async handleReachConnect(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { connectionId: string; serviceId: string },
+  ) {
+    const reachingAgentId = this.socketToAgent.get(client.id);
+    if (!reachingAgentId) {
+      return { success: false, error: 'Agent not registered' };
+    }
+
+    try {
+      await this.tunnelService.createAgentBridge(
+        data.connectionId,
+        data.serviceId,
+        reachingAgentId,
+        client,
+      );
+      return { success: true };
+    } catch (error: unknown) {
+      const err = error as Error;
+      this.logger.error(`Reach connect failed: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Handle reach_data: Data from reaching agent to be forwarded to exposing agent
+   */
+  @SubscribeMessage('reach_data')
+  handleReachData(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { connectionId: string; data: string },
+  ) {
+    const buffer = Buffer.from(data.data, 'base64');
+    this.tunnelService.handleReachData(data.connectionId, buffer);
+  }
+
+  /**
+   * Handle reach_close: Reaching agent is closing the connection
+   */
+  @SubscribeMessage('reach_close')
+  handleReachClose(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { connectionId: string },
+  ) {
+    this.tunnelService.handleReachClose(data.connectionId);
+  }
 }
 
