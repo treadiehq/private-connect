@@ -51,7 +51,7 @@
         
         <p class="font-normal text-center text-gray-400 max-w-lg mx-auto mb-1 sm:mt-4 text-pretty text-base sm:text-lg sm:leading-6">
           Your database is on a private network. Your API runs behind a firewall. 
-          <span class="text-white">Private Connect lets you reach them securely</span>, no VPN setup, no firewall rules, no port forwarding.
+          <span class="text-white">Private Connect lets you reach them securely</span>, no VPN setup, no firewall rules, no opening ports.
         </p>
 
         <!-- CTA buttons -->
@@ -165,7 +165,7 @@
               </div>
             </div>
             <div class="mt-auto pt-6">
-              <p class="text-gray-500 text-sm">One command. Instant access. Works from anywhere else and see exactly what's happening.</p>
+              <p class="text-gray-500 text-sm">One command. Instant access. Works from anywhere and see exactly what's happening.</p>
             </div>
           </div>
         </div>
