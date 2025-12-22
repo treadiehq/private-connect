@@ -8,6 +8,7 @@ import { TunnelModule } from '../tunnel/tunnel.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { WorkspaceModule } from '../workspace/workspace.module';
 import { AgentsModule } from '../agents/agents.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AgentsModule } from '../agents/agents.module';
     forwardRef(() => RealtimeModule),
     forwardRef(() => WorkspaceModule),
     forwardRef(() => AgentsModule),
+    AuthModule,
   ],
   controllers: [ServicesController, DiagnosticsController],
   providers: [ServicesService, DiagnosticsService, SessionsService],

@@ -1,9 +1,10 @@
-import { Controller, Post, Body, Get, Param, Query, Headers, HttpException, HttpStatus, Inject, forwardRef } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Query, Headers, HttpException, HttpStatus, Inject, forwardRef, UseGuards, Req } from '@nestjs/common';
 import { ServicesService } from './services.service';
 import { DiagnosticsService } from './diagnostics.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { AgentsService } from '../agents/agents.service';
 import { SessionsService } from './sessions.service';
+import { ApiKeyGuard } from '../auth/api-key.guard';
 import { z } from 'zod';
 
 const RegisterServiceSchema = z.object({
@@ -40,21 +41,17 @@ export class ServicesController {
   ) {}
 
   @Post('register')
+  @UseGuards(ApiKeyGuard)
   async register(
     @Body() body: unknown,
-    @Headers('x-api-key') apiKey: string,
+    @Req() req: any,
   ) {
     const parsed = RegisterServiceSchema.safeParse(body);
     if (!parsed.success) {
       throw new HttpException(parsed.error.message, HttpStatus.BAD_REQUEST);
     }
 
-    // Get workspace from API key
-    const workspace = await this.agentsService.validateWorkspaceApiKey(apiKey);
-    if (!workspace) {
-      throw new HttpException('Invalid or missing API key', HttpStatus.UNAUTHORIZED);
-    }
-
+    const workspace = req.workspace;
     const { agentId, name, targetHost, targetPort, protocol, isPublic } = parsed.data;
     
     try {
@@ -93,21 +90,17 @@ export class ServicesController {
   }
 
   @Post('external')
+  @UseGuards(ApiKeyGuard)
   async createExternal(
     @Body() body: unknown,
-    @Headers('x-api-key') apiKey: string,
+    @Req() req: any,
   ) {
     const parsed = ExternalServiceSchema.safeParse(body);
     if (!parsed.success) {
       throw new HttpException(parsed.error.message, HttpStatus.BAD_REQUEST);
     }
 
-    // Get workspace from API key
-    const workspace = await this.agentsService.validateWorkspaceApiKey(apiKey);
-    if (!workspace) {
-      throw new HttpException('Invalid or missing API key', HttpStatus.UNAUTHORIZED);
-    }
-
+    const workspace = req.workspace;
     const { name, targetHost, targetPort, protocol } = parsed.data;
 
     try {

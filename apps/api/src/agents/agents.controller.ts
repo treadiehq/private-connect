@@ -1,5 +1,6 @@
-import { Controller, Post, Body, Get, Param, Headers, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Headers, HttpException, HttpStatus, UseGuards, Req } from '@nestjs/common';
 import { AgentsService } from './agents.service';
+import { ApiKeyGuard } from '../auth/api-key.guard';
 import { z } from 'zod';
 
 const RegisterSchema = z.object({
@@ -19,21 +20,17 @@ export class AgentsController {
   constructor(private agentsService: AgentsService) {}
 
   @Post('register')
+  @UseGuards(ApiKeyGuard)
   async register(
     @Body() body: unknown,
-    @Headers('x-api-key') apiKey: string,
+    @Req() req: any,
   ) {
     const parsed = RegisterSchema.safeParse(body);
     if (!parsed.success) {
       throw new HttpException(parsed.error.message, HttpStatus.BAD_REQUEST);
     }
 
-    // Validate workspace API key
-    const workspace = await this.agentsService.validateWorkspaceApiKey(apiKey);
-    if (!workspace) {
-      throw new HttpException('Invalid or missing API key', HttpStatus.UNAUTHORIZED);
-    }
-
+    const workspace = req.workspace;
     const { agentId, token, label, name } = parsed.data;
     const agent = await this.agentsService.register(workspace.id, agentId, token, label, name);
     
