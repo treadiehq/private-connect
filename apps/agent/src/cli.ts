@@ -4,6 +4,7 @@ import { program } from 'commander';
 import { upCommand } from './commands/up';
 import { exposeCommand } from './commands/expose';
 import { reachCommand } from './commands/reach';
+import { proxyCommand } from './commands/proxy';
 import { whoamiCommand } from './commands/whoami';
 import { discoverCommand } from './commands/discover';
 import { logoutCommand } from './commands/logout';
@@ -62,6 +63,17 @@ program
   .action((service, options) => {
     if (options.config) setConfigPath(options.config);
     reachCommand(service, options);
+  });
+
+program
+  .command('proxy')
+  .description('Start a local HTTP proxy to access services via subdomains (e.g., my-api.localhost:3000)')
+  .option('-p, --port <port>', 'Port to listen on', '3000')
+  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-c, --config <path>', 'Config file path (for multiple agents)')
+  .action((options) => {
+    if (options.config) setConfigPath(options.config);
+    proxyCommand({ ...options, port: parseInt(options.port, 10) });
   });
 
 program

@@ -116,12 +116,22 @@ Expose a local service with a public URL for testing webhooks from Stripe, GitHu
 connect expose localhost:3000 --name my-webhook --public
 ```
 
+### Subdomain Proxy
+
+Access all your services via memorable subdomains instead of random ports:
+
+```bash
+connect proxy --port 3000
+# Now access: http://prod-db.localhost:3000, http://my-api.localhost:3000
+```
+
 ## CLI Reference
 
 ```bash
 connect up                    # Start agent, authenticate
 connect expose <host:port>    # Expose a service (run on the server)
 connect reach <service>       # Connect to a service or Test connectivity (run on your laptop)
+connect proxy                 # Access services via subdomains (my-api.localhost:3000)
 connect whoami                # Show agent info
 connect update                # Update CLI to latest version
 connect logout                # Clear local credentials
@@ -150,6 +160,9 @@ connect logout                # Clear local credentials
 -t, --timeout <ms>     Timeout (default: 5000)
 --check                Only run diagnostics, don't create tunnel
 --json                 JSON output
+
+# connect proxy
+-p, --port <port>      Proxy port (default: 3000)
 
 # connect update
 -f, --force            Force update even if on latest
