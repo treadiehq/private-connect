@@ -29,7 +29,15 @@ export default defineNuxtConfig({
     head: {
       title: 'Private Connect',
       meta: [
-        { name: 'description', content: 'Secure tunneling for internal services' },
+        { name: 'description', content: 'Securely reach databases, APIs, and services behind firewalls. No VPN setup, no firewall rules, no port forwarding.' },
+        { property: 'og:image', content: 'https://privateconnect.co/img/privateconnect.png' },
+        { property: 'og:title', content: 'Private Connect' },
+        { property: 'og:type', content: 'website' },
+        { property: 'og:description', content: 'Securely reach databases, APIs, and services behind firewalls. No VPN setup, no firewall rules, no port forwarding.' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:title', content: 'Private Connect' },
+        { name: 'twitter:description', content: 'Securely reach databases, APIs, and services behind firewalls. No VPN setup, no firewall rules, no port forwarding.' },
+        { name: 'twitter:image', content: 'https://privateconnect.co/img/privateconnect.png' },
       ],
       link: [
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },

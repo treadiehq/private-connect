@@ -378,9 +378,6 @@
 <script setup lang="ts">
 useHead({ 
   title: 'Private Connect',
-  meta: [
-    { name: 'description', content: 'Securely reach databases, APIs, and services behind firewalls. No VPN setup, no firewall rules, no port forwarding.' }
-  ]
 })
 
 definePageMeta({
