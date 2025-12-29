@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, Headers, HttpException, HttpStatus, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, HttpException, HttpStatus, UseGuards, Req } from '@nestjs/common';
 import { AgentsService } from './agents.service';
 import { ApiKeyGuard } from '../auth/api-key.guard';
 import { z } from 'zod';
@@ -65,34 +65,36 @@ export class AgentsController {
   }
 
   @Get()
-  async findAll(@Headers('x-api-key') apiKey: string) {
-    if (apiKey) {
-      const workspace = await this.agentsService.validateWorkspaceApiKey(apiKey);
-      if (workspace) {
-        return this.agentsService.findByWorkspace(workspace.id);
-      }
-    }
-    return this.agentsService.findAll();
+  @UseGuards(ApiKeyGuard)
+  async findAll(@Req() req: any) {
+    const workspace = req.workspace;
+    return this.agentsService.findByWorkspace(workspace.id);
   }
 
   @Get('online')
-  async getOnlineAgents(@Headers('x-api-key') apiKey: string) {
-    let workspaceId: string | undefined;
-    if (apiKey) {
-      const workspace = await this.agentsService.validateWorkspaceApiKey(apiKey);
-      if (workspace) {
-        workspaceId = workspace.id;
-      }
-    }
-    return this.agentsService.getOnlineAgents(workspaceId);
+  @UseGuards(ApiKeyGuard)
+  async getOnlineAgents(@Req() req: any) {
+    const workspace = req.workspace;
+    return this.agentsService.getOnlineAgents(workspace.id);
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  @UseGuards(ApiKeyGuard)
+  async findOne(
+    @Param('id') id: string,
+    @Req() req: any,
+  ) {
     const agent = await this.agentsService.findById(id);
     if (!agent) {
       throw new HttpException('Agent not found', HttpStatus.NOT_FOUND);
     }
+
+    // Verify agent belongs to requester's workspace
+    const workspace = req.workspace;
+    if (agent.workspaceId !== workspace.id) {
+      throw new HttpException('Agent not found', HttpStatus.NOT_FOUND);
+    }
+
     return agent;
   }
 }

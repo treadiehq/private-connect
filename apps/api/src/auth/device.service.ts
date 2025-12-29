@@ -110,25 +110,21 @@ export class DeviceService {
     userId: string,
     workspaceId: string,
   ): Promise<{ success: boolean; error?: string }> {
-    // Normalize user code (remove dashes, uppercase)
+    // Normalize user code: remove dashes, uppercase, then re-add dash in correct position
     const normalizedCode = userCode.replace(/-/g, '').toUpperCase();
     
-    // Find device code by user code
-    const device = await this.prisma.deviceCode.findFirst({
-      where: {
-        userCode: {
-          contains: normalizedCode.slice(0, 4),
-        },
-        verifiedAt: null,
-      },
-    });
+    // Validate length (should be exactly 8 alphanumeric characters after removing dash)
+    if (normalizedCode.length !== 8) {
+      return { success: false, error: 'Invalid code format' };
+    }
 
-    // Try exact match
-    const exactDevice = await this.prisma.deviceCode.findUnique({
-      where: { userCode: userCode.toUpperCase() },
-    });
+    // Format code with dash in correct position to match stored format (XXXX-XXXX)
+    const formattedCode = `${normalizedCode.slice(0, 4)}-${normalizedCode.slice(4)}`;
 
-    const targetDevice = exactDevice || device;
+    // Use exact match with properly formatted code - no fuzzy search to avoid collisions
+    const targetDevice = await this.prisma.deviceCode.findUnique({
+      where: { userCode: formattedCode },
+    });
 
     if (!targetDevice) {
       return { success: false, error: 'Invalid code' };

@@ -66,6 +66,11 @@ export class SharesController {
       throw new HttpException('Service not found', HttpStatus.NOT_FOUND);
     }
 
+    // Verify service belongs to user's workspace
+    if (!session.workspace || service.workspaceId !== session.workspace.id) {
+      throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
+    }
+
     // Calculate expiry
     let expiresAt: Date | undefined;
     if (parsed.data.expiresIn && parsed.data.expiresIn !== 'never') {
@@ -118,6 +123,15 @@ export class SharesController {
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
 
+    // Verify service exists and belongs to user's workspace
+    const service = await this.servicesService.findById(serviceId);
+    if (!service) {
+      throw new HttpException('Service not found', HttpStatus.NOT_FOUND);
+    }
+    if (!session.workspace || service.workspaceId !== session.workspace.id) {
+      throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
+    }
+
     const shares = await this.sharesService.getSharesForService(serviceId);
 
     return {
@@ -154,6 +168,15 @@ export class SharesController {
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
 
+    // Verify share exists and belongs to user's workspace
+    const share = await this.sharesService.getShareById(shareId);
+    if (!share) {
+      throw new HttpException('Share not found', HttpStatus.NOT_FOUND);
+    }
+    if (!session.workspace || share.service.workspaceId !== session.workspace.id) {
+      throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
+    }
+
     await this.sharesService.revokeShare(shareId);
     return { success: true };
   }
@@ -172,6 +195,15 @@ export class SharesController {
     );
     if (!session) {
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+
+    // Verify share exists and belongs to user's workspace
+    const share = await this.sharesService.getShareById(shareId);
+    if (!share) {
+      throw new HttpException('Share not found', HttpStatus.NOT_FOUND);
+    }
+    if (!session.workspace || share.service.workspaceId !== session.workspace.id) {
+      throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
     }
 
     const logs = await this.sharesService.getAccessLogs(shareId);

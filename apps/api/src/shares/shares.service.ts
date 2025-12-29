@@ -74,6 +74,23 @@ export class SharesService {
   }
 
   /**
+   * Get a share by ID with service relation (for authorization checks)
+   */
+  async getShareById(shareId: string) {
+    return this.prisma.serviceShare.findUnique({
+      where: { id: shareId },
+      include: {
+        service: {
+          select: {
+            id: true,
+            workspaceId: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
    * Validate if a share is active and valid
    */
   async validateShare(

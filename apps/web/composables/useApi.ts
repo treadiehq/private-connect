@@ -107,7 +107,7 @@ export function useApi() {
   };
 
   const fetchDiagnostic = async (id: string) => {
-    const response = await fetch(`${baseUrl}/v1/diagnostics/${id}`);
+    const response = await fetch(`${baseUrl}/v1/diagnostics/${id}`, { headers: headers() });
     if (!response.ok) throw new Error('Failed to fetch diagnostic');
     return response.json();
   };

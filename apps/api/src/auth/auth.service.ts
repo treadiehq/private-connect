@@ -196,71 +196,92 @@ export class AuthService {
     workspace: { id: string; name: string; apiKey: string } | null;
     isNewUser: boolean;
   }> {
-    const magicLink = await this.prisma.magicLink.findUnique({
-      where: { token },
-      include: { user: { include: { workspaces: { include: { apiKeys: { where: { revokedAt: null }, take: 1 } } } } } },
-    });
-
-    if (!magicLink) {
-      throw new UnauthorizedException('Invalid or expired magic link');
-    }
-
-    if (magicLink.usedAt) {
-      throw new UnauthorizedException('This magic link has already been used');
-    }
-
-    if (magicLink.expiresAt < new Date()) {
-      throw new UnauthorizedException('This magic link has expired');
-    }
-
-    // Mark magic link as used and update user verification in a transaction
     const sessionToken = randomBytes(32).toString('hex');
     const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
-    await this.prisma.$transaction(async (tx) => {
-      // Mark magic link as used
-      await tx.magicLink.update({
-        where: { id: magicLink.id },
-        data: { usedAt: new Date() },
-      });
-
-      // Mark user as verified if registering
-      if (magicLink.type === 'REGISTER' && !magicLink.user.emailVerified) {
-        await tx.user.update({
-          where: { id: magicLink.userId },
-          data: { emailVerified: true },
+    try {
+      // Perform all validation and updates inside transaction to prevent TOCTOU race
+      const result = await this.prisma.$transaction(async (tx) => {
+        // Fetch magic link with fresh data inside transaction
+        const magicLink = await tx.magicLink.findUnique({
+          where: { token },
+          include: { user: { include: { workspaces: { include: { apiKeys: { where: { revokedAt: null }, take: 1 } } } } } },
         });
-      }
 
-      // Create auth session
-      await tx.authSession.create({
-        data: {
-          userId: magicLink.userId,
-          token: sessionToken,
-          expiresAt: sessionExpiresAt,
-          userAgent,
-          ipAddress,
-        },
+        if (!magicLink) {
+          throw new UnauthorizedException('Invalid or expired magic link');
+        }
+
+        // Validate inside transaction with fresh data
+        if (magicLink.usedAt) {
+          throw new UnauthorizedException('This magic link has already been used');
+        }
+
+        if (magicLink.expiresAt < new Date()) {
+          throw new UnauthorizedException('This magic link has expired');
+        }
+
+        // Mark magic link as used with optimistic lock (only update if still unused)
+        const updateResult = await tx.magicLink.updateMany({
+          where: {
+            id: magicLink.id,
+            usedAt: null, // Optimistic lock: only update if still null
+          },
+          data: { usedAt: new Date() },
+        });
+
+        // If no rows were updated, another request already used this link
+        if (updateResult.count === 0) {
+          throw new UnauthorizedException('This magic link has already been used');
+        }
+
+        // Mark user as verified if registering
+        if (magicLink.type === 'REGISTER' && !magicLink.user.emailVerified) {
+          await tx.user.update({
+            where: { id: magicLink.userId },
+            data: { emailVerified: true },
+          });
+        }
+
+        // Create auth session
+        await tx.authSession.create({
+          data: {
+            userId: magicLink.userId,
+            token: sessionToken,
+            expiresAt: sessionExpiresAt,
+            userAgent,
+            ipAddress,
+          },
+        });
+
+        return magicLink;
       });
-    });
 
-    const workspace = magicLink.user.workspaces[0] || null;
-    const apiKey = workspace?.apiKeys?.[0] || null;
-    const isNewUser = magicLink.type === 'REGISTER';
+      const workspace = result.user.workspaces[0] || null;
+      const apiKey = workspace?.apiKeys?.[0] || null;
+      const isNewUser = result.type === 'REGISTER';
 
-    return {
-      sessionToken,
-      isNewUser,
-      user: {
-        id: magicLink.user.id,
-        email: magicLink.user.email,
-      },
-      workspace: workspace ? {
-        id: workspace.id,
-        name: workspace.name,
-        apiKey: apiKey?.key || '',
-      } : null,
-    };
+      return {
+        sessionToken,
+        isNewUser,
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+        },
+        workspace: workspace ? {
+          id: workspace.id,
+          name: workspace.name,
+          apiKey: apiKey?.key || '',
+        } : null,
+      };
+    } catch (error) {
+      // Re-throw UnauthorizedException as-is
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      // For any other errors, throw a generic error
+      throw new UnauthorizedException('Failed to verify magic link');
+    }
   }
 
   // Validate session token

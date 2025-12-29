@@ -180,16 +180,25 @@ export class TunnelService {
       timeout,
     });
 
+    // Forward client data to agent via WebSocket
+    clientSocket.on('data', (data: Buffer) => {
+      this.sendToAgent(agentId, connectionId, data);
+    });
+
     clientSocket.on('error', (err) => {
       this.logger.error(`Client socket error: ${err.message}`);
       this.pendingConnections.delete(connectionId);
       clearTimeout(timeout);
+      // Notify agent to close the connection on its end
+      agent.socket.emit('close', { connectionId });
     });
 
     clientSocket.on('close', () => {
       if (this.pendingConnections.has(connectionId)) {
         this.pendingConnections.delete(connectionId);
         clearTimeout(timeout);
+        // Notify agent to close the connection on its end
+        agent.socket.emit('close', { connectionId });
       }
     });
   }

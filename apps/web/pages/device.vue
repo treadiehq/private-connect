@@ -154,8 +154,9 @@ const verifyCode = async () => {
   error.value = '';
 
   try {
+    // Session cookie provides authentication - server extracts user/workspace from session
     const response = await fetch(
-      `${config.public.apiUrl}/v1/device/verify?user_id=${user.value?.id}&workspace_id=${workspace.value?.id}`,
+      `${config.public.apiUrl}/v1/device/verify`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

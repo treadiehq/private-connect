@@ -45,8 +45,8 @@ export class AgentsService {
       include: { workspace: true },
     });
 
-    // Broadcast agent online status
-    this.realtimeGateway.broadcastAgentStatus(agentId, true);
+    // Broadcast agent online status to workspace-specific room
+    this.realtimeGateway.broadcastAgentStatus(agentId, true, workspaceId);
 
     return agent;
   }
@@ -100,7 +100,8 @@ export class AgentsService {
       },
     });
     
-    this.realtimeGateway.broadcastAgentStatus(agentId, isOnline);
+    // Broadcast to workspace-specific room
+    this.realtimeGateway.broadcastAgentStatus(agentId, isOnline, agent.workspaceId);
     return agent;
   }
 

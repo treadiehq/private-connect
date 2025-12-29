@@ -73,14 +73,15 @@ export class ServicesService {
     protocol: string = 'auto',
     isPublic: boolean = false,
   ) {
-    // Check plan limits
-    const usage = await this.workspaceService.getUsage(workspaceId);
-    if (!usage?.canAddService) {
-      // Check if this is an update (existing service)
-      const existing = await this.prisma.service.findUnique({
-        where: { workspaceId_name: { workspaceId, name } },
-      });
-      if (!existing) {
+    // Check if service already exists (for port reuse and limit checking)
+    const existing = await this.prisma.service.findUnique({
+      where: { workspaceId_name: { workspaceId, name } },
+    });
+
+    // Check plan limits only if creating a new service
+    if (!existing) {
+      const usage = await this.workspaceService.getUsage(workspaceId);
+      if (!usage?.canAddService) {
         throw new HttpException(
           `Service limit reached. Upgrade to PRO for more services.`,
           HttpStatus.PAYMENT_REQUIRED,
@@ -88,10 +89,14 @@ export class ServicesService {
       }
     }
 
-    const tunnelPort = this.allocatePort();
+    // Reuse existing port if updating, otherwise allocate new port
+    // This prevents port leaks when services are updated
+    const tunnelPort = existing?.tunnelPort || this.allocatePort();
     
-    // Generate public subdomain if requested
-    const publicSubdomain = isPublic ? this.generateSubdomain() : null;
+    // Generate public subdomain if requested (keep existing if already set)
+    const publicSubdomain = isPublic 
+      ? (existing?.publicSubdomain || this.generateSubdomain()) 
+      : null;
     
     const service = await this.prisma.service.upsert({
       where: { workspaceId_name: { workspaceId, name } },

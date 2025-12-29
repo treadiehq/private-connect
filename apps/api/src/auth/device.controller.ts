@@ -1,5 +1,6 @@
-import { Controller, Post, Get, Body, Query, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, Req, HttpException, HttpStatus, UseGuards } from '@nestjs/common';
 import { DeviceService } from './device.service';
+import { AuthGuard } from './auth.guard';
 import { z } from 'zod';
 
 const CreateDeviceCodeSchema = z.object({
@@ -72,17 +73,24 @@ export class DeviceController {
   /**
    * Step 3: Web UI calls this after user logs in to verify the device
    * POST /v1/device/verify
+   * 
+   * This endpoint requires authentication via session cookie.
+   * User and workspace are extracted from the authenticated session.
    */
   @Post('verify')
+  @UseGuards(AuthGuard)
   async verifyDeviceCode(
     @Body() body: unknown,
-    @Query('user_id') userId: string,
-    @Query('workspace_id') workspaceId: string,
+    @Req() request: any,
   ) {
     const parsed = VerifyDeviceCodeSchema.safeParse(body);
     if (!parsed.success) {
       throw new HttpException(parsed.error.message, HttpStatus.BAD_REQUEST);
     }
+
+    // Extract authenticated user and workspace from the session (populated by AuthGuard)
+    const userId = request.user?.id;
+    const workspaceId = request.workspace?.id;
 
     if (!userId || !workspaceId) {
       throw new HttpException('Must be authenticated', HttpStatus.UNAUTHORIZED);

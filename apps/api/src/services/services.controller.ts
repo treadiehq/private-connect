@@ -155,7 +155,7 @@ export class ServicesController {
 
       if (updatedService) {
         this.realtimeGateway.broadcastServiceUpdate(updatedService);
-        this.realtimeGateway.broadcastDiagnosticResult(diagnostic);
+        this.realtimeGateway.broadcastDiagnosticResult(diagnostic, updatedService.workspaceId);
       }
     } catch (error) {
       // Silently fail - this is a background check
@@ -164,57 +164,72 @@ export class ServicesController {
   }
 
   @Get()
-  async findAll(@Headers('x-api-key') apiKey: string) {
-    let workspaceId: string | undefined;
-    if (apiKey) {
-      const workspace = await this.agentsService.validateWorkspaceApiKey(apiKey);
-      if (workspace) {
-        workspaceId = workspace.id;
-      }
-    }
-    return this.servicesService.findAll(workspaceId);
+  @UseGuards(ApiKeyGuard)
+  async findAll(@Req() req: any) {
+    const workspace = req.workspace;
+    return this.servicesService.findAll(workspace.id);
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    const service = await this.servicesService.findById(id);
-    if (!service) {
-      throw new HttpException('Service not found', HttpStatus.NOT_FOUND);
-    }
-    return service;
-  }
-
-  @Get(':id/diagnostics')
-  async getDiagnostics(
+  @UseGuards(ApiKeyGuard)
+  async findOne(
     @Param('id') id: string,
-    @Query('limit') limit: string = '50',
-    @Headers('x-api-key') apiKey: string,
+    @Req() req: any,
   ) {
     const service = await this.servicesService.findById(id);
     if (!service) {
       throw new HttpException('Service not found', HttpStatus.NOT_FOUND);
     }
 
-    let workspaceId: string | undefined;
-    if (apiKey) {
-      const workspace = await this.agentsService.validateWorkspaceApiKey(apiKey);
-      if (workspace) {
-        workspaceId = workspace.id;
-      }
+    // Verify service belongs to requester's workspace
+    const workspace = req.workspace;
+    if (service.workspaceId !== workspace.id) {
+      throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
+    }
+
+    return service;
+  }
+
+  @Get(':id/diagnostics')
+  @UseGuards(ApiKeyGuard)
+  async getDiagnostics(
+    @Param('id') id: string,
+    @Query('limit') limit: string = '50',
+    @Req() req: any,
+  ) {
+    const service = await this.servicesService.findById(id);
+    if (!service) {
+      throw new HttpException('Service not found', HttpStatus.NOT_FOUND);
+    }
+
+    // Verify service belongs to requester's workspace
+    const workspace = req.workspace;
+    if (service.workspaceId !== workspace.id) {
+      throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
     }
 
     return this.servicesService.getDiagnosticHistory(
       id,
       parseInt(limit, 10),
-      workspaceId,
+      workspace.id,
     );
   }
 
   @Post(':id/check')
-  async runCheck(@Param('id') id: string) {
+  @UseGuards(ApiKeyGuard)
+  async runCheck(
+    @Param('id') id: string,
+    @Req() req: any,
+  ) {
     const service = await this.servicesService.findById(id);
     if (!service) {
       throw new HttpException('Service not found', HttpStatus.NOT_FOUND);
+    }
+
+    // Verify service belongs to requester's workspace
+    const workspace = req.workspace;
+    if (service.workspaceId !== workspace.id) {
+      throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
     }
 
     let result;
@@ -246,9 +261,9 @@ export class ServicesController {
     // Get updated service
     const updatedService = await this.servicesService.findById(id);
     
-    // Notify UI
+    // Notify UI (broadcast to workspace-specific room)
     this.realtimeGateway.broadcastServiceUpdate(updatedService!);
-    this.realtimeGateway.broadcastDiagnosticResult(diagnostic);
+    this.realtimeGateway.broadcastDiagnosticResult(diagnostic, service.workspaceId);
 
     return { 
       success: true, 
@@ -258,9 +273,11 @@ export class ServicesController {
   }
 
   @Post(':id/reach')
+  @UseGuards(ApiKeyGuard)
   async runReachCheck(
     @Param('id') id: string,
     @Body() body: unknown,
+    @Req() req: any,
   ) {
     const parsed = ReachSchema.safeParse(body);
     if (!parsed.success) {
@@ -270,6 +287,12 @@ export class ServicesController {
     const service = await this.servicesService.findById(id);
     if (!service) {
       throw new HttpException('Service not found', HttpStatus.NOT_FOUND);
+    }
+
+    // Verify service belongs to requester's workspace
+    const workspace = req.workspace;
+    if (service.workspaceId !== workspace.id) {
+      throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
     }
 
     const { sourceAgentId, mode, timeoutMs } = parsed.data;
@@ -315,9 +338,9 @@ export class ServicesController {
       // Get updated service
       const updatedService = await this.servicesService.findById(id);
 
-      // Notify UI
+      // Notify UI (broadcast to workspace-specific room)
       this.realtimeGateway.broadcastServiceUpdate(updatedService!);
-      this.realtimeGateway.broadcastDiagnosticResult(diagnostic);
+      this.realtimeGateway.broadcastDiagnosticResult(diagnostic, service.workspaceId);
 
       return {
         success: true,

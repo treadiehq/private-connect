@@ -15,6 +15,7 @@ export function useSocket() {
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
+      withCredentials: true, // Send session cookie for authentication
     });
 
     socket.on('connect', () => {
