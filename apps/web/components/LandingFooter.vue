@@ -4,7 +4,7 @@
       <div class="border-t border-transparent flex flex-col md:flex-row items-center justify-between py-6">
 				<div class="flex items-center justify-center gap-3 relative">
 					<p class="text-xs leading-6 font-medium text-gray-500 xl:text-center">
-						&copy; 2025 Treadie, Inc.
+						&copy; {{new Date().getFullYear()}} Treadie, Inc.
 					</p>
 					<span class="text-gray-500/50 text-xs">|</span>
 					<div

@@ -139,6 +139,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@tailwindplus/elements':
+        specifier: ^1.0.21
+        version: 1.0.21
       nuxt:
         specifier: ^3.9.0
         version: 3.20.2(@electric-sql/pglite@0.3.2)(@parcel/watcher@2.5.1)(@types/node@20.19.27)(@vue/compiler-sfc@3.5.26)(cac@6.7.14)(db0@0.3.4(@electric-sql/pglite@0.3.2)(mysql2@3.15.3))(ioredis@5.8.2)(lightningcss@1.30.2)(magicast@0.5.1)(mysql2@3.15.3)(rollup@4.54.0)(terser@5.44.1)(tsx@4.21.0)(typescript@5.9.3)(vite@7.3.0(@types/node@20.19.27)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2))(yaml@2.8.2)
@@ -1407,6 +1410,7 @@ packages:
 
   '@oxc-resolver/binding-darwin-arm64@11.16.0':
     resolution: {integrity: sha512-eB00fkys5TX6oI3lY+1hgHl6dwfmrbhHTmInmJmfD6BysHpE+DUqSdQIRS2v5NI6+j+J9EWBmbW3hRtolr+MSg==}
+    cpu: [arm64]
     os: [darwin]
 
   '@oxc-transform/binding-android-arm64@0.102.0':
@@ -1945,6 +1949,9 @@ packages:
     resolution: {integrity: sha512-jVA+/UpKL1vRLg6Hkao5jldawNmRo7mQYrZtNHMIVpLfLhDml5nMRUo/8MwoX2vNXvnaXNNMedrMfMugAVX1nA==}
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7
+
+  '@tailwindplus/elements@1.0.21':
+    resolution: {integrity: sha512-CShPoilDolGpzT9J4MVTCexOijwURW+MHGNMoS5ijiD2FVNk1XHFvEuy6mTeKQ5dOAYNLGwK3VjMOQ8io42H+Q==}
 
   '@tokenizer/inflate@0.2.7':
     resolution: {integrity: sha512-MADQgmZT1eKjp06jpI2yozxaU9uVs4GzzgSL+uEq7bVcJ9V1ZXQkeGNql1fsSI0gMy1vhvNTNbUqrx+pZfJVmg==}
@@ -7584,6 +7591,8 @@ snapshots:
       '@tailwindcss/oxide': 4.1.18
       tailwindcss: 4.1.18
       vite: 7.3.0(@types/node@20.19.27)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
+
+  '@tailwindplus/elements@1.0.21': {}
 
   '@tokenizer/inflate@0.2.7':
     dependencies:
