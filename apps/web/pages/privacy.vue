@@ -237,7 +237,7 @@
         <section class="mb-8">
           <h2 class="text-xl font-semibold text-white mb-4">Contact Us</h2>
           <p class="text-gray-400 leading-relaxed">
-            If you have any questions about this Privacy Policy, please contact us by email: <a href="mailto:info@privateconnect.co" class="text-blue-300 hover:text-blue-200">info@privateconnect.co</a>
+            If you have any questions about this Privacy Policy, please contact us by email: <a href="mailto:info@treadie.com" class="text-blue-300 hover:text-blue-200">info@treadie.com</a>
           </p>
         </section>
       </div>
