@@ -3,6 +3,12 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineNuxtConfig({
   devtools: { enabled: false },
   modules: [],
+
+  vue: {
+    compilerOptions: {
+      isCustomElement: (tag) => tag.startsWith('el-'),
+    },
+  },
   
   css: ['~/assets/css/main.css'],
   
