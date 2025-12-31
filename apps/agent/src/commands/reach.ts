@@ -350,10 +350,14 @@ async function reachDirectUrl(urlString: string, options: ReachOptions, timeoutM
     message: '',
   };
 
-  // DNS Check
+  // DNS Check (with timeout)
   const dns = await import('dns').then(m => m.promises);
   try {
-    const addresses = await dns.lookup(host);
+    const dnsTimeout = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('DNS lookup timeout')), timeoutMs);
+    });
+    const dnsLookup = dns.lookup(host);
+    const addresses = await Promise.race([dnsLookup, dnsTimeout]);
     result.dnsStatus = `OK (${addresses.address})`;
   } catch (err: unknown) {
     const e = err as Error & { code?: string };

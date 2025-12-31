@@ -38,6 +38,38 @@ export function getConfigDir(): string {
   return path.dirname(activeConfigPath);
 }
 
+/**
+ * Validate token format (64 hex characters)
+ */
+function isValidToken(token: string): boolean {
+  return typeof token === 'string' && /^[a-f0-9]{64}$/i.test(token);
+}
+
+/**
+ * Validate UUID format
+ */
+function isValidUUID(id: string): boolean {
+  return typeof id === 'string' && 
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
+/**
+ * Validate config structure and fields
+ */
+function validateConfig(config: unknown): config is AgentConfig {
+  if (!config || typeof config !== 'object') return false;
+  const c = config as Record<string, unknown>;
+  
+  // Required fields
+  if (!c.agentId || !isValidUUID(c.agentId as string)) return false;
+  if (!c.token || !isValidToken(c.token as string)) return false;
+  if (!c.apiKey || typeof c.apiKey !== 'string' || c.apiKey.length < 10) return false;
+  if (!c.hubUrl || typeof c.hubUrl !== 'string') return false;
+  if (!c.label || typeof c.label !== 'string') return false;
+  
+  return true;
+}
+
 export function loadConfig(customPath?: string): AgentConfig | null {
   const configFile = customPath ? path.resolve(customPath) : activeConfigPath;
   try {
@@ -45,7 +77,15 @@ export function loadConfig(customPath?: string): AgentConfig | null {
       return null;
     }
     const data = fs.readFileSync(configFile, 'utf-8');
-    return JSON.parse(data) as AgentConfig;
+    const config = JSON.parse(data);
+    
+    // Validate config structure
+    if (!validateConfig(config)) {
+      console.error('Warning: Config file has invalid format. Run "connect up" to reconfigure.');
+      return null;
+    }
+    
+    return config;
   } catch {
     return null;
   }
