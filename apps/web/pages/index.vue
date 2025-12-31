@@ -356,15 +356,20 @@
         <!-- FAQ 4 -->
         <details class="group bg-gray-500/10 rounded-xl border border-gray-500/10 overflow-hidden">
           <summary class="flex items-center justify-between p-5 cursor-pointer list-none">
-            <span class="font-medium text-white">Is it wise to bypass my existing security setup?</span>
+            <span class="font-medium text-white">Doesn't this make it easier for attackers to reach prod?</span>
             <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
           </summary>
           <div class="px-5 pb-5 text-gray-400 text-sm leading-relaxed space-y-3">
-            <p>Private Connect doesn't "bypass" security, it's a different model. VPNs give broad network access; we give per-service, token-scoped access.</p>
-            <!-- <p><strong class="text-white">Good for:</strong> Dev environments, debugging, webhook testing, contractor access.</p>
-            <p><strong class="text-white">Not for:</strong> Production with compliance requirements (PCI, HIPAA), air-gapped networks, or anywhere audited tools are mandated.</p> -->
+            <p><strong class="text-white">No.</strong> Private Connect doesn't grant new access, it wraps existing access.</p>
+            <p>If you can SSH into a jump box today, you already have prod access. We make that access:</p>
+            <ul class="space-y-1">
+              <li class="flex items-start gap-2"><span class="text-blue-300">✓</span> <strong class="text-white">Auditable:</strong> Who accessed what, when, from which IP</li>
+              <li class="flex items-start gap-2"><span class="text-blue-300">✓</span> <strong class="text-white">Revocable:</strong> Tokens expire (30 days) and can be rotated instantly</li>
+              <li class="flex items-start gap-2"><span class="text-blue-300">✓</span> <strong class="text-white">Scoped:</strong> Per-service access, not broad network access like VPNs</li>
+            </ul>
+            <p class="text-gray-500 text-xs">If an attacker has your agent credentials, they likely already have your SSH keys. We just make the access you already have safer and more traceable.</p>
           </div>
         </details>
 
