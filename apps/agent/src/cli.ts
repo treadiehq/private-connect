@@ -9,6 +9,12 @@ import { whoamiCommand } from './commands/whoami';
 import { discoverCommand } from './commands/discover';
 import { logoutCommand } from './commands/logout';
 import { updateCommand } from './commands/update';
+import { shareCommand, listSharesCommand, revokeShareCommand } from './commands/share';
+import { joinCommand } from './commands/join';
+import { mapCommand, mapStatusCommand } from './commands/map';
+import { daemonCommand } from './commands/daemon';
+import { devCommand, devInitCommand } from './commands/dev';
+import { linkCommand } from './commands/link';
 import { setConfigPath } from './config';
 
 // Version - keep in sync with package.json
@@ -77,6 +83,21 @@ program
   });
 
 program
+  .command('link <service>')
+  .description('Create a public URL for a service (no account needed to access)')
+  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-e, --expires <duration>', 'Expiration: 1h, 24h, 7d, 30d, never', '24h')
+  .option('-m, --methods <methods>', 'Allowed HTTP methods (comma-separated, e.g., GET,POST)')
+  .option('-p, --paths <paths>', 'Allowed paths (comma-separated, e.g., /api,/health)')
+  .option('-r, --rate-limit <rpm>', 'Rate limit per minute')
+  .option('-n, --name <name>', 'Link name (for identification)')
+  .option('-c, --config <path>', 'Config file path (for multiple agents)')
+  .action((service, options) => {
+    if (options.config) setConfigPath(options.config);
+    linkCommand(service, options);
+  });
+
+program
   .command('whoami')
   .description('Print agent identity and workspace membership')
   .option('--json', 'Output as JSON')
@@ -113,6 +134,85 @@ program
   .option('-f, --force', 'Force update even if already on latest version')
   .action((options) => {
     updateCommand(options);
+  });
+
+// Environment Sharing Commands
+program
+  .command('share')
+  .description('Share your current environment with teammates')
+  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-n, --name <name>', 'Friendly name for the share')
+  .option('-e, --expires <duration>', 'Expiry duration (e.g., 4h, 24h, 7d)', '24h')
+  .option('-c, --config <path>', 'Config file path')
+  .option('-l, --list', 'List active shares')
+  .option('-r, --revoke <code>', 'Revoke a share by code')
+  .action((options) => {
+    if (options.config) setConfigPath(options.config);
+    if (options.list) {
+      listSharesCommand(options);
+    } else if (options.revoke) {
+      revokeShareCommand(options.revoke, options);
+    } else {
+      shareCommand(options);
+    }
+  });
+
+program
+  .command('join <code>')
+  .description('Join a shared environment from a teammate')
+  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-c, --config <path>', 'Config file path')
+  .action((code, options) => {
+    if (options.config) setConfigPath(options.config);
+    joinCommand(code, options);
+  });
+
+// Mapping Commands
+program
+  .command('map [service] [localPort]')
+  .description('Map a service to a local port (e.g., staging-db → localhost:5432)')
+  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-c, --config <path>', 'Config file path')
+  .option('-r, --remove', 'Remove the mapping')
+  .option('-s, --status', 'Show status of all mappings')
+  .action((service, localPort, options) => {
+    if (options.config) setConfigPath(options.config);
+    if (options.status) {
+      mapStatusCommand(options);
+    } else {
+      mapCommand(service, localPort, options);
+    }
+  });
+
+// Daemon Commands
+program
+  .command('daemon [action]')
+  .description('Manage the background daemon (install|uninstall|start|stop|restart|status|logs)')
+  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-c, --config <path>', 'Config file path')
+  .option('--proxy', 'Also run the proxy server')
+  .option('--proxy-port <port>', 'Proxy port (default: 3000)')
+  .action((action, options) => {
+    if (options.config) setConfigPath(options.config);
+    daemonCommand(action, options);
+  });
+
+// Dev Mode Commands
+program
+  .command('dev')
+  .description('Connect to all services defined in pconnect.yml')
+  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-f, --file <path>', 'Config file path')
+  .option('-c, --config <path>', 'Agent config file path')
+  .option('-b, --background', 'Run in background')
+  .option('--init', 'Initialize a new .privateconnect.yml file')
+  .action((options) => {
+    if (options.config) setConfigPath(options.config);
+    if (options.init) {
+      devInitCommand(options);
+    } else {
+      devCommand(options);
+    }
   });
 
 program.parse();

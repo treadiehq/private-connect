@@ -1,6 +1,6 @@
 # Private Connect
 
-Securely connect and test private services across any environment, no VPNs, no firewall rules.
+Securely access any private services from anywhere, no VPNs, no firewall rules.
 
 ## Install
 
@@ -28,6 +28,8 @@ pnpm run build:binary
 ## Live
 
 Try the product live at **https://privateconnect.co**
+
+**[See Use Cases & Examples](USE_CASES.md)** — real scenarios where Private Connect saves hours
 
 ## Community & Support
 
@@ -125,13 +127,79 @@ connect proxy --port 3000
 # Now access: http://prod-db.localhost:3000, http://my-api.localhost:3000
 ```
 
+### Always-On Daemon
+
+Run the agent in the background, starts automatically on boot:
+
+```bash
+connect daemon install   # Install and start
+connect daemon status    # Check status
+connect daemon logs      # View logs
+connect daemon uninstall # Remove
+```
+
+### Project Dev Mode
+
+Define services per-project and connect with one command:
+
+```bash
+connect dev --init  # Creates pconnect.yml
+connect dev         # Connects all services
+```
+
+```yaml
+# pconnect.yml
+services:
+  - name: staging-db
+    port: 5432
+  - name: redis
+    port: 6379
+```
+
+### Share with Teammates
+
+Share your exact environment with a teammate:
+
+```bash
+# You
+connect share           # Creates a share code
+# → Share code: x7k9m2
+
+# Teammate  
+connect join x7k9m2     # Joins your environment
+# → Same services, same ports
+```
+
+### Public Links (for Contributors)
+
+Create a public URL for a service—no CLI or account needed to access:
+
+```bash
+connect link api --expires 7d --methods GET
+# → https://link.privateconnect.co/share_abc123...
+```
+
+Perfect for open-source contributors who need to hit your prod API:
+
+```bash
+connect link api --paths /api/v1,/health    # Restrict paths
+connect link api --rate-limit 60            # 60 requests/min
+```
+
 ## CLI Reference
 
 ```bash
 connect up                    # Start agent, authenticate
 connect expose <host:port>    # Expose a service (run on the server)
-connect reach <service>       # Connect to a service or Test connectivity (run on your laptop)
+connect reach <service>       # Connect to a service (run on your laptop)
 connect proxy                 # Access services via subdomains (my-api.localhost:3000)
+connect link <service>        # Create public URL (no account needed to access)
+connect daemon <action>       # Manage background daemon (install|start|stop|status|logs)
+connect dev                   # Connect services from pconnect.yml
+connect share                 # Share your environment with teammates
+connect join <code>           # Join a teammate's shared environment
+connect map <service> [port]  # Map a service to a local port
+connect discover              # Scan for local services
 connect whoami                # Show agent info
 connect update                # Update CLI to latest version
 connect logout                # Clear local credentials
@@ -141,7 +209,7 @@ connect logout                # Clear local credentials
 
 ```bash
 # Global (all commands)
--h, --hub <url>        Hub URL (default: $CONNECT_HUB_URL or localhost:3001)
+-h, --hub <url>        Hub URL (default: $CONNECT_HUB_URL or api.privateconnect.co)
 -c, --config <path>    Config file (for multiple agents on same machine)
 
 # connect up
@@ -163,6 +231,12 @@ connect logout                # Clear local credentials
 
 # connect proxy
 -p, --port <port>      Proxy port (default: 3000)
+
+# connect link
+-e, --expires <time>   Expiration: 1h, 24h, 7d, 30d, never (default: 24h)
+-m, --methods <list>   Allowed methods: GET,POST,PUT,DELETE
+-p, --paths <list>     Allowed paths: /api,/health
+-r, --rate-limit <n>   Rate limit per minute
 
 # connect update
 -f, --force            Force update even if on latest
@@ -224,8 +298,6 @@ cd apps/api && pnpm db:push
 - Credentials never transit the hub—only connection metadata
 - Audit logging for token usage and IP changes
 - Log scrubbing prevents sensitive data leakage
-
-See our [Security FAQ](https://privateconnect.co/#security) for more details.
 
 ## License
 

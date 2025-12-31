@@ -242,3 +242,55 @@ model DeviceCode {
 
   @@index([expiresAt]) // For cleanup of expired codes
 }
+
+// EnvironmentShare: share your entire routing environment with teammates
+// "Hey teammate, connect to the exact environment I'm using"
+model EnvironmentShare {
+  id            String    @id @default(uuid())
+  code          String    @unique  // Short shareable code (e.g., "a3f9x2")
+  name          String?             // Optional friendly name
+  createdById   String              // Agent that created this share
+  workspaceId   String              // Workspace this belongs to
+  expiresAt     DateTime            // Share expiry (default: 24 hours)
+  revokedAt     DateTime?           // Set when revoked
+  createdAt     DateTime  @default(now())
+  
+  // The routes being shared (snapshot at creation time)
+  routes        EnvironmentShareRoute[]
+  
+  // Tracking who joined
+  joins         EnvironmentShareJoin[]
+  
+  @@index([workspaceId])
+  @@index([expiresAt])
+}
+
+// EnvironmentShareRoute: individual route in a shared environment
+model EnvironmentShareRoute {
+  id              String    @id @default(uuid())
+  envShareId      String
+  serviceName     String            // e.g., "staging-db"
+  serviceId       String?           // Reference to actual service (if it still exists)
+  targetHost      String            // Original target
+  targetPort      Int
+  localPort       Int?              // Suggested local port
+  protocol        String  @default("auto")
+  
+  envShare        EnvironmentShare @relation(fields: [envShareId], references: [id], onDelete: Cascade)
+  
+  @@index([envShareId])
+}
+
+// EnvironmentShareJoin: tracks who joined a shared environment
+model EnvironmentShareJoin {
+  id              String    @id @default(uuid())
+  envShareId      String
+  agentId         String            // Agent that joined
+  agentLabel      String?           // Label of joining agent
+  joinedAt        DateTime @default(now())
+  
+  envShare        EnvironmentShare @relation(fields: [envShareId], references: [id], onDelete: Cascade)
+  
+  @@index([envShareId])
+  @@index([agentId])
+}

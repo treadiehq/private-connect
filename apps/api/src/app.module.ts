@@ -8,6 +8,7 @@ import { RealtimeModule } from './realtime/realtime.module';
 import { WorkspaceModule } from './workspace/workspace.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { SharesModule } from './shares/shares.module';
+import { EnvSharesModule } from './env-shares/env-shares.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { SharesModule } from './shares/shares.module';
     TunnelModule,
     RealtimeModule,
     SharesModule,
+    EnvSharesModule,
   ],
 })
 export class AppModule {}

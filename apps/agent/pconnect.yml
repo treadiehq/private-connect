@@ -1,0 +1,8 @@
+# Private Connect project config
+# Run: connect dev
+
+services:
+  - name: staging-db
+    port: 5432
+  - name: redis
+    port: 6379

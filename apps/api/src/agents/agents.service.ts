@@ -363,4 +363,28 @@ export class AgentsService {
       },
     });
   }
+
+  /**
+   * Validate agent by ID and API key
+   * Used for authenticated agent operations
+   */
+  async validateAgent(agentId: string, apiKey: string) {
+    // Validate the API key first
+    const workspace = await this.validateWorkspaceApiKey(apiKey);
+    if (!workspace) {
+      return null;
+    }
+
+    // Find the agent and verify it belongs to the workspace
+    const agent = await this.prisma.agent.findUnique({
+      where: { id: agentId },
+      include: { workspace: true },
+    });
+
+    if (!agent || agent.workspaceId !== workspace.id) {
+      return null;
+    }
+
+    return agent;
+  }
 }

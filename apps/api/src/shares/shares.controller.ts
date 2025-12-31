@@ -99,6 +99,9 @@ export class SharesController {
       createdBy: session.user.id,
     });
 
+    // Use LINK_BASE_URL env var, or fall back to relative path
+    const linkBaseUrl = process.env.LINK_BASE_URL || '';
+    
     return {
       success: true,
       share: {
@@ -106,7 +109,7 @@ export class SharesController {
         token: share.token,
         name: share.name,
         expiresAt: share.expiresAt,
-        shareUrl: `/shared/${share.token}`,
+        shareUrl: `${linkBaseUrl}/shared/${share.token}`,
       },
     };
   }
