@@ -102,7 +102,10 @@ export async function linkCommand(service: string, options: LinkOptions) {
 
     const share = data.share;
     const expiresAt = new Date(share.expiresAt);
-    const shareUrl = `${hubUrl}${share.shareUrl}`;
+    // Use absolute URL from API if provided, otherwise prepend hubUrl
+    const shareUrl = share.shareUrl.startsWith('http') 
+      ? share.shareUrl 
+      : `${hubUrl}${share.shareUrl}`;
 
     // Success output
     console.log(chalk.green('✓ Public link created\n'));
