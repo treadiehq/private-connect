@@ -217,6 +217,16 @@ cp apps/api/.env.example apps/api/.env
 cd apps/api && pnpm db:push
 ```
 
+## Security
+
+- All agent-to-hub traffic is encrypted (TLS required in production)
+- Agent tokens expire after 30 days and support rotation
+- Credentials never transit the hub—only connection metadata
+- Audit logging for token usage and IP changes
+- Log scrubbing prevents sensitive data leakage
+
+See our [Security FAQ](https://privateconnect.co/#security) for more details.
+
 ## License
 
 [FSL-1.1-MIT](LICENSE)
