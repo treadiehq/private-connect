@@ -35,7 +35,7 @@
               <svg v-if="!copied" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
               </svg>
-              <svg v-else class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg v-else class="w-4 h-4 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
               </svg>
             </button>
@@ -136,7 +136,7 @@
                 </div>
               </div>
               <div class="mt-4 pt-3 text-sm flex items-center gap-2">
-                <span class="text-gray-500">Ready in 10 seconds</span>
+                <span class="text-gray-500">Ready in 10 seconds. Works for humans and AI agents alike.</span>
               </div>
             </div>
           </div>
@@ -148,7 +148,7 @@
     <section id="features" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
       <div class="text-center mb-12">
         <h2 class="text-2xl sm:text-3xl font-bold text-white mb-4">Built for developers who…</h2>
-        <p class="text-gray-400 max-w-xl mx-auto">If any of these sound familiar, Private Connect is for you.</p>
+        <p class="text-gray-400 max-w-xl mx-auto">If any of these sound familiar, Private Connect is for you and your AI agents.</p>
       </div>
 
       <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -189,16 +189,16 @@
           <code class="text-amber-300 text-xs font-mono bg-black/40 px-2 py-1 rounded-md">connect join x7k9m2</code>
         </div>
 
-        <!-- Use case 4: Home server -->
+        <!-- Use case 4: AI Agents -->
         <div class="group p-5 rounded-xl bg-gray-500/10 border border-gray-500/10 hover:bg-gray-500/15 transition-all">
           <div class="w-10 h-10 rounded-lg bg-emerald-300/10 flex items-center justify-center mb-4">
             <svg class="w-5 h-5 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
             </svg>
           </div>
-          <h3 class="font-semibold text-white mb-2">"I want to reach my home server from anywhere"</h3>
-          <p class="text-gray-500 text-sm leading-relaxed mb-3">Your Raspberry Pi, NAS, or self-hosted apps. No port forwarding, no dynamic DNS.</p>
-          <code class="text-emerald-300 text-xs font-mono bg-black/40 px-2 py-1 rounded-md">connect reach home-nas</code>
+          <h3 class="font-semibold text-white mb-2">"My AI agent needs to query prod"</h3>
+          <p class="text-gray-500 text-sm leading-relaxed mb-3">Agents in sandboxes need private data. Secure tunnel, no credentials exposed, full audit trail.</p>
+          <code class="text-emerald-300 text-xs font-mono bg-black/40 px-2 py-1 rounded-md">connect reach prod-db</code>
         </div>
 
         <!-- Use case 5: Contractor access -->
