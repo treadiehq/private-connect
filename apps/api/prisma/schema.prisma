@@ -84,7 +84,9 @@ model Agent {
   name        String?
   label       String    @default("default") // environment label
   tokenHash   String    @unique
+  tokenExpiresAt DateTime?  // Token expiry for rotation (null = legacy, never expires)
   lastSeenAt  DateTime  @default(now())
+  lastSeenIp  String?   // Last known IP for anomaly detection
   connectedAt DateTime? // When the agent connected (for uptime tracking)
   isOnline    Boolean   @default(false)
   createdAt   DateTime  @default(now())
@@ -92,9 +94,11 @@ model Agent {
   services    Service[]
   sourceDiagnostics DiagnosticResult[] @relation("SourceAgent")
   sessions    Session[]
+  tokenAuditLogs AgentTokenAuditLog[]
 
   @@index([workspaceId])
   @@index([isOnline]) // For filtering online agents
+  @@index([tokenExpiresAt]) // For cleanup of expired tokens
 }
 
 model Service {
@@ -204,6 +208,22 @@ model Session {
 
   @@index([serviceId])
   @@index([sourceAgentId])
+}
+
+// AgentTokenAuditLog: audit trail for agent token usage (security monitoring)
+model AgentTokenAuditLog {
+  id          String   @id @default(uuid())
+  agentId     String
+  event       String   // CONNECTED | ROTATED | EXPIRED | IP_CHANGED | REJECTED
+  ipAddress   String?
+  previousIp  String?  // For IP_CHANGED events
+  userAgent   String?
+  details     String?  // JSON: additional context
+  createdAt   DateTime @default(now())
+  agent       Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, createdAt(sort: Desc)])
+  @@index([event])
 }
 
 // DeviceCode: for device authorization flow (like GitHub CLI, Tailscale)

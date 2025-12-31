@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import * as net from 'net';
 import { v4 as uuidv4 } from 'uuid';
 import { loadConfig } from '../config';
+import { enforceSecureConnection, handleTokenExpiry, handleSecurityEvent } from '../security';
 
 interface ReachOptions {
   hub: string;
@@ -60,6 +61,9 @@ export async function reachCommand(target: string, options: ReachOptions) {
   const config = loadConfig();
   const hubUrl = config?.hubUrl || options.hub;
   const timeoutMs = parseInt(options.timeout, 10);
+
+  // Enforce HTTPS for non-localhost connections
+  enforceSecureConnection(hubUrl, { silent: options.json });
 
   // Check if target is a URL (direct reach) or a service name
   const isUrl = target.startsWith('http://') || target.startsWith('https://');

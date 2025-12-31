@@ -8,9 +8,9 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
 import { TunnelService } from './tunnel.service';
 import { AgentsService } from '../agents/agents.service';
+import { SecureLogger, extractClientIp, maskIpAddress } from '../common/security';
 
 @WebSocketGateway({
   namespace: '/agent',
@@ -24,7 +24,7 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
-  private readonly logger = new Logger(TunnelGateway.name);
+  private readonly logger = new SecureLogger(TunnelGateway.name);
   private socketToAgent = new Map<string, string>();
 
   constructor(
@@ -32,32 +32,85 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private agentsService: AgentsService,
   ) {}
 
+  /**
+   * Extract client IP from Socket.IO handshake
+   */
+  private getClientIp(client: Socket): string | undefined {
+    // Check headers first (for proxied connections)
+    const headers = client.handshake.headers as Record<string, string | string[] | undefined>;
+    const proxyIp = extractClientIp(headers);
+    if (proxyIp) return proxyIp;
+
+    // Fall back to direct connection address
+    return client.handshake.address;
+  }
+
   async handleConnection(client: Socket) {
     const agentId = client.handshake.auth?.agentId as string;
     const token = client.handshake.auth?.token as string;
+    const clientIp = this.getClientIp(client);
+    const userAgent = client.handshake.headers['user-agent'] as string | undefined;
 
     if (!agentId || !token) {
-      this.logger.warn(`Agent connection rejected: missing credentials`);
+      this.logger.warn(`Agent connection rejected: missing credentials from ${maskIpAddress(clientIp)}`);
       client.disconnect();
       return;
     }
 
-    // Validate token
-    const valid = await this.agentsService.validateToken(agentId, token);
-    if (!valid) {
-      this.logger.warn(`Agent connection rejected: invalid token for ${agentId}`);
+    // Validate token with full audit logging
+    const validation = await this.agentsService.validateTokenWithAudit(
+      agentId, 
+      token, 
+      clientIp,
+      userAgent
+    );
+
+    if (!validation.valid) {
+      if (validation.expired) {
+        this.logger.warn(`Agent connection rejected: expired token for ${agentId}`);
+        client.emit('error', { 
+          code: 'TOKEN_EXPIRED',
+          message: 'Token has expired. Please rotate your token.',
+        });
+      } else {
+        this.logger.warn(`Agent connection rejected: invalid token for ${agentId}`);
+        client.emit('error', { 
+          code: 'INVALID_TOKEN',
+          message: 'Invalid credentials',
+        });
+      }
       client.disconnect();
       return;
     }
 
-    this.logger.log(`Agent connected: ${agentId}`);
+    // Warn about expiring token
+    if (validation.expiringSoon) {
+      this.logger.log(`Agent ${agentId} token expiring soon: ${validation.expiresAt?.toISOString()}`);
+      client.emit('token_warning', {
+        message: 'Token expiring soon',
+        expiresAt: validation.expiresAt?.toISOString(),
+      });
+    }
+
+    // Log IP change notification (not blocking, just informational)
+    if (validation.ipChanged) {
+      client.emit('security_notice', {
+        type: 'IP_CHANGED',
+        message: 'Connection detected from a new IP address',
+      });
+    }
+
+    this.logger.log(`Agent connected: ${agentId} from ${maskIpAddress(clientIp)}`);
     this.socketToAgent.set(client.id, agentId);
     this.tunnelService.registerAgent(agentId, client);
 
-    // Update last seen
-    await this.agentsService.heartbeat(agentId);
+    // Update last seen with IP
+    await this.agentsService.heartbeat(agentId, clientIp);
 
-    client.emit('connected', { message: 'Connected to hub' });
+    client.emit('connected', { 
+      message: 'Connected to hub',
+      tokenExpiresAt: validation.expiresAt?.toISOString(),
+    });
   }
 
   async handleDisconnect(client: Socket) {

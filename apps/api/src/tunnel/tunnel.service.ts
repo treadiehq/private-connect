@@ -1,7 +1,8 @@
-import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import * as net from 'net';
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../prisma/prisma.service';
+import { SecureLogger } from '../common/security';
 
 interface AgentConnection {
   agentId: string;
@@ -24,6 +25,9 @@ interface PendingConnection {
   resolve: (agentSocket: net.Socket) => void;
   reject: (error: Error) => void;
   timeout: NodeJS.Timeout;
+  ready: boolean;           // True once dial_success received
+  dataBuffer: Buffer[];     // Buffer data until connection is ready
+  agentId: string;          // Track which agent this connection belongs to
 }
 
 /**
@@ -45,7 +49,7 @@ interface AgentBridge {
 
 @Injectable()
 export class TunnelService {
-  private readonly logger = new Logger(TunnelService.name);
+  private readonly logger = new SecureLogger(TunnelService.name);
   private agents = new Map<string, AgentConnection>();
   private pendingConnections = new Map<string, PendingConnection>();
   private agentBridges = new Map<string, AgentBridge>();
@@ -138,6 +142,9 @@ export class TunnelService {
   /**
    * Handle an incoming connection to a tunnel port.
    * Request the agent to dial the target and pipe data.
+   * 
+   * IMPORTANT: Data is buffered until dial confirmation to prevent race conditions
+   * under poor network conditions.
    */
   private handleIncomingConnection(
     agentId: string,
@@ -165,38 +172,74 @@ export class TunnelService {
       serviceId,
     });
 
-    // Wait for agent to confirm connection
+    // Wait for agent to confirm connection (increased timeout for slow networks)
     const timeout = setTimeout(() => {
       this.logger.error(`Connection ${connectionId} timed out waiting for agent`);
+      const pending = this.pendingConnections.get(connectionId);
+      if (pending) {
+        // Clear the buffer to free memory
+        pending.dataBuffer = [];
+      }
       this.pendingConnections.delete(connectionId);
       clientSocket.end();
-    }, 10000);
+    }, 30000); // Increased from 10s to 30s for slow networks
 
+    // Initialize pending connection with buffer for race condition prevention
     this.pendingConnections.set(connectionId, {
       connectionId,
       clientSocket,
       resolve: () => {},
       reject: () => {},
       timeout,
+      ready: false,        // Not ready until dial_success
+      dataBuffer: [],      // Buffer data until ready
+      agentId,
     });
 
-    // Forward client data to agent via WebSocket
+    // Buffer or forward client data depending on connection state
     clientSocket.on('data', (data: Buffer) => {
-      this.sendToAgent(agentId, connectionId, data);
+      const pending = this.pendingConnections.get(connectionId);
+      if (!pending) return;
+      
+      if (pending.ready) {
+        // Connection is ready, forward immediately
+        this.sendToAgent(agentId, connectionId, data);
+      } else {
+        // Connection not ready, buffer the data (with size limit)
+        const totalBufferSize = pending.dataBuffer.reduce((sum, buf) => sum + buf.length, 0);
+        const MAX_BUFFER_SIZE = 1024 * 1024; // 1MB max buffer
+        
+        if (totalBufferSize + data.length > MAX_BUFFER_SIZE) {
+          this.logger.warn(`Connection ${connectionId} buffer overflow, dropping connection`);
+          clientSocket.end();
+          this.pendingConnections.delete(connectionId);
+          clearTimeout(timeout);
+          agent.socket.emit('close', { connectionId });
+          return;
+        }
+        
+        pending.dataBuffer.push(Buffer.from(data));
+      }
     });
 
     clientSocket.on('error', (err) => {
       this.logger.error(`Client socket error: ${err.message}`);
+      const pending = this.pendingConnections.get(connectionId);
+      if (pending) {
+        pending.dataBuffer = []; // Clear buffer
+        clearTimeout(pending.timeout);
+      }
       this.pendingConnections.delete(connectionId);
-      clearTimeout(timeout);
       // Notify agent to close the connection on its end
       agent.socket.emit('close', { connectionId });
     });
 
     clientSocket.on('close', () => {
-      if (this.pendingConnections.has(connectionId)) {
+      const pending = this.pendingConnections.get(connectionId);
+      if (pending) {
+        pending.dataBuffer = []; // Clear buffer
+        clearTimeout(pending.timeout);
         this.pendingConnections.delete(connectionId);
-        clearTimeout(timeout);
         // Notify agent to close the connection on its end
         agent.socket.emit('close', { connectionId });
       }
@@ -206,6 +249,8 @@ export class TunnelService {
   /**
    * Called when agent confirms it has dialed the target.
    * Now we pipe data between client and agent.
+   * 
+   * IMPORTANT: Flushes any buffered data that arrived before dial confirmation.
    */
   handleAgentDialSuccess(connectionId: string, agentId: string) {
     // First check if this is an agent bridge
@@ -222,8 +267,19 @@ export class TunnelService {
     clearTimeout(pending.timeout);
     this.logger.log(`Agent dial successful for ${connectionId}`);
     
-    // Connection is now ready - data will be piped through WebSocket
-    // The agent will handle the actual data transfer
+    // Mark connection as ready
+    pending.ready = true;
+    
+    // Flush any buffered data that arrived before dial confirmation
+    if (pending.dataBuffer.length > 0) {
+      const bufferedSize = pending.dataBuffer.reduce((sum, buf) => sum + buf.length, 0);
+      this.logger.log(`Flushing ${pending.dataBuffer.length} buffered chunks (${bufferedSize} bytes) for ${connectionId}`);
+      
+      for (const chunk of pending.dataBuffer) {
+        this.sendToAgent(agentId, connectionId, chunk);
+      }
+      pending.dataBuffer = []; // Clear buffer after flush
+    }
   }
 
   /**

@@ -7,9 +7,10 @@ import * as crypto from 'crypto';
 export interface AgentConfig {
   agentId: string;
   token: string;
-  apiKey: string;        // Workspace API key
+  tokenExpiresAt?: string;  // ISO date string for token expiry
+  apiKey: string;           // Workspace API key
   hubUrl: string;
-  label: string;         // Environment label
+  label: string;            // Environment label
   name?: string;
   workspaceId?: string;
 }
@@ -109,4 +110,36 @@ export function clearConfig(customPath?: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Update the agent token (used for token rotation)
+ */
+export function updateToken(newToken: string, expiresAt?: string, customPath?: string): boolean {
+  const config = loadConfig(customPath);
+  if (!config) return false;
+  
+  config.token = newToken;
+  config.tokenExpiresAt = expiresAt;
+  saveConfig(config, customPath);
+  return true;
+}
+
+/**
+ * Check if the stored token is close to expiry
+ */
+export function isTokenExpiringSoon(customPath?: string): { expiringSoon: boolean; daysLeft?: number } {
+  const config = loadConfig(customPath);
+  if (!config?.tokenExpiresAt) {
+    return { expiringSoon: false };
+  }
+  
+  const expiryDate = new Date(config.tokenExpiresAt);
+  const now = new Date();
+  const daysLeft = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  
+  return {
+    expiringSoon: daysLeft <= 7 && daysLeft > 0,
+    daysLeft: daysLeft > 0 ? daysLeft : 0,
+  };
 }

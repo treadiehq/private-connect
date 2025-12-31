@@ -5,8 +5,8 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
+import { SecureLogger } from '../common/security';
 
 @WebSocketGateway({
   cors: { origin: '*', credentials: true },
@@ -16,7 +16,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   @WebSocketServer()
   server!: Server;
 
-  private logger = new Logger('RealtimeGateway');
+  private logger = new SecureLogger('RealtimeGateway');
   private clients = new Map<string, { workspaceId: string }>();
 
   constructor(private authService: AuthService) {}

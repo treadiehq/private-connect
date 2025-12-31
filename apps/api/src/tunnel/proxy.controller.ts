@@ -2,14 +2,27 @@ import { Controller, All, Req, Res, Param, Inject, forwardRef } from '@nestjs/co
 import { Request, Response } from 'express';
 import { ServicesService } from '../services/services.service';
 import { proxyRateLimiter, proxySubdomainLimiter } from '../common/rate-limiter';
+import { 
+  resilientRequest, 
+  classifyNetworkError, 
+  NetworkErrorType,
+  NETWORK_CONFIG,
+} from '../common/network';
+import { SecureLogger } from '../common/security';
 
 // Security limits
 const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_PATH_LENGTH = 2048;
 const MAX_HEADER_SIZE = 8192;
 
+// Proxy-specific timeouts
+const PROXY_CONNECT_TIMEOUT_MS = 10000;
+const PROXY_REQUEST_TIMEOUT_MS = 30000;
+
 @Controller('w')
 export class ProxyController {
+  private readonly logger = new SecureLogger('ProxyController');
+
   constructor(
     @Inject(forwardRef(() => ServicesService))
     private servicesService: ServicesService,
@@ -124,11 +137,37 @@ export class ProxyController {
       
       res.status(response.status).send(response.body);
     } catch (error) {
-      console.error('Proxy error:', error);
-      return res.status(502).json({ 
-        error: 'Bad gateway',
-        message: 'Failed to forward request to the service',
-      });
+      const err = error as Error & { code?: string };
+      const errorType = classifyNetworkError(err);
+      
+      this.logger.error(`Proxy error for ${subdomain}: ${err.message} (type: ${errorType})`);
+      
+      // Provide helpful error messages based on error type
+      if (errorType === NetworkErrorType.BLOCKED) {
+        return res.status(502).json({ 
+          error: 'Connection blocked',
+          message: 'The connection to the service was blocked. A firewall or proxy may be interfering.',
+          hint: 'Check that no firewall rules are blocking traffic to the tunnel port.',
+        });
+      } else if (errorType === NetworkErrorType.TLS_ERROR) {
+        return res.status(502).json({ 
+          error: 'TLS error',
+          message: 'A TLS/SSL error occurred when connecting to the service.',
+          hint: 'Check that the service certificate is valid and not expired.',
+        });
+      } else if (err.message.includes('timeout')) {
+        return res.status(504).json({ 
+          error: 'Gateway timeout',
+          message: 'The service did not respond in time.',
+          hint: 'The service may be overloaded or experiencing network issues.',
+        });
+      } else {
+        return res.status(502).json({ 
+          error: 'Bad gateway',
+          message: 'Failed to forward request to the service.',
+          hint: 'The tunnel connection may have been interrupted.',
+        });
+      }
     }
   }
 
@@ -139,7 +178,7 @@ export class ProxyController {
   ): Promise<{ status: number; headers: Record<string, string>; body: Buffer }> {
     // Build the target URL (through the tunnel)
     const queryString = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
-    const targetUrl = `http://localhost:${tunnelPort}${targetPath || '/'}${queryString}`;
+    const path = `${targetPath || '/'}${queryString}`;
     
     // Collect request body with size limit
     const chunks: Buffer[] = [];
@@ -154,26 +193,33 @@ export class ProxyController {
     }
     const body = Buffer.concat(chunks);
 
-    // Forward the request
-    const response = await fetch(targetUrl, {
+    // Use resilient request with timeout and retry logic
+    const response = await resilientRequest({
+      hostname: 'localhost',
+      port: tunnelPort,
+      path,
       method: req.method,
       headers: this.filterHeaders(req.headers as Record<string, string>),
       body: ['GET', 'HEAD'].includes(req.method) ? undefined : body,
+      timeoutMs: PROXY_REQUEST_TIMEOUT_MS,
+      useHttps: false, // Tunnel is local, always HTTP
+      maxRetries: 1, // Single retry for proxy requests
     });
 
-    // Read response body
-    const responseBody = Buffer.from(await response.arrayBuffer());
-    
-    // Convert headers
+    // Convert headers from http.IncomingHttpHeaders to Record<string, string>
     const headers: Record<string, string> = {};
-    response.headers.forEach((value, key) => {
-      headers[key] = value;
-    });
+    for (const [key, value] of Object.entries(response.headers)) {
+      if (typeof value === 'string') {
+        headers[key] = value;
+      } else if (Array.isArray(value)) {
+        headers[key] = value.join(', ');
+      }
+    }
 
     return {
-      status: response.status,
+      status: response.statusCode,
       headers,
-      body: responseBody,
+      body: response.body,
     };
   }
 

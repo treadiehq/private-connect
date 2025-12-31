@@ -293,6 +293,99 @@
       </div>
     </section>
 
+    <!-- Security FAQ Section -->
+    <section id="security" class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
+      <div class="text-center mb-10">
+        <h2 class="text-2xl sm:text-3xl font-bold text-white mb-3">Frequently asked questions</h2>
+        <p class="text-gray-400">Everything you need to know about Private Connect security.</p>
+      </div>
+
+      <div class="space-y-3">
+        <!-- FAQ 1 -->
+        <details class="group bg-gray-500/10 rounded-xl border border-gray-500/10 overflow-hidden">
+          <summary class="flex items-center justify-between p-5 cursor-pointer list-none">
+            <span class="font-medium text-white">Why should I trust this tool?</span>
+            <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </summary>
+          <div class="px-5 pb-5 text-gray-400 text-sm leading-relaxed space-y-3">
+            <p>Trust is earned. Here's what we offer:</p>
+            <ul class="space-y-2">
+              <li class="flex items-start gap-2"><span class="text-blue-300">✓</span> <span><strong class="text-white">Open architecture:</strong> The agent runs locally. Traffic flows through our hub as an encrypted relay. We can't see inside your tunnels.</span></li>
+              <li class="flex items-start gap-2"><span class="text-blue-300">✓</span> <span><strong class="text-white">Minimal permissions:</strong> No root/admin access required. Outbound connections only, nothing listens publicly.</span></li>
+              <li class="flex items-start gap-2"><span class="text-blue-300">✓</span> <span><strong class="text-white">Credentials stay local:</strong> API keys never leave your machine during tunnel operation. Tokens are hashed (SHA-256).</span></li>
+            </ul>
+            <p class="text-gray-500 text-xs">That said, you're trusting our hub infrastructure. If that's unacceptable, we offer self-hosting.</p>
+          </div>
+        </details>
+
+        <!-- FAQ 2 -->
+        <details class="group bg-gray-500/10 rounded-xl border border-gray-500/10 overflow-hidden">
+          <summary class="flex items-center justify-between p-5 cursor-pointer list-none">
+            <span class="font-medium text-white">What if someone intercepts the connection (MITM)?</span>
+            <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </summary>
+          <div class="px-5 pb-5 text-gray-400 text-sm leading-relaxed space-y-3">
+            <p>All agent-to-hub communication uses <strong class="text-white">TLS 1.3</strong>. If TLS were compromised (rogue CA, corporate MITM proxy), an attacker could capture your agent token but NOT your API key.</p>
+            <p><strong class="text-white">Mitigations:</strong></p>
+            <ul class="space-y-1">
+              <li class="flex items-start gap-2"><span class="text-blue-300">✓</span> HTTPS enforced for production connections</li>
+              <li class="flex items-start gap-2"><span class="text-blue-300">✓</span> Token rotation with 30-day expiry</li>
+              <li class="flex items-start gap-2"><span class="text-blue-300">✓</span> IP change detection and audit logging</li>
+            </ul>
+          </div>
+        </details>
+
+        <!-- FAQ 3 -->
+        <details class="group bg-gray-500/10 rounded-xl border border-gray-500/10 overflow-hidden">
+          <summary class="flex items-center justify-between p-5 cursor-pointer list-none">
+            <span class="font-medium text-white">Has this been security audited?</span>
+            <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </summary>
+          <div class="px-5 pb-5 text-gray-400 text-sm leading-relaxed space-y-3">
+            <p class=" font-medium">Officially, not yet. We are Open Source, please feel free to look around. We have done internal security review, static analysis, and dependency scanning.</p>
+            <p>We haven't undergone a formal third-party security audit but that is planned.</p>
+          </div>
+        </details>
+
+        <!-- FAQ 4 -->
+        <details class="group bg-gray-500/10 rounded-xl border border-gray-500/10 overflow-hidden">
+          <summary class="flex items-center justify-between p-5 cursor-pointer list-none">
+            <span class="font-medium text-white">Is it wise to bypass my existing security setup?</span>
+            <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </summary>
+          <div class="px-5 pb-5 text-gray-400 text-sm leading-relaxed space-y-3">
+            <p>Private Connect doesn't "bypass" security, it's a different model. VPNs give broad network access; we give per-service, token-scoped access.</p>
+            <!-- <p><strong class="text-white">Good for:</strong> Dev environments, debugging, webhook testing, contractor access.</p>
+            <p><strong class="text-white">Not for:</strong> Production with compliance requirements (PCI, HIPAA), air-gapped networks, or anywhere audited tools are mandated.</p> -->
+          </div>
+        </details>
+
+        <!-- FAQ 5 -->
+        <details class="group bg-gray-500/10 rounded-xl border border-gray-500/10 overflow-hidden">
+          <summary class="flex items-center justify-between p-5 cursor-pointer list-none">
+            <span class="font-medium text-white">Can someone recon my environment from your logs?</span>
+            <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </summary>
+          <div class="px-5 pb-5 text-gray-400 text-sm leading-relaxed space-y-3">
+            <p>No, we minimize what's logged.</p>
+            <p><strong class="text-white">We log:</strong> connection events (timestamp, masked IP), service names you define.</p>
+            <!-- <p><strong class="text-white">We DON'T log:</strong> request/response bodies, internal IPs, credentials (actively scrubbed), file paths.</p> -->
+            <!-- <p class="text-gray-500 text-xs">IPs are masked (e.g., 192.168.x.x) in production logs.</p> -->
+          </div>
+        </details>
+      </div>
+    </section>
+
     <!-- Simple CTA Section -->
     <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 relative z-10">
       <div class="text-center py-12 px-6 rounded-xl bg-gray-500/10 border border-gray-500/10">
@@ -304,9 +397,6 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
             <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM6.75 9.25a.75.75 0 0 0 0 1.5h4.59l-2.1 1.95a.75.75 0 0 0 1.02 1.1l3.5-3.25a.75.75 0 0 0 0-1.1l-3.5-3.25a.75.75 0 1 0-1.02 1.1l2.1 1.95H6.75Z" clip-rule="evenodd" />
           </svg>
-          <!-- <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-          </svg> -->
         </NuxtLink>
       </div>
     </section>

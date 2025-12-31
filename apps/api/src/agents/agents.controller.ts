@@ -15,6 +15,11 @@ const HeartbeatSchema = z.object({
   token: z.string().min(32),
 });
 
+const RotateTokenSchema = z.object({
+  agentId: z.string().uuid(),
+  currentToken: z.string().min(32),
+});
+
 @Controller('v1/agents')
 export class AgentsController {
   constructor(private agentsService: AgentsService) {}
@@ -96,5 +101,65 @@ export class AgentsController {
     }
 
     return agent;
+  }
+
+  /**
+   * Rotate agent token - returns new credentials
+   * Agent must provide current valid token to get a new one
+   */
+  @Post('rotate-token')
+  async rotateToken(@Body() body: unknown) {
+    const parsed = RotateTokenSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new HttpException(parsed.error.message, HttpStatus.BAD_REQUEST);
+    }
+
+    const { agentId, currentToken } = parsed.data;
+    const result = await this.agentsService.rotateToken(agentId, currentToken);
+
+    if (!result.success) {
+      throw new HttpException(result.error || 'Token rotation failed', HttpStatus.UNAUTHORIZED);
+    }
+
+    return {
+      success: true,
+      newToken: result.newToken,
+      expiresAt: result.expiresAt?.toISOString(),
+    };
+  }
+
+  /**
+   * Get agent audit logs - for security monitoring
+   */
+  @Get(':id/audit-logs')
+  @UseGuards(ApiKeyGuard)
+  async getAuditLogs(
+    @Param('id') id: string,
+    @Req() req: any,
+  ) {
+    const agent = await this.agentsService.findById(id);
+    if (!agent) {
+      throw new HttpException('Agent not found', HttpStatus.NOT_FOUND);
+    }
+
+    // Verify agent belongs to requester's workspace
+    const workspace = req.workspace;
+    if (agent.workspaceId !== workspace.id) {
+      throw new HttpException('Agent not found', HttpStatus.NOT_FOUND);
+    }
+
+    const logs = await this.agentsService.getAuditLogs(id);
+    return { logs };
+  }
+
+  /**
+   * Get agents with expiring tokens - for alerting/dashboard
+   */
+  @Get('expiring-tokens')
+  @UseGuards(ApiKeyGuard)
+  async getExpiringTokens(@Req() req: any) {
+    const workspace = req.workspace;
+    const agents = await this.agentsService.getAgentsWithExpiringTokens(workspace.id);
+    return { agents };
   }
 }

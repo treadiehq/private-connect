@@ -3,6 +3,7 @@ import * as net from 'net';
 import chalk from 'chalk';
 import { ensureConfig, AgentConfig, loadConfig, generateConfig, getConfigPath, clearConfig } from '../config';
 import { deviceAuthFlow } from '../device-auth';
+import { enforceSecureConnection, handleTokenExpiry, handleSecurityEvent } from '../security';
 
 interface UpOptions {
   hub: string;
@@ -21,6 +22,9 @@ interface ConnectionState {
 export async function upCommand(options: UpOptions) {
   console.log(chalk.cyan('🚀 Starting Private Connect Agent...'));
   console.log();
+  
+  // Enforce HTTPS for non-localhost connections
+  enforceSecureConnection(options.hub);
   
   // Check for pre-authenticated token (CI/CD mode)
   const envToken = process.env.PRIVATECONNECT_TOKEN || options.token;
@@ -186,8 +190,35 @@ function connectToHub(config: AgentConfig): Socket {
     console.log(chalk.red(`✗ Connection error: ${error.message}`));
   });
 
-  socket.on('connected', (data) => {
+  // Handle auth errors
+  socket.on('error', (data: { code: string; message: string }) => {
+    if (data.code === 'TOKEN_EXPIRED') {
+      console.error(chalk.red(`\n✗ ${data.message}`));
+      console.log(chalk.gray('  Your token has expired. Run: connect up --api-key <key> to get a new token.\n'));
+      process.exit(1);
+    } else if (data.code === 'INVALID_TOKEN') {
+      console.error(chalk.red(`\n✗ ${data.message}`));
+      process.exit(1);
+    }
+  });
+
+  // Handle token expiry warnings
+  socket.on('token_warning', (data: { message: string; expiresAt: string }) => {
+    handleTokenExpiry({ expiresAt: data.expiresAt });
+  });
+
+  // Handle security notices (IP changes, etc.)
+  socket.on('security_notice', (data: { type: string; message: string }) => {
+    handleSecurityEvent(data);
+  });
+
+  socket.on('connected', (data: { message: string; tokenExpiresAt?: string }) => {
     console.log(chalk.gray(`   ${data.message}`));
+    
+    // Check token expiry on connect
+    if (data.tokenExpiresAt) {
+      handleTokenExpiry({ expiresAt: data.tokenExpiresAt });
+    }
   });
 
   // Handle dial requests from hub

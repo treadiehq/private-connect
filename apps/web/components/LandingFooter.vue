@@ -22,6 +22,12 @@
 					>
 						Privacy
 					</NuxtLink>
+					<a
+						href="/#security"
+						class="text-xs font-semibold leading-6 hover:text-blue-300 text-gray-500"
+					>
+						Security
+					</a>
 				</div>
 				</div>
 				<div

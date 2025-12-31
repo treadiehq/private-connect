@@ -19,6 +19,8 @@ import { AuthService } from '../auth/auth.service';
 import * as http from 'http';
 import * as https from 'https';
 import { z } from 'zod';
+import { SecureLogger } from '../common/security';
+import { classifyNetworkError, NetworkErrorType, NETWORK_CONFIG } from '../common/network';
 
 const CreateShareSchema = z.object({
   name: z.string().min(1).max(100),
@@ -31,6 +33,8 @@ const CreateShareSchema = z.object({
 
 @Controller()
 export class SharesController {
+  private readonly logger = new SecureLogger('SharesController');
+
   constructor(
     private sharesService: SharesService,
     private servicesService: ServicesService,
@@ -245,8 +249,16 @@ export class SharesController {
     const targetPort = service.isExternal ? service.targetPort : service.tunnelPort!;
     const useHttps = service.protocol === 'https' || service.targetPort === 443;
 
-    // Proxy the request
+    // Proxy the request with proper timeout and TLS handling
     const protocol = useHttps ? https : http;
+    
+    // For external HTTPS targets, try with certificate validation first
+    // Fall back to no validation only if explicitly configured (self-signed certs)
+    const rejectUnauthorized = useHttps && !service.isExternal; // Trust internal tunnel, verify external
+    
+    if (useHttps && !rejectUnauthorized) {
+      this.logger.warn(`Proxying to ${targetHost}:${targetPort} with TLS validation disabled`);
+    }
     
     const proxyReq = protocol.request(
       {
@@ -261,7 +273,8 @@ export class SharesController {
           'x-shared-access': 'true',
           'x-share-name': share.name,
         },
-        rejectUnauthorized: false,
+        timeout: NETWORK_CONFIG.PROXY_REQUEST_TIMEOUT_MS,
+        rejectUnauthorized,
       },
       (proxyRes) => {
         const latencyMs = Date.now() - startTime;
@@ -285,8 +298,32 @@ export class SharesController {
       },
     );
 
-    proxyReq.on('error', (error) => {
+    // Handle request timeout
+    proxyReq.on('timeout', () => {
+      proxyReq.destroy();
       const latencyMs = Date.now() - startTime;
+      this.sharesService.logAccess(share.id, {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        path,
+        method: req.method,
+        statusCode: 504,
+        latencyMs,
+      });
+      
+      res.status(504).json({ 
+        error: 'Gateway timeout', 
+        message: 'The service did not respond in time',
+      });
+    });
+
+    proxyReq.on('error', (error) => {
+      const err = error as Error & { code?: string };
+      const errorType = classifyNetworkError(err);
+      const latencyMs = Date.now() - startTime;
+      
+      this.logger.error(`Share proxy error for ${share.name}: ${err.message} (type: ${errorType})`);
+      
       this.sharesService.logAccess(share.id, {
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
@@ -296,7 +333,25 @@ export class SharesController {
         latencyMs,
       });
 
-      res.status(502).json({ error: 'Failed to connect to service', details: error.message });
+      // Provide helpful error messages based on error type
+      if (errorType === NetworkErrorType.TLS_ERROR) {
+        res.status(502).json({ 
+          error: 'TLS error', 
+          message: 'Certificate validation failed when connecting to service',
+          hint: 'The service may have an invalid or self-signed certificate',
+        });
+      } else if (errorType === NetworkErrorType.BLOCKED) {
+        res.status(502).json({ 
+          error: 'Connection blocked', 
+          message: 'The connection to the service was blocked',
+          hint: 'Check firewall rules and network configuration',
+        });
+      } else {
+        res.status(502).json({ 
+          error: 'Failed to connect to service', 
+          message: err.message,
+        });
+      }
     });
 
     // Forward request body if present

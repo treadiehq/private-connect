@@ -1,6 +1,7 @@
 import { io } from 'socket.io-client';
 import chalk from 'chalk';
 import { loadConfig, ensureConfig } from '../config';
+import { enforceSecureConnection, handleTokenExpiry, handleSecurityEvent } from '../security';
 
 interface ExposeOptions {
   name: string;
@@ -21,6 +22,8 @@ interface DiagnosticResult {
 }
 
 export async function exposeCommand(target: string, options: ExposeOptions) {
+  // Enforce HTTPS for non-localhost connections
+  enforceSecureConnection(options.hub);
   // Parse target
   const [host, portStr] = target.split(':');
   const port = parseInt(portStr, 10);
@@ -93,9 +96,36 @@ export async function exposeCommand(target: string, options: ExposeOptions) {
     console.log(chalk.green('✓ Connected to hub'));
   });
 
+  // Handle token expiry warnings
+  socket.on('token_warning', (data: { message: string; expiresAt: string }) => {
+    handleTokenExpiry({ expiresAt: data.expiresAt });
+  });
+
+  // Handle security notices
+  socket.on('security_notice', (data: { type: string; message: string }) => {
+    handleSecurityEvent(data);
+  });
+
+  // Handle auth errors
+  socket.on('error', (data: { code: string; message: string }) => {
+    if (data.code === 'TOKEN_EXPIRED') {
+      console.error(chalk.red(`\n✗ ${data.message}`));
+      console.log(chalk.gray('  Your token has expired. Run: connect up --api-key <key> to get a new token.\n'));
+      process.exit(1);
+    } else if (data.code === 'INVALID_TOKEN') {
+      console.error(chalk.red(`\n✗ ${data.message}`));
+      process.exit(1);
+    }
+  });
+
   // Wait for server to confirm connection before setting up tunnel
-  socket.on('connected', () => {
+  socket.on('connected', (data: { message: string; tokenExpiresAt?: string }) => {
     console.log(chalk.gray('   Connection confirmed, setting up tunnel...'));
+    
+    // Check token expiry on connect
+    if (data.tokenExpiresAt) {
+      handleTokenExpiry({ expiresAt: data.tokenExpiresAt });
+    }
     
     // Request tunnel setup
     socket.emit('expose', {
