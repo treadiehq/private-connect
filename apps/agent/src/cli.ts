@@ -18,7 +18,7 @@ import { linkCommand } from './commands/link';
 import { setConfigPath } from './config';
 
 // Version - keep in sync with package.json
-const VERSION = '0.1.12';
+const VERSION = '0.1.13';
 
 // Default hub URL - can be overridden via CONNECT_HUB_URL env var
 // Set CONNECT_HUB_URL or use --hub flag for production
