@@ -486,6 +486,181 @@
       </div>
     </section> -->
 
+    <!-- Pricing Section -->
+    <section id="pricing" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10 hidden">
+      <div class="text-center mb-12">
+        <h2 class="text-2xl sm:text-3xl font-bold text-white mb-4">Simple, transparent pricing</h2>
+        <p class="text-gray-400 max-w-xl mx-auto">Free to start. Upgrade when you need more.</p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-6">
+        <!-- Free Tier -->
+        <div class="bg-gray-500/5 border border-gray-500/10 rounded-2xl p-6 flex flex-col">
+          <div class="mb-6">
+            <h3 class="text-xl font-semibold text-white mb-1">Free</h3>
+            <p class="text-gray-500 text-sm">For individual developers</p>
+          </div>
+          
+          <div class="mb-6">
+            <span class="text-4xl font-bold text-white">$0</span>
+            <span class="text-gray-500">/month</span>
+          </div>
+
+          <ul class="space-y-3 mb-8 flex-1">
+            <li class="flex items-center gap-3 text-sm">
+              <svg class="w-4 h-4 text-blue-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span class="text-gray-300">2 agents</span>
+            </li>
+            <li class="flex items-center gap-3 text-sm">
+              <svg class="w-4 h-4 text-blue-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span class="text-gray-300">5 services</span>
+            </li>
+            <li class="flex items-center gap-3 text-sm">
+              <svg class="w-4 h-4 text-blue-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span class="text-gray-300">Expose & reach</span>
+            </li>
+            <li class="flex items-center gap-3 text-sm">
+              <svg class="w-4 h-4 text-blue-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span class="text-gray-300">Share codes</span>
+            </li>
+            <li class="flex items-center gap-3 text-sm">
+              <svg class="w-4 h-4 text-blue-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span class="text-gray-300">Community support</span>
+            </li>
+          </ul>
+
+          <NuxtLink to="/register" class="w-full py-2.5 px-4 text-sm rounded-lg bg-gray-500/10 border border-gray-500/10 text-white font-medium text-center hover:bg-gray-500/20 transition-colors">
+            Get Started
+          </NuxtLink>
+        </div>
+
+        <!-- Pro Tier (Popular) -->
+        <div class="relative bg-gray-500/5 border-2 border-blue-300/50 rounded-2xl p-6 flex flex-col">
+          <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-blue-300 border border-blue-300 text-black text-xs font-semibold">
+            Popular
+          </div>
+          
+          <div class="mb-6">
+            <h3 class="text-xl font-semibold text-white mb-1">Pro</h3>
+            <p class="text-gray-500 text-sm">For teams</p>
+          </div>
+          
+          <div class="mb-6">
+            <span class="text-4xl font-bold text-white">$30</span>
+            <span class="text-gray-500">/month</span>
+          </div>
+
+          <ul class="space-y-3 mb-8 flex-1">
+            <li class="flex items-center gap-3 text-sm">
+              <svg class="w-4 h-4 text-blue-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span class="text-gray-300">10 agents</span>
+            </li>
+            <li class="flex items-center gap-3 text-sm">
+              <svg class="w-4 h-4 text-blue-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span class="text-gray-300">Unlimited services</span>
+            </li>
+            <li class="flex items-center gap-3 text-sm">
+              <svg class="w-4 h-4 text-blue-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span class="text-gray-300">Public links (connect link)</span>
+            </li>
+            <li class="flex items-center gap-3 text-sm">
+              <svg class="w-4 h-4 text-blue-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span class="text-gray-300">Daemon mode</span>
+            </li>
+            <li class="flex items-center gap-3 text-sm">
+              <svg class="w-4 h-4 text-blue-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span class="text-gray-300">Subdomain proxy</span>
+            </li>
+            <li class="flex items-center gap-3 text-sm">
+              <svg class="w-4 h-4 text-blue-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span class="text-gray-300">Priority support</span>
+            </li>
+          </ul>
+
+          <NuxtLink to="/register" class="w-full py-2.5 px-4 text-sm rounded-lg bg-blue-300 text-black font-medium text-center hover:bg-blue-400 transition-colors">
+            Get Started
+          </NuxtLink>
+        </div>
+
+        <!-- Enterprise Tier -->
+        <div class="bg-gray-500/5 border border-gray-500/10 rounded-2xl p-6 flex flex-col">
+          <div class="mb-6">
+            <h3 class="text-xl font-semibold text-white mb-1">Enterprise</h3>
+            <p class="text-gray-500 text-sm">For organizations</p>
+          </div>
+          
+          <div class="mb-6">
+            <span class="text-4xl font-bold text-white">Custom</span>
+          </div>
+
+          <ul class="space-y-3 mb-8 flex-1">
+            <li class="flex items-center gap-3 text-sm">
+              <svg class="w-4 h-4 text-blue-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span class="text-gray-300">Everything in Pro</span>
+            </li>
+            <li class="flex items-center gap-3 text-sm">
+              <svg class="w-4 h-4 text-blue-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span class="text-gray-300">Unlimited agents</span>
+            </li>
+            <li class="flex items-center gap-3 text-sm">
+              <svg class="w-4 h-4 text-blue-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span class="text-gray-300">Self-hosting option</span>
+            </li>
+            <li class="flex items-center gap-3 text-sm">
+              <svg class="w-4 h-4 text-blue-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span class="text-gray-300">SSO & SAML</span>
+            </li>
+            <li class="flex items-center gap-3 text-sm">
+              <svg class="w-4 h-4 text-blue-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span class="text-gray-300">Audit logs</span>
+            </li>
+            <li class="flex items-center gap-3 text-sm">
+              <svg class="w-4 h-4 text-blue-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span class="text-gray-300">Dedicated support</span>
+            </li>
+          </ul>
+
+          <a href="mailto:info@treadie.com" class="w-full py-2.5 px-4 text-sm rounded-lg bg-gray-500/10 border border-gray-500/10 text-white font-medium text-center hover:bg-gray-500/20 transition-colors">
+            Contact Us
+          </a>
+        </div>
+      </div>
+    </section>
+
     <!-- Security FAQ Section -->
     <section id="security" class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
       <div class="text-center mb-10">
