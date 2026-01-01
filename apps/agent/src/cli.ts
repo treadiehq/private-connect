@@ -15,10 +15,11 @@ import { mapCommand, mapStatusCommand } from './commands/map';
 import { daemonCommand } from './commands/daemon';
 import { devCommand, devInitCommand } from './commands/dev';
 import { linkCommand } from './commands/link';
+import { doctorCommand, cleanupCommand, statusCommand } from './commands/doctor';
 import { setConfigPath } from './config';
 
 // Version - keep in sync with package.json
-const VERSION = '0.1.14';
+const VERSION = '0.1.15';
 
 // Default hub URL - can be overridden via CONNECT_HUB_URL env var
 // Set CONNECT_HUB_URL or use --hub flag for production
@@ -77,6 +78,7 @@ program
   .option('-p, --port <port>', 'Port to listen on', '3000')
   .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-c, --config <path>', 'Config file path (for multiple agents)')
+  .option('-r, --replace', 'Kill existing proxy on the same port and take over')
   .action((options) => {
     if (options.config) setConfigPath(options.config);
     proxyCommand({ ...options, port: parseInt(options.port, 10) });
@@ -192,6 +194,7 @@ program
   .option('-c, --config <path>', 'Config file path')
   .option('--proxy', 'Also run the proxy server')
   .option('--proxy-port <port>', 'Proxy port (default: 3000)')
+  .option('-r, --replace', 'Kill existing daemon and start a new one')
   .action((action, options) => {
     if (options.config) setConfigPath(options.config);
     daemonCommand(action, options);
@@ -213,6 +216,32 @@ program
     } else {
       devCommand(options);
     }
+  });
+
+// Health & Diagnostics Commands
+program
+  .command('doctor')
+  .description('Check system health and fix common issues')
+  .option('--fix', 'Auto-fix detected issues')
+  .option('--json', 'Output as JSON')
+  .action((options) => {
+    doctorCommand(options);
+  });
+
+program
+  .command('cleanup')
+  .description('Clean up orphaned processes and stale files')
+  .option('-f, --force', 'Actually perform cleanup (dry-run by default)')
+  .action((options) => {
+    cleanupCommand(options);
+  });
+
+program
+  .command('status')
+  .description('Quick status overview')
+  .option('--json', 'Output as JSON')
+  .action((options) => {
+    statusCommand(options);
   });
 
 program.parse();

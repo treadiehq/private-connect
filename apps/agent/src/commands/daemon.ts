@@ -10,6 +10,7 @@ interface DaemonOptions {
   proxy?: boolean;
   proxyPort?: number;
   config?: string;
+  replace?: boolean;
 }
 
 const SERVICE_NAME = 'co.privateconnect.agent';
@@ -370,11 +371,35 @@ async function startDaemon(options: DaemonOptions) {
   // Fallback: start in background using spawn
   console.log(chalk.cyan('\n🚀 Starting daemon in background...\n'));
   
-  const { running } = isRunning();
+  const { running, pid: existingPid } = isRunning();
   if (running) {
-    console.log(chalk.yellow('⚠ Daemon is already running'));
-    console.log(chalk.gray(`  Use ${chalk.cyan('connect daemon status')} for details.\n`));
-    return;
+    if (options.replace) {
+      console.log(chalk.yellow(`⚠ Killing existing daemon (PID ${existingPid})...`));
+      if (existingPid) {
+        try {
+          process.kill(existingPid, 'SIGTERM');
+          // Wait for graceful shutdown
+          for (let i = 0; i < 10; i++) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            const { running: stillRunning } = isRunning();
+            if (!stillRunning) break;
+          }
+          // Force kill if still running
+          const { running: stillRunning } = isRunning();
+          if (stillRunning) {
+            process.kill(existingPid, 'SIGKILL');
+          }
+          console.log(chalk.green('✓ Existing daemon stopped'));
+        } catch (error) {
+          console.log(chalk.yellow('  Existing process may have already exited'));
+        }
+      }
+    } else {
+      console.log(chalk.yellow('⚠ Daemon is already running'));
+      console.log(chalk.gray(`  Use ${chalk.cyan('connect daemon status')} for details.`));
+      console.log(chalk.gray(`  Or use ${chalk.cyan('connect daemon start --replace')} to restart.\n`));
+      return;
+    }
   }
 
   const config = loadConfig();

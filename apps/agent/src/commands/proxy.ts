@@ -2,11 +2,42 @@ import * as http from 'http';
 import * as net from 'net';
 import chalk from 'chalk';
 import { loadConfig } from '../config';
+import { findAvailablePort, isPortAvailable, getPortUser, killProcess, isProcessRunning } from '../ports';
+
+/**
+ * Try to kill the process using a port
+ */
+async function tryKillPortProcess(port: number): Promise<boolean> {
+  const portUser = getPortUser(port);
+  if (!portUser) return false;
+  
+  // Only kill if it looks like a Private Connect process
+  if (!portUser.command.includes('node') && !portUser.command.includes('connect')) {
+    return false;
+  }
+  
+  killProcess(portUser.pid, 'SIGTERM');
+  
+  // Wait for graceful shutdown
+  for (let i = 0; i < 10; i++) {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    if (!isProcessRunning(portUser.pid)) {
+      return true;
+    }
+  }
+  
+  // Force kill if still running
+  killProcess(portUser.pid, 'SIGKILL');
+  await new Promise(resolve => setTimeout(resolve, 200));
+  
+  return !isProcessRunning(portUser.pid);
+}
 
 interface ProxyOptions {
   port: number;
   hub: string;
   config?: string;
+  replace?: boolean;
 }
 
 interface Service {
@@ -29,10 +60,46 @@ export async function proxyCommand(options: ProxyOptions) {
   }
 
   const hubUrl = config.hubUrl || options.hub;
+  const preferredPort = options.port;
   
   console.log(chalk.cyan('\n🌐 Starting subdomain proxy...\n'));
   console.log(chalk.gray(`  Hub:  ${hubUrl}`));
-  console.log(chalk.gray(`  Port: ${options.port}`));
+  
+  // Check if preferred port is available
+  let actualPort = preferredPort;
+  let wasAutoSelected = false;
+  
+  if (!(await isPortAvailable(preferredPort))) {
+    if (options.replace) {
+      // Try to kill the existing process on this port
+      console.log(chalk.yellow(`  ⚠ Port ${preferredPort} in use, attempting to take over...`));
+      const killed = await tryKillPortProcess(preferredPort);
+      if (killed) {
+        console.log(chalk.green(`  ✓ Killed existing process`));
+        // Wait for port to become available
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } else {
+        console.log(chalk.red(`  ✗ Could not kill existing process`));
+      }
+    }
+    
+    // Check again after potential kill
+    if (!(await isPortAvailable(preferredPort))) {
+      const alternativePort = await findAvailablePort(preferredPort + 1);
+      if (alternativePort) {
+        actualPort = alternativePort;
+        wasAutoSelected = true;
+        console.log(chalk.yellow(`  ⚠ Port ${preferredPort} in use, using ${actualPort} instead`));
+      } else {
+        console.error(chalk.red(`\n✗ Port ${preferredPort} is in use and no alternatives available`));
+        console.log(chalk.gray(`  Try: ${chalk.cyan(`connect proxy --port ${preferredPort + 100}`)}`));
+        console.log(chalk.gray(`  Or:  ${chalk.cyan(`connect proxy --replace`)} to take over\n`));
+        process.exit(1);
+      }
+    }
+  }
+  
+  console.log(chalk.gray(`  Port: ${actualPort}${wasAutoSelected ? chalk.yellow(' (auto-selected)') : ''}`));
   console.log();
 
   // Fetch initial service list
@@ -221,25 +288,26 @@ export async function proxyCommand(options: ProxyOptions) {
   // Start server
   server.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {
-      console.error(chalk.red(`\n✗ Port ${options.port} is already in use`));
-      console.log(chalk.gray(`  Try a different port: ${chalk.cyan(`connect proxy --port 3001`)}\n`));
+      console.error(chalk.red(`\n✗ Port ${actualPort} is already in use`));
+      console.log(chalk.gray(`  Try: ${chalk.cyan(`connect proxy --port ${actualPort + 1}`)}`));
+      console.log(chalk.gray(`  Or:  ${chalk.cyan(`connect proxy --replace`)} to take over\n`));
     } else {
       console.error(chalk.red(`\n✗ Server error: ${err.message}\n`));
     }
     process.exit(1);
   });
 
-  server.listen(options.port, '127.0.0.1', () => {
-    console.log(chalk.green.bold(`✓ Proxy running on port ${options.port}\n`));
+  server.listen(actualPort, '127.0.0.1', () => {
+    console.log(chalk.green.bold(`✓ Proxy running on port ${actualPort}\n`));
     console.log(chalk.white('  Access your services via subdomains:'));
     console.log();
     
     if (services.length > 0) {
       services.forEach(s => {
-        console.log(chalk.cyan(`    http://${s.name}.localhost:${options.port}`));
+        console.log(chalk.cyan(`    http://${s.name}.localhost:${actualPort}`));
       });
     } else {
-      console.log(chalk.gray(`    http://<service-name>.localhost:${options.port}`));
+      console.log(chalk.gray(`    http://<service-name>.localhost:${actualPort}`));
     }
     
     console.log();

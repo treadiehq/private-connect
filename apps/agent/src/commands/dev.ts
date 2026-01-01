@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as net from 'net';
 import chalk from 'chalk';
 import { loadConfig } from '../config';
+import { findAvailablePort, isPortAvailable } from '../ports';
 
 interface DevOptions {
   hub: string;
@@ -182,7 +183,7 @@ export async function devCommand(options: DevOptions) {
 
   // Connect to each service
   const tunnels: Array<{ server: net.Server; name: string; port: number }> = [];
-  const results: Array<{ name: string; success: boolean; port?: number; error?: string }> = [];
+  const results: Array<{ name: string; success: boolean; port?: number; error?: string; autoSelected?: boolean; requestedPort?: number }> = [];
 
   console.log(chalk.white('  Connecting to services...\n'));
 
@@ -221,16 +222,35 @@ export async function devCommand(options: DevOptions) {
       continue;
     }
 
-    // Create local tunnel
+    // Create local tunnel with auto-port selection
     try {
+      let actualPort = localPort;
+      let wasAutoSelected = false;
+      
+      if (!(await isPortAvailable(localPort))) {
+        const alternativePort = await findAvailablePort(localPort + 1);
+        if (alternativePort) {
+          actualPort = alternativePort;
+          wasAutoSelected = true;
+        } else {
+          throw new Error(`Port ${localPort} is in use and no alternatives available`);
+        }
+      }
+      
       const server = await createTunnel(
         hubUrl,
         availableService.tunnelPort,
-        localPort,
+        actualPort,
       );
       
-      tunnels.push({ server, name: service.name, port: localPort });
-      results.push({ name: service.name, success: true, port: localPort });
+      tunnels.push({ server, name: service.name, port: actualPort });
+      results.push({ 
+        name: service.name, 
+        success: true, 
+        port: actualPort,
+        autoSelected: wasAutoSelected,
+        requestedPort: wasAutoSelected ? localPort : undefined,
+      });
     } catch (error) {
       const err = error as Error;
       results.push({
@@ -250,7 +270,10 @@ export async function devCommand(options: DevOptions) {
   if (successful.length > 0) {
     console.log(chalk.green(`  ✓ ${successful.length} service(s) connected:\n`));
     successful.forEach(r => {
-      console.log(chalk.white(`    ${r.name}`) + chalk.gray(` → localhost:${r.port}`));
+      const portInfo = r.autoSelected 
+        ? chalk.yellow(` → localhost:${r.port} (was ${r.requestedPort})`)
+        : chalk.gray(` → localhost:${r.port}`);
+      console.log(chalk.white(`    ${r.name}`) + portInfo);
     });
     console.log();
   }

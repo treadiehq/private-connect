@@ -4,6 +4,7 @@ import * as net from 'net';
 import { v4 as uuidv4 } from 'uuid';
 import { loadConfig } from '../config';
 import { enforceSecureConnection, handleTokenExpiry, handleSecurityEvent } from '../security';
+import { findAvailablePort, isPortAvailable } from '../ports';
 
 interface ReachOptions {
   hub: string;
@@ -173,11 +174,27 @@ export async function reachCommand(target: string, options: ReachOptions) {
   }
 
   // Create local tunnel
-  const localPort = options.port ? parseInt(options.port, 10) : service.targetPort;
+  const preferredPort = options.port ? parseInt(options.port, 10) : service.targetPort;
   
   console.log(chalk.cyan(`\n📡 Creating local tunnel...`));
   
-  await createLocalTunnel(service, localPort, config, hubUrl);
+  // Check if preferred port is available, if not find an alternative
+  let localPort = preferredPort;
+  let wasAutoSelected = false;
+  
+  if (!(await isPortAvailable(preferredPort))) {
+    const alternativePort = await findAvailablePort(preferredPort + 1);
+    if (alternativePort) {
+      localPort = alternativePort;
+      wasAutoSelected = true;
+      console.log(chalk.yellow(`  ⚠ Port ${preferredPort} in use, using ${localPort} instead`));
+    } else {
+      console.error(chalk.red(`  ✗ Port ${preferredPort} is in use and no alternatives available`));
+      process.exit(1);
+    }
+  }
+  
+  await createLocalTunnel(service, localPort, config, hubUrl, wasAutoSelected);
 }
 
 /**
@@ -188,6 +205,7 @@ async function createLocalTunnel(
   localPort: number,
   config: { agentId: string; token: string; hubUrl: string; apiKey: string; label: string },
   hubUrl: string,
+  wasAutoSelected: boolean = false,
 ) {
   // Connect to hub via WebSocket
   const socket = io(`${hubUrl}/agent`, {

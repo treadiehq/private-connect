@@ -203,6 +203,9 @@ connect discover              # Scan for local services
 connect whoami                # Show agent info
 connect update                # Update CLI to latest version
 connect logout                # Clear local credentials
+connect doctor                # Check system health, fix issues
+connect cleanup               # Clean up orphaned processes
+connect status                # Quick status overview
 ```
 
 ### Options
@@ -231,6 +234,7 @@ connect logout                # Clear local credentials
 
 # connect proxy
 -p, --port <port>      Proxy port (default: 3000)
+-r, --replace          Kill existing proxy and take over
 
 # connect link
 -e, --expires <time>   Expiration: 1h, 24h, 7d, 30d, never (default: 24h)
@@ -238,8 +242,40 @@ connect logout                # Clear local credentials
 -p, --paths <list>     Allowed paths: /api,/health
 -r, --rate-limit <n>   Rate limit per minute
 
+# connect daemon
+-r, --replace          Kill existing daemon and restart
+
+# connect doctor
+--fix                  Auto-fix detected issues
+--json                 JSON output
+
+# connect cleanup
+-f, --force            Actually perform cleanup (dry-run by default)
+
 # connect update
 -f, --force            Force update even if on latest
+```
+
+### Self-Healing & Diagnostics
+
+Private Connect automatically handles common issues so you can focus on your work:
+
+```bash
+# Port in use? Auto-selects the next available
+connect reach prod-db
+# → ⚠ Port 5432 in use, using 5433 instead
+# → ✓ Connected to prod-db on localhost:5433
+
+# Check system health and fix issues
+connect doctor          # Diagnose problems
+connect doctor --fix    # Auto-repair
+
+# Clean up orphaned processes
+connect cleanup --force
+
+# Take over existing proxy/daemon
+connect proxy --replace
+connect daemon start --replace
 ```
 
 ### Multiple Agents (Same Machine)
