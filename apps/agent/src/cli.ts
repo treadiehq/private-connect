@@ -16,10 +16,14 @@ import { daemonCommand } from './commands/daemon';
 import { devCommand, devInitCommand } from './commands/dev';
 import { linkCommand } from './commands/link';
 import { doctorCommand, cleanupCommand, statusCommand } from './commands/doctor';
+import { shellInitCommand, shellSetupCommand } from './commands/shell';
+import { dnsCommand, serveDns } from './commands/dns';
+import { mcpCommand } from './commands/mcp';
+import { cloneCommand, cloneListCommand } from './commands/clone';
 import { setConfigPath } from './config';
 
 // Version - keep in sync with package.json
-const VERSION = '0.1.15';
+const VERSION = '0.1.16';
 
 // Default hub URL - can be overridden via CONNECT_HUB_URL env var
 // Set CONNECT_HUB_URL or use --hub flag for production
@@ -242,6 +246,78 @@ program
   .option('--json', 'Output as JSON')
   .action((options) => {
     statusCommand(options);
+  });
+
+// Clone Command
+program
+  .command('clone [target]')
+  .description('Clone a teammate\'s environment (connect clone alice)')
+  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-o, --output <path>', 'Output .env file path', '.env.pconnect')
+  .option('--no-env', 'Skip .env file generation')
+  .option('-l, --list', 'List teammates with clonable environments')
+  .option('-c, --config <path>', 'Config file path')
+  .action(async (target, options) => {
+    if (options.config) setConfigPath(options.config);
+    
+    if (options.list || !target) {
+      await cloneListCommand(options);
+    } else {
+      await cloneCommand(target, options);
+    }
+  });
+
+// Shell Integration Commands
+program
+  .command('shell-init [shell]')
+  .description('Output shell initialization script (eval "$(connect shell-init)")')
+  .option('--auto-connect', 'Enable auto-connect on directory change (default: true)')
+  .option('--no-auto-connect', 'Disable auto-connect on directory change')
+  .action((shell, options) => {
+    shellInitCommand(shell, options);
+  });
+
+program
+  .command('shell-setup')
+  .description('Interactive shell integration setup')
+  .action((options) => {
+    shellSetupCommand(options);
+  });
+
+// DNS Commands
+program
+  .command('dns [action]')
+  .description('Manage local DNS for *.connect domains (install|uninstall|start|stop|status|test)')
+  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-p, --port <port>', 'DNS server port', '15353')
+  .option('-d, --domain <domain>', 'Domain suffix', 'connect')
+  .option('-c, --config <path>', 'Config file path')
+  .action(async (action, options) => {
+    if (options.config) setConfigPath(options.config);
+    
+    // Handle internal 'serve' action for background DNS server
+    if (action === 'serve') {
+      await serveDns({
+        ...options,
+        port: parseInt(options.port, 10),
+      });
+    } else {
+      await dnsCommand(action, {
+        ...options,
+        port: parseInt(options.port, 10),
+      });
+    }
+  });
+
+// AI/MCP Integration Commands
+program
+  .command('mcp [action]')
+  .description('AI assistant integration via MCP (setup|serve)')
+  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-c, --config <path>', 'Config file path')
+  .action(async (action, options) => {
+    if (options.config) setConfigPath(options.config);
+    await mcpCommand(action, options);
   });
 
 program.parse();

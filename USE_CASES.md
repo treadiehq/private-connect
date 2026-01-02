@@ -15,6 +15,24 @@ Real scenarios where Private Connect saves hours of setup and frustration.
 
 **With Private Connect:**
 ```bash
+# New teammate's first day
+connect clone sarah
+# → Found sarah's environment:
+# →   ● staging-db → localhost:5432
+# →   ● redis → localhost:6379
+# →   ● user-api → localhost:8080
+# →   ● payment-service → localhost:8081
+# →
+# → ✓ Cloned 4 service(s) from sarah
+# → Generated: .env.pconnect
+# →
+# → Ready to code.
+```
+
+**Time saved:** 2 hours → 30 seconds
+
+**Or with share codes:**
+```bash
 # Senior dev
 connect share
 # → Share code: x7k9m2
@@ -24,7 +42,9 @@ connect join x7k9m2
 # ✓ Connected. Same environment. Done.
 ```
 
-**Time saved:** 2 hours → 30 seconds
+The difference:
+- `connect clone` — Clone by teammate name, persistent until you disconnect
+- `connect share/join` — Share via code, can set expiration
 
 ---
 
@@ -360,6 +380,90 @@ connect link <service>      # Create public URL for a service
 # Ad-hoc access
 connect reach <service>     # Connect to any service
 connect proxy               # All services via subdomains
+```
+
+---
+
+## Zero-Friction Environment Switching
+
+Switch between projects and have the right services auto-connect.
+
+```bash
+# One-time setup
+eval "$(connect shell-init)"  # Add to ~/.zshrc
+
+# Now it just works
+cd ~/projects/backend
+# → 📦 Found pconnect.yml - connecting...
+# → ✓ staging-db, redis, user-service
+
+cd ~/projects/frontend
+# → 📦 Found pconnect.yml - connecting...
+# → ✓ api-gateway, auth-service
+
+# Your prompt shows what's connected
+~/projects/backend (3 services) $ 
+```
+
+No more "which terminals have my tunnels running?"
+
+---
+
+## Use Service Names, Not Ports
+
+Stop remembering which port is which service:
+
+```bash
+# Install local DNS
+connect dns install
+
+# Now use meaningful names everywhere
+psql -h prod-db.connect          # Not localhost:5432
+curl http://api.connect/health   # Not localhost:8080
+redis-cli -h redis.connect       # Not localhost:6379
+```
+
+Works in browsers, CLI tools, GUI apps—anywhere that resolves DNS.
+
+**Your .env becomes readable:**
+```bash
+# Before
+DATABASE_URL=postgres://localhost:23456/myapp
+
+# After  
+DATABASE_URL=postgres://prod-db.connect/myapp
+```
+
+---
+
+## Let AI Help Debug Your Infrastructure
+
+Connect your AI coding assistant to your service mesh:
+
+```bash
+connect mcp setup  # Get config for Cursor/Claude
+```
+
+Then ask your AI:
+
+> "Why can't I connect to the staging database?"
+
+AI can now:
+- Check which services are online
+- Run connectivity tests
+- Verify your configuration
+- Suggest fixes
+
+**Example conversation:**
+```
+You: "List my services"
+AI: I can see 4 services in your network:
+    • staging-db (online, 45ms latency)
+    • redis (online, 12ms latency)  
+    • user-api (offline)
+    • payment-service (online, 89ms latency)
+    
+    The user-api appears to be offline. Want me to check why?
 ```
 
 ---

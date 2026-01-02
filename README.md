@@ -206,6 +206,10 @@ connect logout                # Clear local credentials
 connect doctor                # Check system health, fix issues
 connect cleanup               # Clean up orphaned processes
 connect status                # Quick status overview
+connect clone <teammate>      # Clone a teammate's environment
+connect shell-init            # Shell integration (prompt & auto-connect)
+connect dns <action>          # Local DNS for *.connect domains
+connect mcp <action>          # AI assistant integration
 ```
 
 ### Options
@@ -255,6 +259,103 @@ connect status                # Quick status overview
 # connect update
 -f, --force            Force update even if on latest
 ```
+
+### Clone a Teammate's Environment
+
+The fastest way to onboard — clone a teammate's entire setup in seconds:
+
+```bash
+# List teammates with clonable environments
+connect clone --list
+# → ● alice (MacBook-Pro)
+# →     Services: 5 (4 online)
+# →       ● staging-db
+# →       ● redis
+# →       ● user-api
+# →       ... and 2 more
+
+# Clone their environment
+connect clone alice
+# → ✓ Cloned 4 service(s) from alice
+# → Generated: .env.pconnect
+```
+
+**What happens:**
+1. Finds all services exposed by that teammate
+2. Creates local tunnels to each one
+3. Generates `.env.pconnect` with connection strings
+4. You're ready to code in 30 seconds
+
+```bash
+# Generated .env.pconnect:
+STAGING_DB_HOST=localhost
+STAGING_DB_PORT=5432
+REDIS_HOST=localhost
+REDIS_PORT=6379
+# ... etc
+```
+
+### Shell Integration
+
+Enable prompt status and auto-connect when entering project directories:
+
+```bash
+# Add to ~/.zshrc or ~/.bashrc
+eval "$(connect shell-init)"
+
+# Or for fish shell (~/.config/fish/config.fish)
+connect shell-init fish | source
+```
+
+**Features:**
+- Prompt shows connected services count: `~/myapp (3 services) $`
+- Auto-connects when you `cd` into a directory with `pconnect.yml`
+- Quick status alias: `pcs`
+
+```bash
+# Interactive setup help
+connect shell-setup
+```
+
+### Local DNS
+
+Access services via memorable names like `prod-db.connect` instead of `localhost:5432`:
+
+```bash
+# Install DNS resolver (requires sudo)
+connect dns install
+
+# Now access services by name
+psql -h prod-db.connect
+curl http://api.connect/health
+redis-cli -h redis.connect
+```
+
+```bash
+connect dns status      # Check DNS server status
+connect dns test api    # Test resolution for api.connect
+connect dns uninstall   # Remove DNS configuration
+```
+
+### AI Integration
+
+Private Connect works with AI assistants like Cursor and Claude Desktop via MCP:
+
+```bash
+# Setup instructions for your AI tool
+connect mcp setup
+```
+
+**What AI can do once configured:**
+- List and connect to services
+- Run health checks
+- Share environments
+- Help debug connectivity issues
+
+Example prompts:
+- "List all my connected services"
+- "Connect to the staging database"  
+- "Check if the user-service is healthy"
 
 ### Self-Healing & Diagnostics
 

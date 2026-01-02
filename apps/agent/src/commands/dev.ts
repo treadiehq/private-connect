@@ -4,6 +4,7 @@ import * as net from 'net';
 import chalk from 'chalk';
 import { loadConfig } from '../config';
 import { findAvailablePort, isPortAvailable } from '../ports';
+import { updateShellState, clearShellState } from './shell';
 
 interface DevOptions {
   hub: string;
@@ -291,6 +292,12 @@ export async function devCommand(options: DevOptions) {
     process.exit(1);
   }
 
+  // Update shell state for prompt integration
+  updateShellState(
+    successful.map(r => ({ name: r.name, port: r.port! })),
+    process.cwd()
+  );
+
   // Show environment variable suggestions
   console.log(chalk.gray('  Set in your .env:'));
   successful.forEach(r => {
@@ -307,6 +314,7 @@ export async function devCommand(options: DevOptions) {
     tunnels.forEach(t => {
       t.server.close();
     });
+    clearShellState();
     process.exit(0);
   };
 
