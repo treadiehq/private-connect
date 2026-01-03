@@ -362,7 +362,7 @@ Example prompts:
 
 ### Agent Permission Broker
 
-**Zero Trust for AI Agents** — control what AI coding assistants can do in your workspace.
+Control what AI coding assistants can do in your workspace.
 
 ```bash
 # Initialize in your project (creates .connect/policy.yml)
