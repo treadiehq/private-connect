@@ -27,7 +27,7 @@ export async function linkCommand(service: string, options: LinkOptions) {
   const config = loadConfig();
   
   if (!config) {
-    console.error(chalk.red('\n✗ Agent not configured'));
+    console.error(chalk.red('\n[x] Agent not configured'));
     console.log(chalk.gray(`  Run ${chalk.cyan('connect up')} first to authenticate.\n`));
     process.exit(1);
   }
@@ -45,7 +45,7 @@ export async function linkCommand(service: string, options: LinkOptions) {
     });
 
     if (!servicesResponse.ok) {
-      console.error(chalk.red(`✗ Failed to fetch services: ${servicesResponse.statusText}`));
+      console.error(chalk.red(`[x] Failed to fetch services: ${servicesResponse.statusText}`));
       process.exit(1);
     }
 
@@ -57,7 +57,7 @@ export async function linkCommand(service: string, options: LinkOptions) {
     const targetService = services.find(s => s.name.toLowerCase() === service.toLowerCase());
 
     if (!targetService) {
-      console.error(chalk.red(`✗ Service "${service}" not found`));
+      console.error(chalk.red(`[x] Service "${service}" not found`));
       console.log(chalk.gray('\n  Available services:'));
       services.forEach(s => {
         console.log(chalk.gray(`    • ${s.name}`));
@@ -89,14 +89,14 @@ export async function linkCommand(service: string, options: LinkOptions) {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: response.statusText })) as { message?: string };
-      console.error(chalk.red(`✗ Failed to create link: ${error.message || response.statusText}`));
+      console.error(chalk.red(`[x] Failed to create link: ${error.message || response.statusText}`));
       process.exit(1);
     }
 
     const data = await response.json() as LinkResponse;
 
     if (!data.success || !data.share) {
-      console.error(chalk.red(`✗ Failed to create link: ${data.error || 'Unknown error'}`));
+      console.error(chalk.red(`[x] Failed to create link: ${data.error || 'Unknown error'}`));
       process.exit(1);
     }
 
@@ -108,7 +108,7 @@ export async function linkCommand(service: string, options: LinkOptions) {
       : `${hubUrl}${share.shareUrl}`;
 
     // Success output
-    console.log(chalk.green('✓ Public link created\n'));
+    console.log(chalk.green('[ok] Public link created\n'));
     
     console.log(chalk.gray('  ┌─────────────────────────────────────────────────────────────┐'));
     console.log(chalk.gray('  │') + chalk.white('  Share URL                                                   ') + chalk.gray('│'));
@@ -138,10 +138,10 @@ export async function linkCommand(service: string, options: LinkOptions) {
   } catch (error) {
     const err = error as Error;
     if (err.message?.includes('ECONNREFUSED')) {
-      console.error(chalk.red(`\n✗ Cannot connect to hub at ${hubUrl}`));
+      console.error(chalk.red(`\n[x] Cannot connect to hub at ${hubUrl}`));
       console.log(chalk.gray('  Make sure the hub is running and accessible.\n'));
     } else {
-      console.error(chalk.red(`\n✗ Error: ${err.message}\n`));
+      console.error(chalk.red(`\n[x] Error: ${err.message}\n`));
     }
     process.exit(1);
   }

@@ -6,16 +6,14 @@ import inquirer from 'inquirer';
 
 interface DiscoverOptions {
   host?: string;
-  ports?: string;
+  ports?: number[];
   json?: boolean;
   configPath?: string;
 }
 
 export async function discoverCommand(options: DiscoverOptions) {
   const host = options.host || 'localhost';
-  const customPorts = options.ports
-    ? options.ports.split(',').map((p) => parseInt(p.trim(), 10))
-    : undefined;
+  const customPorts = options.ports;
 
   const spinner = ora(`Scanning ${host} for services...`).start();
 
@@ -38,7 +36,7 @@ export async function discoverCommand(options: DiscoverOptions) {
     // Interactive mode: ask if user wants to expose any services
     const config = await loadConfig(options.configPath);
     if (!config) {
-      console.log(chalk.yellow('\n⚠ Agent not configured. Run `connect up` first to expose services.'));
+      console.log(chalk.yellow('\n[!] Agent not configured. Run `connect up` first to expose services.'));
       return;
     }
 
@@ -102,19 +100,19 @@ export async function discoverCommand(options: DiscoverOptions) {
         if (response.ok) {
           const data = (await response.json()) as { tunnelPort?: number };
           console.log(
-            chalk.green(`  ✓ ${service.name}`) +
+            chalk.green(`  [ok] ${service.name}`) +
               chalk.gray(` → tunnel port ${data.tunnelPort}`)
           );
         } else {
           const error = await response.text();
-          console.log(chalk.red(`  ✗ ${service.name}: ${error}`));
+          console.log(chalk.red(`  [x] ${service.name}: ${error}`));
         }
       } catch (err) {
-        console.log(chalk.red(`  ✗ ${service.name}: ${(err as Error).message}`));
+        console.log(chalk.red(`  [x] ${service.name}: ${(err as Error).message}`));
       }
     }
 
-    console.log(chalk.green('\n✓ Done! Services are now accessible through the hub.'));
+    console.log(chalk.green('\n[ok] Done! Services are now accessible through the hub.'));
   } catch (error) {
     spinner.stop();
     console.error(chalk.red('Discovery failed:'), (error as Error).message);

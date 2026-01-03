@@ -31,7 +31,7 @@ export async function shareCommand(options: ShareOptions) {
   const config = loadConfig();
   
   if (!config) {
-    console.error(chalk.red('\n✗ Agent not configured'));
+    console.error(chalk.red('\n[x] Agent not configured'));
     console.log(chalk.gray(`  Run ${chalk.cyan('connect up')} first to authenticate.\n`));
     process.exit(1);
   }
@@ -49,7 +49,7 @@ export async function shareCommand(options: ShareOptions) {
       const unit = match[2];
       expiresInHours = unit === 'd' ? value * 24 : value;
     } else {
-      console.error(chalk.red('✗ Invalid expires format. Use: 1h, 4h, 24h, 7d, etc.'));
+      console.error(chalk.red('[x] Invalid expires format. Use: 1h, 4h, 24h, 7d, etc.'));
       process.exit(1);
     }
   }
@@ -70,14 +70,14 @@ export async function shareCommand(options: ShareOptions) {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: response.statusText })) as { message?: string };
-      console.error(chalk.red(`✗ Failed to create share: ${error.message || response.statusText}`));
+      console.error(chalk.red(`[x] Failed to create share: ${error.message || response.statusText}`));
       process.exit(1);
     }
 
     const data = await response.json() as ShareResponse;
     
     if (!data.success || !data.share) {
-      console.error(chalk.red(`✗ Failed to create share: ${data.error || 'Unknown error'}`));
+      console.error(chalk.red(`[x] Failed to create share: ${data.error || 'Unknown error'}`));
       process.exit(1);
     }
 
@@ -86,7 +86,7 @@ export async function shareCommand(options: ShareOptions) {
     const hoursLeft = Math.round((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60));
 
     // Success output
-    console.log(chalk.green.bold('✓ Environment share created!\n'));
+    console.log(chalk.green.bold('[ok] Environment share created!\n'));
     
     // Share code box
     console.log(chalk.gray('  ┌─────────────────────────────────────────────────┐'));
@@ -117,10 +117,10 @@ export async function shareCommand(options: ShareOptions) {
   } catch (error) {
     const err = error as Error;
     if (err.message?.includes('ECONNREFUSED')) {
-      console.error(chalk.red(`\n✗ Cannot connect to hub at ${hubUrl}`));
+      console.error(chalk.red(`\n[x] Cannot connect to hub at ${hubUrl}`));
       console.log(chalk.gray('  Make sure the hub is running and accessible.\n'));
     } else {
-      console.error(chalk.red(`\n✗ Error: ${err.message}\n`));
+      console.error(chalk.red(`\n[x] Error: ${err.message}\n`));
     }
     process.exit(1);
   }
@@ -130,7 +130,7 @@ export async function listSharesCommand(options: ShareOptions) {
   const config = loadConfig();
   
   if (!config) {
-    console.error(chalk.red('\n✗ Agent not configured'));
+    console.error(chalk.red('\n[x] Agent not configured'));
     console.log(chalk.gray(`  Run ${chalk.cyan('connect up')} first to authenticate.\n`));
     process.exit(1);
   }
@@ -146,7 +146,7 @@ export async function listSharesCommand(options: ShareOptions) {
     });
 
     if (!response.ok) {
-      console.error(chalk.red(`✗ Failed to list shares: ${response.statusText}`));
+      console.error(chalk.red(`[x] Failed to list shares: ${response.statusText}`));
       process.exit(1);
     }
 
@@ -178,7 +178,7 @@ export async function listSharesCommand(options: ShareOptions) {
 
   } catch (error) {
     const err = error as Error;
-    console.error(chalk.red(`\n✗ Error: ${err.message}\n`));
+    console.error(chalk.red(`\n[x] Error: ${err.message}\n`));
     process.exit(1);
   }
 }
@@ -187,7 +187,7 @@ export async function revokeShareCommand(code: string, options: ShareOptions) {
   const config = loadConfig();
   
   if (!config) {
-    console.error(chalk.red('\n✗ Agent not configured'));
+    console.error(chalk.red('\n[x] Agent not configured'));
     process.exit(1);
   }
 
@@ -203,15 +203,15 @@ export async function revokeShareCommand(code: string, options: ShareOptions) {
     });
 
     if (!response.ok) {
-      console.error(chalk.red(`✗ Failed to revoke share: ${response.statusText}`));
+      console.error(chalk.red(`[x] Failed to revoke share: ${response.statusText}`));
       process.exit(1);
     }
 
-    console.log(chalk.green(`\n✓ Share ${chalk.cyan(code)} revoked.\n`));
+    console.log(chalk.green(`\n[ok] Share ${chalk.cyan(code)} revoked.\n`));
 
   } catch (error) {
     const err = error as Error;
-    console.error(chalk.red(`\n✗ Error: ${err.message}\n`));
+    console.error(chalk.red(`\n[x] Error: ${err.message}\n`));
     process.exit(1);
   }
 }

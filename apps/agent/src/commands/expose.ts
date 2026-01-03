@@ -1,7 +1,7 @@
 import { io } from 'socket.io-client';
 import chalk from 'chalk';
 import { loadConfig, ensureConfig } from '../config';
-import { enforceSecureConnection, handleTokenExpiry, handleSecurityEvent } from '../security';
+import { enforceSecureConnection, handleTokenExpiry, handleSecurityEvent, SecurityError } from '../security';
 
 interface ExposeOptions {
   name: string;
@@ -23,24 +23,31 @@ interface DiagnosticResult {
 
 export async function exposeCommand(target: string, options: ExposeOptions) {
   // Enforce HTTPS for non-localhost connections
-  enforceSecureConnection(options.hub);
+  try {
+    enforceSecureConnection(options.hub);
+  } catch (err) {
+    if (err instanceof SecurityError) {
+      process.exit(1);
+    }
+    throw err;
+  }
   // Parse target
   const [host, portStr] = target.split(':');
   const port = parseInt(portStr, 10);
   
   if (!host || isNaN(port)) {
-    console.error(chalk.red('✗ Invalid target format. Use host:port (e.g., 127.0.0.1:8080)'));
+    console.error(chalk.red('[x] Invalid target format. Use host:port (e.g., 127.0.0.1:8080)'));
     process.exit(1);
   }
 
   // Warn if trying to expose Private Connect control plane
   // const isLocalhost = host === 'localhost' || host === '127.0.0.1';
   // if (isLocalhost && port === 3000) {
-  //   console.log(chalk.yellow('\n⚠ Warning: Port 3000 is typically the Private Connect Web UI.'));
+  //   console.log(chalk.yellow('\n[!] Warning: Port 3000 is typically the Private Connect Web UI.'));
   //   console.log(chalk.gray('  You might want to expose a different service instead.'));
   //   console.log(chalk.gray('  Example: connect expose localhost:8080 --name my-api\n'));
   // } else if (isLocalhost && port === 3001) {
-  //   console.log(chalk.yellow('\n⚠ Warning: Port 3001 is typically the Private Connect API.'));
+  //   console.log(chalk.yellow('\n[!] Warning: Port 3001 is typically the Private Connect API.'));
   //   console.log(chalk.gray('  You might want to expose a different service instead.'));
   //   console.log(chalk.gray('  Example: connect expose localhost:8080 --name my-api\n'));
   // }
@@ -50,7 +57,7 @@ export async function exposeCommand(target: string, options: ExposeOptions) {
   // Load or create config
   const existingConfig = loadConfig();
   if (!existingConfig && !options.apiKey) {
-    console.error(chalk.red('\n✗ API key required for first-time setup'));
+    console.error(chalk.red('\n[x] API key required for first-time setup'));
     console.log(chalk.gray(`  Use: ${chalk.cyan('connect expose <target> --api-key <your-api-key>')}`));
     process.exit(1);
   }
@@ -68,11 +75,11 @@ export async function exposeCommand(target: string, options: ExposeOptions) {
   const service = await registerService(config.agentId, options.name, host, port, options.protocol, options.public || false, config);
   
   if (!service) {
-    console.error(chalk.red('✗ Failed to register service'));
+    console.error(chalk.red('[x] Failed to register service'));
     process.exit(1);
   }
 
-  console.log(chalk.green(`✓ Service registered`));
+  console.log(chalk.green(`[ok] Service registered`));
   console.log(chalk.gray(`   Service ID: ${service.id}`));
   console.log(chalk.gray(`   Tunnel Port: ${service.tunnelPort}`));
   console.log(chalk.gray(`   Protocol: ${service.protocol}`));
@@ -93,7 +100,7 @@ export async function exposeCommand(target: string, options: ExposeOptions) {
   });
 
   socket.on('connect', () => {
-    console.log(chalk.green('✓ Connected to hub'));
+    console.log(chalk.green('[ok] Connected to hub'));
   });
 
   // Handle token expiry warnings
@@ -109,11 +116,11 @@ export async function exposeCommand(target: string, options: ExposeOptions) {
   // Handle auth errors
   socket.on('error', (data: { code: string; message: string }) => {
     if (data.code === 'TOKEN_EXPIRED') {
-      console.error(chalk.red(`\n✗ ${data.message}`));
+      console.error(chalk.red(`\n[x] ${data.message}`));
       console.log(chalk.gray('  Your token has expired. Run: connect up --api-key <key> to get a new token.\n'));
       process.exit(1);
     } else if (data.code === 'INVALID_TOKEN') {
-      console.error(chalk.red(`\n✗ ${data.message}`));
+      console.error(chalk.red(`\n[x] ${data.message}`));
       process.exit(1);
     }
   });
@@ -136,7 +143,7 @@ export async function exposeCommand(target: string, options: ExposeOptions) {
       targetPort: port,
     }, async (response: { success: boolean; error?: string }) => {
       if (response.success) {
-        console.log(chalk.green('✓ Tunnel established'));
+        console.log(chalk.green('[ok] Tunnel established'));
         console.log(chalk.cyan(`\n📡 Service "${options.name}" is now accessible through the hub`));
         console.log(chalk.gray(`   Hub can reach it at localhost:${service.tunnelPort}`));
         
@@ -146,7 +153,7 @@ export async function exposeCommand(target: string, options: ExposeOptions) {
         
         console.log(chalk.gray('\n   Press Ctrl+C to stop exposing\n'));
       } else {
-        console.error(chalk.red(`✗ Tunnel setup failed: ${response.error}`));
+        console.error(chalk.red(`[x] Tunnel setup failed: ${response.error}`));
       }
     });
   });
@@ -205,7 +212,7 @@ export async function exposeCommand(target: string, options: ExposeOptions) {
   });
 
   socket.on('disconnect', () => {
-    console.log(chalk.yellow('⚠ Disconnected from hub'));
+    console.log(chalk.yellow('[!] Disconnected from hub'));
   });
 
   // Handle process signals
@@ -238,7 +245,7 @@ async function registerAgent(config: { agentId: string; token: string; hubUrl: s
     }
   } catch (error: unknown) {
     const err = error as Error;
-    console.error(chalk.red(`✗ Agent registration failed: ${err.message}`));
+    console.error(chalk.red(`[x] Agent registration failed: ${err.message}`));
     throw error;
   }
 }
@@ -279,7 +286,7 @@ async function registerService(
     return data.service;
   } catch (error: unknown) {
     const err = error as Error;
-    console.error(chalk.red(`✗ Service registration failed: ${err.message}`));
+    console.error(chalk.red(`[x] Service registration failed: ${err.message}`));
     return null;
   }
 }
@@ -294,7 +301,7 @@ async function runInitialDiagnostics(serviceId: string, serviceName: string, hub
     });
     
     if (!response.ok) {
-      console.log(chalk.yellow('   ⚠ Could not run diagnostics'));
+      console.log(chalk.yellow('   [!] Could not run diagnostics'));
       return;
     }
     
@@ -305,16 +312,16 @@ async function runInitialDiagnostics(serviceId: string, serviceName: string, hub
     const isSuccess = result.tcpStatus === 'OK';
     
     if (isSuccess) {
-      console.log(chalk.green(`\n   ✓ ${serviceName} is REACHABLE`));
+      console.log(chalk.green(`\n   [ok] ${serviceName} is REACHABLE`));
       const parts = [];
-      if (result.dnsStatus.includes('OK')) parts.push(chalk.green('DNS ✓'));
-      if (result.tcpStatus === 'OK') parts.push(chalk.green('TCP ✓'));
-      if (result.tlsStatus === 'OK') parts.push(chalk.green('TLS ✓'));
-      if (result.httpStatus === 'OK') parts.push(chalk.green('HTTP ✓'));
+      if (result.dnsStatus.includes('OK')) parts.push(chalk.green('DNS [ok]'));
+      if (result.tcpStatus === 'OK') parts.push(chalk.green('TCP [ok]'));
+      if (result.tlsStatus === 'OK') parts.push(chalk.green('TLS [ok]'));
+      if (result.httpStatus === 'OK') parts.push(chalk.green('HTTP [ok]'));
       if (result.latencyMs) parts.push(chalk.gray(`${result.latencyMs}ms`));
       console.log(chalk.gray(`     ${parts.join('  ')}`));
     } else {
-      console.log(chalk.red(`\n   ✗ ${serviceName} is UNREACHABLE`));
+      console.log(chalk.red(`\n   [x] ${serviceName} is UNREACHABLE`));
       console.log(chalk.yellow(`     ${result.message}`));
       
       // Provide hints
@@ -330,6 +337,6 @@ async function runInitialDiagnostics(serviceId: string, serviceName: string, hub
     }
   } catch (error: unknown) {
     const err = error as Error;
-    console.log(chalk.yellow(`   ⚠ Diagnostics error: ${err.message}`));
+    console.log(chalk.yellow(`   [!] Diagnostics error: ${err.message}`));
   }
 }

@@ -114,7 +114,7 @@ function loadProjectConfig(configPath: string): ProjectConfig | null {
     }
   } catch (error) {
     const err = error as Error;
-    console.error(chalk.red(`✗ Failed to parse config: ${err.message}`));
+    console.error(chalk.red(`[x] Failed to parse config: ${err.message}`));
     return null;
   }
 }
@@ -126,7 +126,7 @@ export async function devCommand(options: DevOptions) {
   const agentConfig = loadConfig();
   
   if (!agentConfig) {
-    console.error(chalk.red('\n✗ Agent not configured'));
+    console.error(chalk.red('\n[x] Agent not configured'));
     console.log(chalk.gray(`  Run ${chalk.cyan('connect up')} first to authenticate.\n`));
     process.exit(1);
   }
@@ -135,7 +135,7 @@ export async function devCommand(options: DevOptions) {
   const configPath = options.file || findProjectConfig();
   
   if (!configPath) {
-    console.log(chalk.yellow('\n⚠ No project config found.\n'));
+    console.log(chalk.yellow('\n[!] No project config found.\n'));
     console.log(chalk.gray('  Create a pconnect.yml file:\n'));
     console.log(chalk.cyan('    services:'));
     console.log(chalk.cyan('      - name: staging-db'));
@@ -149,7 +149,7 @@ export async function devCommand(options: DevOptions) {
   const projectConfig = loadProjectConfig(configPath);
   
   if (!projectConfig || projectConfig.services.length === 0) {
-    console.error(chalk.red('\n✗ No services defined in config.\n'));
+    console.error(chalk.red('\n[x] No services defined in config.\n'));
     process.exit(1);
   }
 
@@ -179,7 +179,7 @@ export async function devCommand(options: DevOptions) {
       availableServices = await response.json() as typeof availableServices;
     }
   } catch {
-    console.log(chalk.yellow('  ⚠ Could not fetch service list from hub'));
+    console.log(chalk.yellow('  [!] Could not fetch service list from hub'));
   }
 
   // Connect to each service
@@ -269,7 +269,7 @@ export async function devCommand(options: DevOptions) {
   const failed = results.filter(r => !r.success);
 
   if (successful.length > 0) {
-    console.log(chalk.green(`  ✓ ${successful.length} service(s) connected:\n`));
+    console.log(chalk.green(`  [ok] ${successful.length} service(s) connected:\n`));
     successful.forEach(r => {
       const portInfo = r.autoSelected 
         ? chalk.yellow(` → localhost:${r.port} (was ${r.requestedPort})`)
@@ -280,7 +280,7 @@ export async function devCommand(options: DevOptions) {
   }
 
   if (failed.length > 0) {
-    console.log(chalk.yellow(`  ⚠ ${failed.length} service(s) failed:\n`));
+    console.log(chalk.yellow(`  [!] ${failed.length} service(s) failed:\n`));
     failed.forEach(r => {
       console.log(chalk.gray(`    ${r.name}: ${r.error}`));
     });
@@ -288,7 +288,7 @@ export async function devCommand(options: DevOptions) {
   }
 
   if (tunnels.length === 0) {
-    console.error(chalk.red('  ✗ No services connected.\n'));
+    console.error(chalk.red('  [x] No services connected.\n'));
     process.exit(1);
   }
 
@@ -372,7 +372,7 @@ export async function devInitCommand(options: DevOptions) {
   const configPath = path.join(process.cwd(), 'pconnect.yml');
   
   if (fs.existsSync(configPath)) {
-    console.log(chalk.yellow('\n⚠ Config file already exists: pconnect.yml\n'));
+    console.log(chalk.yellow('\n[!] Config file already exists: pconnect.yml\n'));
     return;
   }
 
@@ -418,7 +418,7 @@ services:
 
   fs.writeFileSync(configPath, configContent);
   
-  console.log(chalk.green('\n✓ Created pconnect.yml\n'));
+  console.log(chalk.green('\n[ok] Created pconnect.yml\n'));
   console.log(chalk.gray('  Edit the file to configure your services, then run:'));
   console.log(chalk.cyan('    connect dev\n'));
 }

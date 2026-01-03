@@ -81,7 +81,7 @@ async function installDns(options: DnsOptions) {
   } else if (platform === 'linux') {
     await installDnsLinux(domain, options);
   } else {
-    console.error(chalk.red(`✗ Unsupported platform: ${platform}`));
+    console.error(chalk.red(`[x] Unsupported platform: ${platform}`));
     console.log(chalk.gray('  DNS resolution is supported on macOS and Linux.\n'));
     console.log(chalk.white('  Alternative: Use /etc/hosts entries manually:'));
     console.log(chalk.cyan('    127.0.0.1 prod-db.connect'));
@@ -98,13 +98,13 @@ async function installDnsMacOS(domain: string, options: DnsOptions) {
 
   // Check if resolver directory exists
   if (!fs.existsSync(RESOLVER_DIR)) {
-    console.log(chalk.yellow(`  ⚠ ${RESOLVER_DIR} does not exist.`));
+    console.log(chalk.yellow(`  [!] ${RESOLVER_DIR} does not exist.`));
     console.log(chalk.gray('  Creating with sudo...\n'));
     
     try {
       execSync(`sudo mkdir -p ${RESOLVER_DIR}`);
     } catch (error) {
-      console.error(chalk.red('\n✗ Failed to create resolver directory.'));
+      console.error(chalk.red('\n[x] Failed to create resolver directory.'));
       console.log(chalk.gray('  Run: sudo mkdir -p /etc/resolver\n'));
       process.exit(1);
     }
@@ -127,7 +127,7 @@ port ${dnsPort}
     
     console.log(chalk.gray(`  Created: ${resolverPath}`));
   } catch (error) {
-    console.error(chalk.red('\n✗ Failed to create resolver file.'));
+    console.error(chalk.red('\n[x] Failed to create resolver file.'));
     console.log(chalk.gray(`  Run: sudo tee ${resolverPath} << 'EOF'\n${resolverContent}EOF\n`));
     process.exit(1);
   }
@@ -135,7 +135,7 @@ port ${dnsPort}
   // Start DNS server
   await startDns(options);
 
-  console.log(chalk.green('\n✓ DNS installed successfully!\n'));
+  console.log(chalk.green('\n[ok] DNS installed successfully!\n'));
   console.log(chalk.white('  You can now access services via:'));
   console.log(chalk.cyan(`    curl http://my-service.${domain}`));
   console.log(chalk.cyan(`    psql -h prod-db.${domain}`));
@@ -183,13 +183,13 @@ Domains=~${domain}
       
       console.log(chalk.gray(`  Created: ${dropInFile}`));
     } catch (error) {
-      console.error(chalk.red('\n✗ Failed to configure systemd-resolved.'));
+      console.error(chalk.red('\n[x] Failed to configure systemd-resolved.'));
       console.log(chalk.gray('  You may need to configure DNS manually.\n'));
       process.exit(1);
     }
   } else {
     // Fallback: suggest dnsmasq or /etc/hosts
-    console.log(chalk.yellow('  ⚠ systemd-resolved not detected.'));
+    console.log(chalk.yellow('  [!] systemd-resolved not detected.'));
     console.log();
     console.log(chalk.white('  Option 1: Install dnsmasq'));
     console.log(chalk.gray('    sudo apt install dnsmasq'));
@@ -205,7 +205,7 @@ Domains=~${domain}
   // Start DNS server
   await startDns(options);
 
-  console.log(chalk.green('\n✓ DNS installed successfully!\n'));
+  console.log(chalk.green('\n[ok] DNS installed successfully!\n'));
 }
 
 /**
@@ -215,13 +215,13 @@ async function startDns(options: DnsOptions) {
   const { running, pid: existingPid } = isRunning();
   
   if (running) {
-    console.log(chalk.yellow(`  ⚠ DNS server already running (PID: ${existingPid})`));
+    console.log(chalk.yellow(`  [!] DNS server already running (PID: ${existingPid})`));
     return;
   }
 
   const config = loadConfig();
   if (!config) {
-    console.error(chalk.red('✗ Agent not configured'));
+    console.error(chalk.red('[x] Agent not configured'));
     console.log(chalk.gray(`  Run ${chalk.cyan('connect up')} first.\n`));
     process.exit(1);
   }
@@ -259,7 +259,7 @@ async function startDns(options: DnsOptions) {
   child.unref();
   fs.writeFileSync(pidPath, child.pid?.toString() || '');
 
-  console.log(chalk.green(`  ✓ DNS server started (PID: ${child.pid})`));
+  console.log(chalk.green(`  [ok] DNS server started (PID: ${child.pid})`));
 }
 
 /**
@@ -483,7 +483,7 @@ async function stopDns() {
   const { running, pid } = isRunning();
   
   if (!running) {
-    console.log(chalk.yellow('\n⚠ DNS server is not running\n'));
+    console.log(chalk.yellow('\n[!] DNS server is not running\n'));
     return;
   }
 
@@ -502,9 +502,9 @@ async function stopDns() {
       fs.unlinkSync(pidPath);
     }
     
-    console.log(chalk.green('\n✓ DNS server stopped\n'));
+    console.log(chalk.green('\n[ok] DNS server stopped\n'));
   } catch (error) {
-    console.error(chalk.red(`\n✗ Failed to stop DNS server\n`));
+    console.error(chalk.red(`\n[x] Failed to stop DNS server\n`));
   }
 }
 
@@ -528,7 +528,7 @@ async function uninstallDns() {
         execSync(`sudo rm ${resolverPath}`);
         console.log(chalk.gray(`  Removed: ${resolverPath}`));
       } catch {
-        console.log(chalk.yellow(`  ⚠ Could not remove ${resolverPath}`));
+        console.log(chalk.yellow(`  [!] Could not remove ${resolverPath}`));
         console.log(chalk.gray(`  Run: sudo rm ${resolverPath}`));
       }
     }
@@ -541,12 +541,12 @@ async function uninstallDns() {
         execSync('sudo systemctl restart systemd-resolved');
         console.log(chalk.gray(`  Removed: ${dropInFile}`));
       } catch {
-        console.log(chalk.yellow(`  ⚠ Could not remove ${dropInFile}`));
+        console.log(chalk.yellow(`  [!] Could not remove ${dropInFile}`));
       }
     }
   }
 
-  console.log(chalk.green('\n✓ DNS uninstalled\n'));
+  console.log(chalk.green('\n[ok] DNS uninstalled\n'));
 }
 
 /**
@@ -602,11 +602,11 @@ async function testDns(options: DnsOptions) {
     const lookup = promisify(dns.lookup);
     
     const result = await lookup(testHost);
-    console.log(chalk.green(`  ✓ Resolved: ${testHost} -> ${result.address}`));
+    console.log(chalk.green(`  [ok] Resolved: ${testHost} -> ${result.address}`));
     console.log();
   } catch (error) {
     const err = error as NodeJS.ErrnoException;
-    console.log(chalk.red(`  ✗ Resolution failed: ${err.code || err.message}`));
+    console.log(chalk.red(`  [x] Resolution failed: ${err.code || err.message}`));
     console.log();
     console.log(chalk.gray('  Possible issues:'));
     console.log(chalk.gray('    • DNS server not running (connect dns start)'));

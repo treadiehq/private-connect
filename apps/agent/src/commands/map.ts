@@ -63,11 +63,11 @@ function saveMappings(data: MappingsFile): void {
  *   connect map --remove staging-db     # removes mapping
  *   connect map --list                  # shows all mappings
  */
-export async function mapCommand(service: string | undefined, localPort: string | undefined, options: MapOptions) {
+export async function mapCommand(service: string | undefined, localPort: number | undefined, options: MapOptions) {
   const config = loadConfig();
   
   if (!config) {
-    console.error(chalk.red('\n✗ Agent not configured'));
+    console.error(chalk.red('\n[x] Agent not configured'));
     console.log(chalk.gray(`  Run ${chalk.cyan('connect up')} first to authenticate.\n`));
     process.exit(1);
   }
@@ -85,7 +85,7 @@ export async function mapCommand(service: string | undefined, localPort: string 
   }
 
   // Add or update mapping
-  await addMapping(hubUrl, config.apiKey, service, localPort ? parseInt(localPort, 10) : undefined);
+  await addMapping(hubUrl, config.apiKey, service, localPort);
 }
 
 async function addMapping(hubUrl: string, apiKey: string, serviceName: string, localPort?: number) {
@@ -100,7 +100,7 @@ async function addMapping(hubUrl: string, apiKey: string, serviceName: string, l
     });
 
     if (!response.ok) {
-      console.error(chalk.red(`✗ Failed to fetch services: ${response.statusText}`));
+      console.error(chalk.red(`[x] Failed to fetch services: ${response.statusText}`));
       process.exit(1);
     }
 
@@ -116,7 +116,7 @@ async function addMapping(hubUrl: string, apiKey: string, serviceName: string, l
     const service = services.find(s => s.name.toLowerCase() === serviceName.toLowerCase());
     
     if (!service) {
-      console.error(chalk.red(`✗ Service "${serviceName}" not found`));
+      console.error(chalk.red(`[x] Service "${serviceName}" not found`));
       console.log(chalk.gray('\n  Available services:'));
       services.forEach(s => {
         console.log(chalk.gray(`    • ${s.name}`));
@@ -131,7 +131,7 @@ async function addMapping(hubUrl: string, apiKey: string, serviceName: string, l
     // Check if port is available
     const portAvailable = await isPortAvailable(port);
     if (!portAvailable) {
-      console.error(chalk.yellow(`⚠ Port ${port} is already in use`));
+      console.error(chalk.yellow(`[!] Port ${port} is already in use`));
       console.log(chalk.gray(`  Try: ${chalk.cyan(`connect map ${serviceName} <other-port>`)}\n`));
       process.exit(1);
     }
@@ -152,7 +152,7 @@ async function addMapping(hubUrl: string, apiKey: string, serviceName: string, l
 
     saveMappings(mappings);
 
-    console.log(chalk.green(`✓ Mapped ${chalk.white(service.name)} → ${chalk.cyan(`localhost:${port}`)}\n`));
+    console.log(chalk.green(`[ok] Mapped ${chalk.white(service.name)} → ${chalk.cyan(`localhost:${port}`)}\n`));
     
     // Show usage hint
     console.log(chalk.gray('  To activate all mappings, run:'));
@@ -163,7 +163,7 @@ async function addMapping(hubUrl: string, apiKey: string, serviceName: string, l
 
   } catch (error) {
     const err = error as Error;
-    console.error(chalk.red(`\n✗ Error: ${err.message}\n`));
+    console.error(chalk.red(`\n[x] Error: ${err.message}\n`));
     process.exit(1);
   }
 }
@@ -175,12 +175,12 @@ function removeMapping(serviceName: string) {
   mappings.mappings = mappings.mappings.filter(m => m.serviceName.toLowerCase() !== serviceName.toLowerCase());
   
   if (mappings.mappings.length === before) {
-    console.log(chalk.yellow(`\n⚠ No mapping found for "${serviceName}"\n`));
+    console.log(chalk.yellow(`\n[!] No mapping found for "${serviceName}"\n`));
     return;
   }
 
   saveMappings(mappings);
-  console.log(chalk.green(`\n✓ Removed mapping for ${chalk.white(serviceName)}\n`));
+  console.log(chalk.green(`\n[ok] Removed mapping for ${chalk.white(serviceName)}\n`));
 }
 
 function listMappings() {
@@ -230,7 +230,7 @@ export async function mapStatusCommand(options: MapOptions) {
   const config = loadConfig();
   
   if (!config) {
-    console.error(chalk.red('\n✗ Agent not configured'));
+    console.error(chalk.red('\n[x] Agent not configured'));
     process.exit(1);
   }
 
@@ -261,7 +261,7 @@ export async function mapStatusCommand(options: MapOptions) {
       const isOnline = service?.status === 'ONLINE' && service.tunnelPort;
       const portAvailable = await isPortAvailable(mapping.localPort);
 
-      const statusIcon = isOnline ? chalk.green('✓') : chalk.red('✗');
+      const statusIcon = isOnline ? chalk.green('[ok]') : chalk.red('[x]');
       const portStatus = portAvailable ? chalk.gray('(port free)') : chalk.yellow('(port in use)');
 
       console.log(`  ${statusIcon} ${chalk.white(mapping.serviceName)} → localhost:${mapping.localPort} ${portStatus}`);

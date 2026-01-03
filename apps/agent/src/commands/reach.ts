@@ -3,12 +3,12 @@ import { io, Socket } from 'socket.io-client';
 import * as net from 'net';
 import { v4 as uuidv4 } from 'uuid';
 import { loadConfig } from '../config';
-import { enforceSecureConnection, handleTokenExpiry, handleSecurityEvent } from '../security';
+import { enforceSecureConnection, handleTokenExpiry, handleSecurityEvent, SecurityError } from '../security';
 import { findAvailablePort, isPortAvailable } from '../ports';
 
 interface ReachOptions {
   hub: string;
-  timeout: string;
+  timeout: number;
   port?: string;
   check: boolean;
   json: boolean;
@@ -61,10 +61,20 @@ interface DiagnosticResult {
 export async function reachCommand(target: string, options: ReachOptions) {
   const config = loadConfig();
   const hubUrl = config?.hubUrl || options.hub;
-  const timeoutMs = parseInt(options.timeout, 10);
+  const timeoutMs = options.timeout;
 
   // Enforce HTTPS for non-localhost connections
-  enforceSecureConnection(hubUrl, { silent: options.json });
+  try {
+    enforceSecureConnection(hubUrl, { silent: options.json });
+  } catch (err) {
+    if (err instanceof SecurityError) {
+      if (options.json) {
+        console.log(JSON.stringify({ error: 'Security validation failed', message: err.message }));
+      }
+      process.exit(1);
+    }
+    throw err;
+  }
 
   // Check if target is a URL (direct reach) or a service name
   const isUrl = target.startsWith('http://') || target.startsWith('https://');
@@ -85,7 +95,7 @@ export async function reachCommand(target: string, options: ReachOptions) {
     if (options.json) {
       console.log(JSON.stringify(error));
     } else {
-      console.error(chalk.red('  ✗ Agent not configured'));
+      console.error(chalk.red('  [x] Agent not configured'));
       console.log(chalk.gray(`    Run ${chalk.cyan('connect up --api-key <key>')} first.\n`));
     }
     process.exit(1);
@@ -98,7 +108,7 @@ export async function reachCommand(target: string, options: ReachOptions) {
     if (options.json) {
       console.log(JSON.stringify({ error: 'Service not found', service: target }));
     } else {
-      console.error(chalk.red(`  ✗ Service "${target}" not found`));
+      console.error(chalk.red(`  [x] Service "${target}" not found`));
       console.log(chalk.gray('\n  Available services:'));
       await listServices(hubUrl, config.apiKey);
       console.log();
@@ -139,7 +149,7 @@ export async function reachCommand(target: string, options: ReachOptions) {
     if (options.json) {
       console.log(JSON.stringify({ error: 'Failed to run diagnostics' }));
     } else {
-      console.error(chalk.red('  ✗ Failed to run diagnostics'));
+      console.error(chalk.red('  [x] Failed to run diagnostics'));
     }
     process.exit(1);
   }
@@ -187,9 +197,9 @@ export async function reachCommand(target: string, options: ReachOptions) {
     if (alternativePort) {
       localPort = alternativePort;
       wasAutoSelected = true;
-      console.log(chalk.yellow(`  ⚠ Port ${preferredPort} in use, using ${localPort} instead`));
+      console.log(chalk.yellow(`  [!] Port ${preferredPort} in use, using ${localPort} instead`));
     } else {
-      console.error(chalk.red(`  ✗ Port ${preferredPort} is in use and no alternatives available`));
+      console.error(chalk.red(`  [x] Port ${preferredPort} is in use and no alternatives available`));
       process.exit(1);
     }
   }
@@ -220,11 +230,11 @@ async function createLocalTunnel(
   const connections = new Map<string, { localSocket: net.Socket; ready: boolean }>();
 
   socket.on('connect', () => {
-    console.log(chalk.green('  ✓ Connected to hub'));
+    console.log(chalk.green('  [ok] Connected to hub'));
   });
 
   socket.on('connect_error', (error) => {
-    console.error(chalk.red(`  ✗ Connection error: ${error.message}`));
+    console.error(chalk.red(`  [x] Connection error: ${error.message}`));
     process.exit(1);
   });
 
@@ -308,19 +318,19 @@ async function createLocalTunnel(
   return new Promise<void>((resolve, reject) => {
     server.on('error', (err: NodeJS.ErrnoException) => {
       if (err.code === 'EADDRINUSE') {
-        console.error(chalk.red(`  ✗ Port ${localPort} is already in use`));
+        console.error(chalk.red(`  [x] Port ${localPort} is already in use`));
         console.log(chalk.gray(`    Try a different port with ${chalk.cyan(`--port <port>`)}`));
       } else {
-        console.error(chalk.red(`  ✗ Server error: ${err.message}`));
+        console.error(chalk.red(`  [x] Server error: ${err.message}`));
       }
       socket.disconnect();
       reject(err);
     });
 
     server.listen(localPort, '127.0.0.1', () => {
-      console.log(chalk.green(`  ✓ Listening on localhost:${localPort}`));
+      console.log(chalk.green(`  [ok] Listening on localhost:${localPort}`));
       console.log();
-      console.log(chalk.green.bold(`  ✓ Connected to ${service.name} on localhost:${localPort}`));
+      console.log(chalk.green.bold(`  [ok] Connected to ${service.name} on localhost:${localPort}`));
       console.log();
       console.log(chalk.gray(`  You can now connect to the service at:`));
       console.log(chalk.cyan(`    localhost:${localPort}`));
@@ -567,28 +577,28 @@ function displayDirectDiagnostics(result: DirectDiagnosticResult, url: string, o
   const isSuccess = result.tcpStatus === 'OK' && result.tlsStatus !== 'FAIL' && result.httpStatus !== 'FAIL';
 
   if (isSuccess) {
-    console.log(chalk.green.bold('  ✓ REACHABLE'));
+    console.log(chalk.green.bold('  [ok] REACHABLE'));
   } else {
-    console.log(chalk.red.bold('  ✗ UNREACHABLE'));
+    console.log(chalk.red.bold('  [x] UNREACHABLE'));
   }
   console.log();
 
   // Diagnostic table
   console.log(chalk.white('  ┌─────────────────────────────────────────┐'));
   
-  const dnsIcon = result.dnsStatus.includes('OK') ? chalk.green('✓') : chalk.red('✗');
+  const dnsIcon = result.dnsStatus.includes('OK') ? chalk.green('[ok]') : chalk.red('[x]');
   console.log(chalk.white('  │') + `  DNS     ${dnsIcon}  ${result.dnsStatus.includes('OK') ? chalk.green(result.dnsStatus) : chalk.red(result.dnsStatus)}`.padEnd(52) + chalk.white('│'));
   
-  const tcpIcon = result.tcpStatus === 'OK' ? chalk.green('✓') : chalk.red('✗');
+  const tcpIcon = result.tcpStatus === 'OK' ? chalk.green('[ok]') : chalk.red('[x]');
   console.log(chalk.white('  │') + `  TCP     ${tcpIcon}  ${result.tcpStatus === 'OK' ? chalk.green('OK') : chalk.red(result.tcpStatus)}`.padEnd(52) + chalk.white('│'));
   
   if (result.tlsStatus) {
-    const tlsIcon = result.tlsStatus === 'OK' ? chalk.green('✓') : chalk.red('✗');
+    const tlsIcon = result.tlsStatus === 'OK' ? chalk.green('[ok]') : chalk.red('[x]');
     console.log(chalk.white('  │') + `  TLS     ${tlsIcon}  ${result.tlsStatus === 'OK' ? chalk.green('OK') : chalk.red('FAIL')}`.padEnd(52) + chalk.white('│'));
   }
 
   if (result.httpStatus) {
-    const httpIcon = result.httpStatus === 'OK' ? chalk.green('✓') : chalk.red('✗');
+    const httpIcon = result.httpStatus === 'OK' ? chalk.green('[ok]') : chalk.red('[x]');
     let httpDisplay = result.httpStatus === 'OK' ? chalk.green('OK') : chalk.red('FAIL');
     if (result.httpDetails?.statusCode) {
       const sc = result.httpDetails.statusCode;
@@ -615,14 +625,14 @@ function displayDirectDiagnostics(result: DirectDiagnosticResult, url: string, o
       const expiryColor = days < 0 ? chalk.red : days < 30 ? chalk.yellow : chalk.green;
       console.log(chalk.gray(`     Expires: `) + expiryColor(`${days} days`));
     }
-    if (result.tlsDetails.selfSigned) console.log(chalk.yellow(`     ⚠ Self-signed certificate`));
-    if (result.tlsDetails.error) console.log(chalk.red(`     ✗ ${result.tlsDetails.error}`));
+    if (result.tlsDetails.selfSigned) console.log(chalk.yellow(`     [!] Self-signed certificate`));
+    if (result.tlsDetails.error) console.log(chalk.red(`     [x] ${result.tlsDetails.error}`));
   }
 
   console.log();
 
   if (result.message && result.message !== 'OK') {
-    console.log(chalk.yellow(`  ⚠ ${result.message}`));
+    console.log(chalk.yellow(`  [!] ${result.message}`));
     console.log();
   }
 
@@ -648,7 +658,7 @@ async function findService(name: string, hubUrl: string, apiKey: string): Promis
     return services.find(s => s.name === name) || null;
   } catch (error: unknown) {
     const err = error as Error;
-    console.error(chalk.red(`  ✗ Failed to connect to hub: ${err.message}`));
+    console.error(chalk.red(`  [x] Failed to connect to hub: ${err.message}`));
     return null;
   }
 }
@@ -706,7 +716,7 @@ async function runReachCheck(
     return data.diagnostic;
   } catch (error: unknown) {
     const err = error as Error;
-    console.error(chalk.red(`  ✗ Reach check failed: ${err.message}`));
+    console.error(chalk.red(`  [x] Reach check failed: ${err.message}`));
     return null;
   }
 }
@@ -717,27 +727,27 @@ function displayDiagnostics(result: DiagnosticResult, service: Service, sourceLa
                     result.httpStatus !== 'FAIL';
   
   if (isSuccess) {
-    console.log(chalk.green.bold('  ✓ REACHABLE'));
+    console.log(chalk.green.bold('  [ok] REACHABLE'));
   } else {
-    console.log(chalk.red.bold('  ✗ UNREACHABLE'));
+    console.log(chalk.red.bold('  [x] UNREACHABLE'));
   }
   console.log();
 
   console.log(chalk.white('  ┌─────────────────────────────────────────┐'));
   
-  const dnsIcon = result.dnsStatus.includes('OK') ? chalk.green('✓') : chalk.red('✗');
+  const dnsIcon = result.dnsStatus.includes('OK') ? chalk.green('[ok]') : chalk.red('[x]');
   console.log(chalk.white('  │') + `  DNS     ${dnsIcon}  ${formatStatus(result.dnsStatus)}`.padEnd(42) + chalk.white('│'));
   
-  const tcpIcon = result.tcpStatus === 'OK' ? chalk.green('✓') : chalk.red('✗');
+  const tcpIcon = result.tcpStatus === 'OK' ? chalk.green('[ok]') : chalk.red('[x]');
   console.log(chalk.white('  │') + `  TCP     ${tcpIcon}  ${formatStatus(result.tcpStatus)}`.padEnd(42) + chalk.white('│'));
   
   if (result.tlsStatus) {
-    const tlsIcon = result.tlsStatus === 'OK' ? chalk.green('✓') : chalk.red('✗');
+    const tlsIcon = result.tlsStatus === 'OK' ? chalk.green('[ok]') : chalk.red('[x]');
     console.log(chalk.white('  │') + `  TLS     ${tlsIcon}  ${formatStatus(result.tlsStatus)}`.padEnd(42) + chalk.white('│'));
   }
 
   if (result.httpStatus) {
-    const httpIcon = result.httpStatus === 'OK' ? chalk.green('✓') : chalk.red('✗');
+    const httpIcon = result.httpStatus === 'OK' ? chalk.green('[ok]') : chalk.red('[x]');
     let httpDisplay = formatStatus(result.httpStatus);
     
     if (result.httpDetails) {
@@ -775,8 +785,8 @@ function displayDiagnostics(result: DiagnosticResult, service: Service, sourceLa
                               tlsDetails.daysUntilExpiry < 30 ? chalk.yellow : chalk.green;
           console.log(chalk.gray(`     Expires: `) + expiryColor(`${tlsDetails.daysUntilExpiry} days`));
         }
-        if (tlsDetails.selfSigned) console.log(chalk.yellow(`     ⚠ Self-signed certificate`));
-        if (tlsDetails.error) console.log(chalk.red(`     ✗ ${tlsDetails.error}`));
+        if (tlsDetails.selfSigned) console.log(chalk.yellow(`     [!] Self-signed certificate`));
+        if (tlsDetails.error) console.log(chalk.red(`     [x] ${tlsDetails.error}`));
       }
     } catch { /* ignore */ }
   }
@@ -784,7 +794,7 @@ function displayDiagnostics(result: DiagnosticResult, service: Service, sourceLa
   console.log();
 
   if (result.message && result.message !== 'OK') {
-    console.log(chalk.yellow(`  ⚠ ${result.message}`));
+    console.log(chalk.yellow(`  [!] ${result.message}`));
     console.log();
   }
 }

@@ -25,11 +25,11 @@ export async function logoutCommand(options: LogoutOptions) {
   const cleared = clearConfig();
   
   if (cleared) {
-    console.log(chalk.green('✓ Logged out successfully'));
+    console.log(chalk.green('[ok] Logged out successfully'));
     console.log(chalk.gray('  Local credentials have been cleared.'));
     console.log(chalk.gray('  Run "connect up" to authenticate again.'));
   } else {
-    console.log(chalk.red('✗ Failed to clear configuration'));
+    console.log(chalk.red('[x] Failed to clear configuration'));
   }
 }
 

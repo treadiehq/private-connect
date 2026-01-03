@@ -3,7 +3,7 @@ import * as net from 'net';
 import chalk from 'chalk';
 import { ensureConfig, AgentConfig, loadConfig, generateConfig, getConfigPath, clearConfig } from '../config';
 import { deviceAuthFlow } from '../device-auth';
-import { enforceSecureConnection, handleTokenExpiry, handleSecurityEvent } from '../security';
+import { enforceSecureConnection, handleTokenExpiry, handleSecurityEvent, SecurityError } from '../security';
 
 interface UpOptions {
   hub: string;
@@ -24,7 +24,14 @@ export async function upCommand(options: UpOptions) {
   console.log();
   
   // Enforce HTTPS for non-localhost connections
-  enforceSecureConnection(options.hub);
+  try {
+    enforceSecureConnection(options.hub);
+  } catch (err) {
+    if (err instanceof SecurityError) {
+      process.exit(1);
+    }
+    throw err;
+  }
   
   // Check for pre-authenticated token (CI/CD mode)
   const envToken = process.env.PRIVATECONNECT_TOKEN || options.token;
@@ -51,7 +58,7 @@ export async function upCommand(options: UpOptions) {
     const authResult = await deviceAuthFlow(options.hub, options.label, options.name);
     
     if (!authResult) {
-      console.log(chalk.red('  ✗ Authentication failed'));
+      console.log(chalk.red('  [x] Authentication failed'));
     process.exit(1);
   }
 
@@ -74,7 +81,7 @@ export async function upCommand(options: UpOptions) {
   
   // Handle 401 - invalid/stale credentials
   if (!result.success && result.status === 401) {
-    console.log(chalk.yellow('⚠ Stored credentials are invalid or expired'));
+    console.log(chalk.yellow('[!] Stored credentials are invalid or expired'));
     console.log(chalk.cyan('  Clearing old config and re-authenticating...'));
     console.log();
     
@@ -85,7 +92,7 @@ export async function upCommand(options: UpOptions) {
     const authResult = await deviceAuthFlow(options.hub, options.label, options.name);
     
     if (!authResult) {
-      console.log(chalk.red('  ✗ Authentication failed'));
+      console.log(chalk.red('  [x] Authentication failed'));
       process.exit(1);
     }
     
@@ -101,7 +108,7 @@ export async function upCommand(options: UpOptions) {
   }
   
   if (!result.success) {
-    console.error(chalk.red(`✗ Registration failed: ${result.error}`));
+    console.error(chalk.red(`[x] Registration failed: ${result.error}`));
     process.exit(1);
   }
   
@@ -148,7 +155,7 @@ async function registerAgent(config: AgentConfig): Promise<RegistrationResult> {
       return { success: false, status: response.status, error: text };
     }
     
-    console.log(chalk.green('✓ Registered with hub'));
+    console.log(chalk.green('[ok] Registered with hub'));
     return { success: true };
   } catch (error: unknown) {
     const err = error as Error;
@@ -174,11 +181,11 @@ function connectToHub(config: AgentConfig): Socket {
   const connections = new Map<string, ConnectionState>();
 
   socket.on('connect', () => {
-    console.log(chalk.green('✓ Connected to hub via WebSocket'));
+    console.log(chalk.green('[ok] Connected to hub via WebSocket'));
   });
 
   socket.on('disconnect', (reason) => {
-    console.log(chalk.yellow(`⚠ Disconnected: ${reason}`));
+    console.log(chalk.yellow(`[!] Disconnected: ${reason}`));
     // Close all active connections
     connections.forEach((conn, id) => {
       conn.socket.destroy();
@@ -187,17 +194,17 @@ function connectToHub(config: AgentConfig): Socket {
   });
 
   socket.on('connect_error', (error) => {
-    console.log(chalk.red(`✗ Connection error: ${error.message}`));
+    console.log(chalk.red(`[x] Connection error: ${error.message}`));
   });
 
   // Handle auth errors
   socket.on('error', (data: { code: string; message: string }) => {
     if (data.code === 'TOKEN_EXPIRED') {
-      console.error(chalk.red(`\n✗ ${data.message}`));
+      console.error(chalk.red(`\n[x] ${data.message}`));
       console.log(chalk.gray('  Your token has expired. Run: connect up --api-key <key> to get a new token.\n'));
       process.exit(1);
     } else if (data.code === 'INVALID_TOKEN') {
-      console.error(chalk.red(`\n✗ ${data.message}`));
+      console.error(chalk.red(`\n[x] ${data.message}`));
       process.exit(1);
     }
   });
@@ -237,7 +244,7 @@ function connectToHub(config: AgentConfig): Socket {
       });
 
       targetSocket.on('connect', () => {
-        console.log(chalk.green(`   ✓ Connected to ${data.targetHost}:${data.targetPort}`));
+        console.log(chalk.green(`   [ok] Connected to ${data.targetHost}:${data.targetPort}`));
         const conn = connections.get(data.connectionId);
         if (conn) conn.connected = true;
         socket.emit('dial_success', { connectionId: data.connectionId });
@@ -251,7 +258,7 @@ function connectToHub(config: AgentConfig): Socket {
       });
 
       targetSocket.on('error', (err) => {
-        console.log(chalk.red(`   ✗ Connection error: ${err.message}`));
+        console.log(chalk.red(`   [x] Connection error: ${err.message}`));
         socket.emit('dial_error', { connectionId: data.connectionId, error: err.message });
         connections.delete(data.connectionId);
       });
@@ -263,7 +270,7 @@ function connectToHub(config: AgentConfig): Socket {
 
     } catch (error: unknown) {
       const err = error as Error;
-      console.log(chalk.red(`   ✗ Dial failed: ${err.message}`));
+      console.log(chalk.red(`   [x] Dial failed: ${err.message}`));
       socket.emit('dial_error', { connectionId: data.connectionId, error: err.message });
     }
   });

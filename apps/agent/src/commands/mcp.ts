@@ -2,8 +2,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as readline from 'readline';
+import { spawn } from 'child_process';
 import chalk from 'chalk';
 import { loadConfig, getConfigDir } from '../config';
+import { loadPolicy, evaluateFileWrite, evaluateCommand } from '../broker/policy';
+import { logFileWrite, logCommand } from '../broker/audit';
 
 interface McpOptions {
   hub: string;
@@ -170,6 +173,79 @@ export async function mcpServeCommand(options: McpOptions) {
     {
       name: 'get_connection_info',
       description: 'Get current connection info including agent ID, workspace, and connected services.',
+      inputSchema: {
+        type: 'object',
+        properties: {},
+      },
+    },
+    // Agent Permission Broker tools
+    {
+      name: 'broker_check_file',
+      description: 'Check if writing to a file is allowed by the security policy. Returns allow/block/review decision. Use this BEFORE writing any file.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'The file path to check (relative to workspace)',
+          },
+        },
+        required: ['path'],
+      },
+    },
+    {
+      name: 'broker_check_command',
+      description: 'Check if running a shell command is allowed by the security policy. Returns allow/block/review decision. Use this BEFORE executing any command.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          command: {
+            type: 'string',
+            description: 'The shell command to check',
+          },
+        },
+        required: ['command'],
+      },
+    },
+    {
+      name: 'broker_write_file',
+      description: 'Write content to a file through the Agent Permission Broker. The broker will check if the write is allowed by policy before proceeding.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'The file path to write to (relative to workspace)',
+          },
+          content: {
+            type: 'string',
+            description: 'The content to write to the file',
+          },
+        },
+        required: ['path', 'content'],
+      },
+    },
+    {
+      name: 'broker_run_command',
+      description: 'Run a shell command through the Agent Permission Broker. The broker will check if the command is allowed by policy before proceeding.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          command: {
+            type: 'string',
+            description: 'The shell command to run',
+          },
+          workingDir: {
+            type: 'string',
+            description: 'Working directory for the command (optional)',
+          },
+        },
+        required: ['command'],
+      },
+    },
+    {
+      name: 'broker_get_policy',
+      description: 'Get the current security policy rules that control what this agent can do.',
       inputSchema: {
         type: 'object',
         properties: {},
@@ -399,6 +475,207 @@ export async function mcpServeCommand(options: McpOptions) {
           break;
         }
 
+        // Agent Permission Broker tools
+        case 'broker_check_file': {
+          const filePath = args.path as string;
+          const workingDir = process.cwd();
+          const policy = loadPolicy(workingDir);
+          const evaluation = evaluateFileWrite(policy, filePath);
+          
+          result = {
+            path: filePath,
+            action: evaluation.action,
+            allowed: evaluation.action === 'allow',
+            reason: evaluation.reason || (evaluation.action === 'allow' ? 'Matches allow rule' : 
+                    evaluation.action === 'block' ? 'Matches block rule' : 'Requires review'),
+            rule: evaluation.rule?.path,
+          };
+          break;
+        }
+
+        case 'broker_check_command': {
+          const command = args.command as string;
+          const workingDir = process.cwd();
+          const policy = loadPolicy(workingDir);
+          const evaluation = evaluateCommand(policy, command);
+          
+          result = {
+            command,
+            action: evaluation.action,
+            allowed: evaluation.action === 'allow',
+            reason: evaluation.reason || (evaluation.action === 'allow' ? 'Matches allow rule' : 
+                    evaluation.action === 'block' ? 'Matches block rule' : 'Requires review'),
+            rule: evaluation.rule?.command,
+          };
+          break;
+        }
+
+        case 'broker_write_file': {
+          const filePath = args.path as string;
+          const content = args.content as string;
+          const workingDir = process.cwd();
+          const policy = loadPolicy(workingDir);
+          const evaluation = evaluateFileWrite(policy, filePath);
+          
+          if (evaluation.action === 'block') {
+            logFileWrite(filePath, 'block', {
+              agent: 'mcp',
+              rule: evaluation.rule?.path,
+              reason: evaluation.reason,
+              workingDir,
+            });
+            
+            result = {
+              success: false,
+              action: 'block',
+              reason: evaluation.reason || 'File write blocked by policy',
+              rule: evaluation.rule?.path,
+            };
+          } else if (evaluation.action === 'review') {
+            // In MCP context, review defaults to block (non-interactive)
+            logFileWrite(filePath, 'review', {
+              agent: 'mcp',
+              rule: evaluation.rule?.path,
+              reason: evaluation.reason,
+              userApproved: false,
+              workingDir,
+            });
+            
+            result = {
+              success: false,
+              action: 'review',
+              reason: 'File requires human review. Use the IDE to write this file directly.',
+              rule: evaluation.rule?.path,
+            };
+          } else {
+            // Allow - write the file
+            try {
+              const fullPath = path.isAbsolute(filePath) ? filePath : path.join(workingDir, filePath);
+              const dir = path.dirname(fullPath);
+              
+              if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+              }
+              
+              fs.writeFileSync(fullPath, content);
+              
+              logFileWrite(filePath, 'allow', {
+                agent: 'mcp',
+                rule: evaluation.rule?.path,
+                workingDir,
+              });
+              
+              result = {
+                success: true,
+                action: 'allow',
+                path: filePath,
+                message: `File written successfully`,
+              };
+            } catch (err) {
+              result = {
+                success: false,
+                action: 'error',
+                reason: `Failed to write file: ${(err as Error).message}`,
+              };
+            }
+          }
+          break;
+        }
+
+        case 'broker_run_command': {
+          const command = args.command as string;
+          const cmdWorkingDir = (args.workingDir as string) || process.cwd();
+          const policy = loadPolicy(cmdWorkingDir);
+          const evaluation = evaluateCommand(policy, command);
+          
+          if (evaluation.action === 'block') {
+            logCommand(command, 'block', {
+              agent: 'mcp',
+              rule: evaluation.rule?.command,
+              reason: evaluation.reason,
+              workingDir: cmdWorkingDir,
+            });
+            
+            result = {
+              success: false,
+              action: 'block',
+              reason: evaluation.reason || 'Command blocked by policy',
+              rule: evaluation.rule?.command,
+            };
+          } else if (evaluation.action === 'review') {
+            logCommand(command, 'review', {
+              agent: 'mcp',
+              rule: evaluation.rule?.command,
+              reason: evaluation.reason,
+              userApproved: false,
+              workingDir: cmdWorkingDir,
+            });
+            
+            result = {
+              success: false,
+              action: 'review',
+              reason: 'Command requires human review. Run this command manually in the terminal.',
+              rule: evaluation.rule?.command,
+            };
+          } else {
+            // Allow - run the command
+            try {
+              const { execSync } = require('child_process');
+              const output = execSync(command, {
+                cwd: cmdWorkingDir,
+                encoding: 'utf-8',
+                timeout: 30000,
+                maxBuffer: 1024 * 1024,
+              });
+              
+              logCommand(command, 'allow', {
+                agent: 'mcp',
+                rule: evaluation.rule?.command,
+                workingDir: cmdWorkingDir,
+              });
+              
+              result = {
+                success: true,
+                action: 'allow',
+                output: output.trim(),
+              };
+            } catch (err) {
+              const error = err as { status?: number; stderr?: string; message: string };
+              result = {
+                success: false,
+                action: 'error',
+                exitCode: error.status,
+                stderr: error.stderr,
+                reason: error.message,
+              };
+            }
+          }
+          break;
+        }
+
+        case 'broker_get_policy': {
+          const workingDir = process.cwd();
+          const policy = loadPolicy(workingDir);
+          
+          result = {
+            version: policy.version,
+            default: policy.default,
+            rulesCount: policy.rules.length,
+            fileRules: policy.rules.filter(r => r.path).map(r => ({
+              path: r.path,
+              action: r.action,
+              reason: r.reason,
+            })),
+            commandRules: policy.rules.filter(r => r.command).map(r => ({
+              command: r.command,
+              action: r.action,
+              reason: r.reason,
+            })),
+            policyLocation: path.join(workingDir, '.connect', 'policy.yml'),
+          };
+          break;
+        }
+
         default:
           throw new Error(`Unknown tool: ${name}`);
       }
@@ -516,7 +793,7 @@ export async function mcpSetupCommand(options: McpOptions) {
   console.log(chalk.cyan('\n🤖 AI Integration Setup\n'));
   
   if (!config) {
-    console.log(chalk.yellow('⚠ Agent not configured.'));
+    console.log(chalk.yellow('[!] Agent not configured.'));
     console.log(chalk.gray(`  Run ${chalk.cyan('connect up')} first.\n`));
     return;
   }

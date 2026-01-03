@@ -78,7 +78,7 @@ export async function doctorCommand(options: DoctorOptions) {
 
   // Display issues
   if (report.issues.length === 0) {
-    console.log(chalk.green.bold('  ✓ No issues found\n'));
+    console.log(chalk.green.bold('  [ok] No issues found\n'));
     console.log(chalk.gray('  Everything looks healthy!\n'));
     return;
   }
@@ -87,7 +87,7 @@ export async function doctorCommand(options: DoctorOptions) {
   const warnings = report.issues.filter(i => i.severity === 'warning');
 
   if (errors.length > 0) {
-    console.log(chalk.red(`  ✗ ${errors.length} error(s) found:\n`));
+    console.log(chalk.red(`  [x] ${errors.length} error(s) found:\n`));
     errors.forEach((issue, i) => {
       console.log(chalk.red(`    ${i + 1}. ${issue.description}`));
       if (issue.fix) {
@@ -98,7 +98,7 @@ export async function doctorCommand(options: DoctorOptions) {
   }
 
   if (warnings.length > 0) {
-    console.log(chalk.yellow(`  ⚠ ${warnings.length} warning(s):\n`));
+    console.log(chalk.yellow(`  [!] ${warnings.length} warning(s):\n`));
     warnings.forEach((issue, i) => {
       console.log(chalk.yellow(`    ${i + 1}. ${issue.description}`));
       if (issue.fix) {
@@ -121,15 +121,15 @@ export async function doctorCommand(options: DoctorOptions) {
         try {
           const success = await issue.fix.action();
           if (success) {
-            console.log(chalk.green(`      ✓ Fixed`));
+            console.log(chalk.green(`      [ok] Fixed`));
             fixed++;
           } else {
-            console.log(chalk.red(`      ✗ Failed`));
+            console.log(chalk.red(`      [x] Failed`));
             failed++;
           }
         } catch (err) {
           const error = err as Error;
-          console.log(chalk.red(`      ✗ Error: ${error.message}`));
+          console.log(chalk.red(`      [x] Error: ${error.message}`));
           failed++;
         }
       }
@@ -137,10 +137,10 @@ export async function doctorCommand(options: DoctorOptions) {
 
     console.log();
     if (fixed > 0) {
-      console.log(chalk.green(`  ✓ Fixed ${fixed} issue(s)`));
+      console.log(chalk.green(`  [ok] Fixed ${fixed} issue(s)`));
     }
     if (failed > 0) {
-      console.log(chalk.red(`  ✗ Failed to fix ${failed} issue(s)`));
+      console.log(chalk.red(`  [x] Failed to fix ${failed} issue(s)`));
     }
     console.log();
   } else {
@@ -403,9 +403,9 @@ export async function cleanupCommand(options: { force?: boolean }) {
         }
         
         if (!isProcessRunning(proc.pid)) {
-          console.log(chalk.green(`    ✓ Killed`));
+          console.log(chalk.green(`    [ok] Killed`));
         } else {
-          console.log(chalk.red(`    ✗ Failed to kill`));
+          console.log(chalk.red(`    [x] Failed to kill`));
         }
       }
     }
@@ -422,10 +422,10 @@ export async function cleanupCommand(options: { force?: boolean }) {
       if (options.force) {
         try {
           fs.unlinkSync(pidPath);
-          console.log(chalk.green(`  ✓ Removed ${pidFile}`));
+          console.log(chalk.green(`  [ok] Removed ${pidFile}`));
           cleanedFiles++;
         } catch {
-          console.log(chalk.red(`  ✗ Failed to remove ${pidFile}`));
+          console.log(chalk.red(`  [x] Failed to remove ${pidFile}`));
         }
       } else {
         console.log(chalk.gray(`  Would remove: ${pidPath}`));
@@ -439,7 +439,7 @@ export async function cleanupCommand(options: { force?: boolean }) {
     console.log(chalk.yellow('  Run with --force to actually clean up:\n'));
     console.log(chalk.cyan('    connect cleanup --force\n'));
   } else {
-    console.log(chalk.green('  ✓ Cleanup complete\n'));
+    console.log(chalk.green('  [ok] Cleanup complete\n'));
   }
 }
 

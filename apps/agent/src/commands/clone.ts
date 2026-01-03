@@ -46,7 +46,7 @@ export async function cloneCommand(target: string, options: CloneOptions) {
   const config = loadConfig();
   
   if (!config) {
-    console.error(chalk.red('\n✗ Agent not configured'));
+    console.error(chalk.red('\n[x] Agent not configured'));
     console.log(chalk.gray(`  Run ${chalk.cyan('connect up')} first to authenticate.\n`));
     process.exit(1);
   }
@@ -60,7 +60,7 @@ export async function cloneCommand(target: string, options: CloneOptions) {
     const environment = await findTeammateEnvironment(hubUrl, config.apiKey, target);
     
     if (!environment) {
-      console.error(chalk.red(`✗ Could not find teammate "${target}"`));
+      console.error(chalk.red(`[x] Could not find teammate "${target}"`));
       console.log();
       console.log(chalk.gray('  Tips:'));
       console.log(chalk.gray('    • Use their agent label (shown in their terminal/dashboard)'));
@@ -71,7 +71,7 @@ export async function cloneCommand(target: string, options: CloneOptions) {
     }
 
     if (environment.services.length === 0) {
-      console.error(chalk.red(`✗ ${target} has no services exposed`));
+      console.error(chalk.red(`[x] ${target} has no services exposed`));
       console.log(chalk.gray('  They need to expose services first: connect expose <target>\n'));
       process.exit(1);
     }
@@ -89,7 +89,7 @@ export async function cloneCommand(target: string, options: CloneOptions) {
     const onlineServices = environment.services.filter(s => s.tunnelPort);
     
     if (onlineServices.length === 0) {
-      console.error(chalk.red(`✗ No services are currently online`));
+      console.error(chalk.red(`[x] No services are currently online`));
       console.log(chalk.gray(`  ${target} may have disconnected.\n`));
       process.exit(1);
     }
@@ -131,12 +131,12 @@ export async function cloneCommand(target: string, options: CloneOptions) {
         const portInfo = portChanged 
           ? chalk.yellow(` → localhost:${localPort} (was ${service.targetPort})`)
           : chalk.gray(` → localhost:${localPort}`);
-        console.log(chalk.green(`    ✓ ${service.name}`) + portInfo);
+        console.log(chalk.green(`    [ok] ${service.name}`) + portInfo);
         
         results.push({ name: service.name, success: true, port: localPort });
       } catch (error) {
         const err = error as Error;
-        console.log(chalk.yellow(`    ⚠ ${service.name}`) + chalk.gray(` → ${err.message}`));
+        console.log(chalk.yellow(`    [!] ${service.name}`) + chalk.gray(` → ${err.message}`));
         results.push({ name: service.name, success: false, error: err.message });
       }
     }
@@ -145,12 +145,12 @@ export async function cloneCommand(target: string, options: CloneOptions) {
     const failed = results.filter(r => !r.success);
 
     if (tunnels.length === 0) {
-      console.error(chalk.red('\n✗ Could not connect to any services.\n'));
+      console.error(chalk.red('\n[x] Could not connect to any services.\n'));
       process.exit(1);
     }
 
     console.log();
-    console.log(chalk.green.bold(`✓ Cloned ${successful.length} service(s) from ${environment.agent.label}\n`));
+    console.log(chalk.green.bold(`[ok] Cloned ${successful.length} service(s) from ${environment.agent.label}\n`));
 
     // Step 4: Generate .env file
     if (!options.noEnv) {
@@ -162,7 +162,7 @@ export async function cloneCommand(target: string, options: CloneOptions) {
         console.log(chalk.gray(`  Generated: ${chalk.cyan(envPath)}`));
         console.log(chalk.gray('  Use with: source .env.pconnect or copy to your .env\n'));
       } catch {
-        console.log(chalk.yellow(`  ⚠ Could not write ${envPath}\n`));
+        console.log(chalk.yellow(`  [!] Could not write ${envPath}\n`));
       }
     }
 
@@ -184,7 +184,7 @@ export async function cloneCommand(target: string, options: CloneOptions) {
     console.log();
 
     if (failed.length > 0) {
-      console.log(chalk.yellow(`  ⚠ ${failed.length} service(s) could not connect (may be offline)`));
+      console.log(chalk.yellow(`  [!] ${failed.length} service(s) could not connect (may be offline)`));
       console.log();
     }
 
@@ -209,10 +209,10 @@ export async function cloneCommand(target: string, options: CloneOptions) {
   } catch (error) {
     const err = error as Error;
     if (err.message?.includes('ECONNREFUSED')) {
-      console.error(chalk.red(`\n✗ Cannot connect to hub at ${hubUrl}`));
+      console.error(chalk.red(`\n[x] Cannot connect to hub at ${hubUrl}`));
       console.log(chalk.gray('  Make sure the hub is running.\n'));
     } else {
-      console.error(chalk.red(`\n✗ Error: ${err.message}\n`));
+      console.error(chalk.red(`\n[x] Error: ${err.message}\n`));
     }
     process.exit(1);
   }
@@ -225,7 +225,7 @@ export async function cloneListCommand(options: CloneOptions) {
   const config = loadConfig();
   
   if (!config) {
-    console.error(chalk.red('\n✗ Agent not configured'));
+    console.error(chalk.red('\n[x] Agent not configured'));
     console.log(chalk.gray(`  Run ${chalk.cyan('connect up')} first.\n`));
     process.exit(1);
   }
@@ -243,7 +243,7 @@ export async function cloneListCommand(options: CloneOptions) {
     });
 
     if (!agentsResponse.ok) {
-      console.error(chalk.red(`✗ Failed to fetch agents: ${agentsResponse.statusText}`));
+      console.error(chalk.red(`[x] Failed to fetch agents: ${agentsResponse.statusText}`));
       process.exit(1);
     }
 
@@ -304,7 +304,7 @@ export async function cloneListCommand(options: CloneOptions) {
 
   } catch (error) {
     const err = error as Error;
-    console.error(chalk.red(`\n✗ Error: ${err.message}\n`));
+    console.error(chalk.red(`\n[x] Error: ${err.message}\n`));
     process.exit(1);
   }
 }

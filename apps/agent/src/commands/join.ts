@@ -31,7 +31,7 @@ export async function joinCommand(code: string, options: JoinOptions) {
   const config = loadConfig();
   
   if (!config) {
-    console.error(chalk.red('\n✗ Agent not configured'));
+    console.error(chalk.red('\n[x] Agent not configured'));
     console.log(chalk.gray(`  Run ${chalk.cyan('connect up')} first to authenticate.\n`));
     process.exit(1);
   }
@@ -54,10 +54,10 @@ export async function joinCommand(code: string, options: JoinOptions) {
 
     if (!previewResponse.ok) {
       if (previewResponse.status === 404) {
-        console.error(chalk.red('✗ Share not found or expired'));
+        console.error(chalk.red('[x] Share not found or expired'));
         console.log(chalk.gray('  Check the code and try again.\n'));
       } else {
-        console.error(chalk.red(`✗ Failed to join: ${previewResponse.statusText}`));
+        console.error(chalk.red(`[x] Failed to join: ${previewResponse.statusText}`));
       }
       process.exit(1);
     }
@@ -76,14 +76,14 @@ export async function joinCommand(code: string, options: JoinOptions) {
     });
 
     if (!joinResponse.ok) {
-      console.error(chalk.red(`✗ Failed to join: ${joinResponse.statusText}`));
+      console.error(chalk.red(`[x] Failed to join: ${joinResponse.statusText}`));
       process.exit(1);
     }
 
     const data = await joinResponse.json() as JoinResponse;
 
     if (!data.success || !data.share) {
-      console.error(chalk.red(`✗ Failed to join: ${data.error || 'Unknown error'}`));
+      console.error(chalk.red(`[x] Failed to join: ${data.error || 'Unknown error'}`));
       process.exit(1);
     }
 
@@ -91,7 +91,7 @@ export async function joinCommand(code: string, options: JoinOptions) {
     const expiresAt = new Date(share.expiresAt);
     const hoursLeft = Math.round((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60));
 
-    console.log(chalk.green.bold('✓ Connected to shared environment!\n'));
+    console.log(chalk.green.bold('[ok] Connected to shared environment!\n'));
 
     if (share.name) {
       console.log(chalk.gray(`  Name: ${share.name}`));
@@ -118,19 +118,19 @@ export async function joinCommand(code: string, options: JoinOptions) {
         );
         
         tunnels.push({ server, port: localPort, name: route.serviceName });
-        console.log(chalk.green(`    ✓ ${route.serviceName}`) + chalk.gray(` → localhost:${localPort}`));
+        console.log(chalk.green(`    [ok] ${route.serviceName}`) + chalk.gray(` → localhost:${localPort}`));
       } catch (err) {
         const error = err as Error;
-        console.log(chalk.yellow(`    ⚠ ${route.serviceName}`) + chalk.gray(` → failed: ${error.message}`));
+        console.log(chalk.yellow(`    [!] ${route.serviceName}`) + chalk.gray(` → failed: ${error.message}`));
       }
     }
 
     if (tunnels.length === 0) {
-      console.error(chalk.red('\n✗ No tunnels could be established.\n'));
+      console.error(chalk.red('\n[x] No tunnels could be established.\n'));
       process.exit(1);
     }
 
-    console.log(chalk.green(`\n✓ ${tunnels.length} tunnel(s) active\n`));
+    console.log(chalk.green(`\n[ok] ${tunnels.length} tunnel(s) active\n`));
     
     // Show connection examples
     console.log(chalk.gray('  Example connections:'));
@@ -158,10 +158,10 @@ export async function joinCommand(code: string, options: JoinOptions) {
   } catch (error) {
     const err = error as Error;
     if (err.message?.includes('ECONNREFUSED')) {
-      console.error(chalk.red(`\n✗ Cannot connect to hub at ${hubUrl}`));
+      console.error(chalk.red(`\n[x] Cannot connect to hub at ${hubUrl}`));
       console.log(chalk.gray('  Make sure the hub is running and accessible.\n'));
     } else {
-      console.error(chalk.red(`\n✗ Error: ${err.message}\n`));
+      console.error(chalk.red(`\n[x] Error: ${err.message}\n`));
     }
     process.exit(1);
   }

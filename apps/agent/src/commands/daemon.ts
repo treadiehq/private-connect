@@ -116,7 +116,7 @@ async function installDaemon(options: DaemonOptions) {
   const config = loadConfig();
   
   if (!config) {
-    console.error(chalk.red('\n✗ Agent not configured'));
+    console.error(chalk.red('\n[x] Agent not configured'));
     console.log(chalk.gray(`  Run ${chalk.cyan('connect up')} first to authenticate.\n`));
     process.exit(1);
   }
@@ -132,7 +132,7 @@ async function installDaemon(options: DaemonOptions) {
   } else if (platform === 'linux') {
     await installSystemd(connectPath, hubUrl, options);
   } else {
-    console.error(chalk.red(`✗ Unsupported platform: ${platform}`));
+    console.error(chalk.red(`[x] Unsupported platform: ${platform}`));
     console.log(chalk.gray('  Daemon mode is supported on macOS and Linux.\n'));
     process.exit(1);
   }
@@ -200,7 +200,7 @@ async function installLaunchd(connectPath: string, hubUrl: string, options: Daem
   try {
     execSync(`launchctl unload ${plistPath} 2>/dev/null || true`);
     execSync(`launchctl load ${plistPath}`);
-    console.log(chalk.green('\n✓ Daemon installed and started'));
+    console.log(chalk.green('\n[ok] Daemon installed and started'));
     console.log(chalk.gray('  The agent will now start automatically on login.\n'));
     
     console.log(chalk.white('  Commands:'));
@@ -211,7 +211,7 @@ async function installLaunchd(connectPath: string, hubUrl: string, options: Daem
     console.log();
   } catch (error) {
     const err = error as Error;
-    console.error(chalk.red(`\n✗ Failed to load service: ${err.message}`));
+    console.error(chalk.red(`\n[x] Failed to load service: ${err.message}`));
     process.exit(1);
   }
 }
@@ -261,10 +261,10 @@ WantedBy=default.target
     try {
       execSync(`loginctl enable-linger ${os.userInfo().username}`);
     } catch {
-      console.log(chalk.yellow('  ⚠ Could not enable lingering. Service may stop on logout.'));
+      console.log(chalk.yellow('  [!] Could not enable lingering. Service may stop on logout.'));
     }
     
-    console.log(chalk.green('\n✓ Daemon installed and started'));
+    console.log(chalk.green('\n[ok] Daemon installed and started'));
     console.log(chalk.gray('  The agent will now start automatically on boot.\n'));
     
     console.log(chalk.white('  Commands:'));
@@ -275,7 +275,7 @@ WantedBy=default.target
     console.log();
   } catch (error) {
     const err = error as Error;
-    console.error(chalk.red(`\n✗ Failed to enable service: ${err.message}`));
+    console.error(chalk.red(`\n[x] Failed to enable service: ${err.message}`));
     process.exit(1);
   }
 }
@@ -302,7 +302,7 @@ async function uninstallDaemon() {
       console.log(chalk.gray(`  Removed: ${plistPath}`));
     }
     
-    console.log(chalk.green('\n✓ Daemon uninstalled\n'));
+    console.log(chalk.green('\n[ok] Daemon uninstalled\n'));
     
   } else if (platform === 'linux') {
     const servicePath = getSystemdServicePath();
@@ -325,10 +325,10 @@ async function uninstallDaemon() {
       // Ignore
     }
     
-    console.log(chalk.green('\n✓ Daemon uninstalled\n'));
+    console.log(chalk.green('\n[ok] Daemon uninstalled\n'));
     
   } else {
-    console.error(chalk.red(`✗ Unsupported platform: ${platform}`));
+    console.error(chalk.red(`[x] Unsupported platform: ${platform}`));
     process.exit(1);
   }
 }
@@ -345,11 +345,11 @@ async function startDaemon(options: DaemonOptions) {
     if (fs.existsSync(plistPath)) {
       try {
         execSync(`launchctl start ${SERVICE_NAME}`);
-        console.log(chalk.green('\n✓ Daemon started\n'));
+        console.log(chalk.green('\n[ok] Daemon started\n'));
         return;
       } catch (error) {
         const err = error as Error;
-        console.error(chalk.red(`\n✗ Failed to start: ${err.message}`));
+        console.error(chalk.red(`\n[x] Failed to start: ${err.message}`));
         process.exit(1);
       }
     }
@@ -358,11 +358,11 @@ async function startDaemon(options: DaemonOptions) {
     if (fs.existsSync(servicePath)) {
       try {
         execSync('systemctl --user start private-connect.service');
-        console.log(chalk.green('\n✓ Daemon started\n'));
+        console.log(chalk.green('\n[ok] Daemon started\n'));
         return;
       } catch (error) {
         const err = error as Error;
-        console.error(chalk.red(`\n✗ Failed to start: ${err.message}`));
+        console.error(chalk.red(`\n[x] Failed to start: ${err.message}`));
         process.exit(1);
       }
     }
@@ -374,7 +374,7 @@ async function startDaemon(options: DaemonOptions) {
   const { running, pid: existingPid } = isRunning();
   if (running) {
     if (options.replace) {
-      console.log(chalk.yellow(`⚠ Killing existing daemon (PID ${existingPid})...`));
+      console.log(chalk.yellow(`[!] Killing existing daemon (PID ${existingPid})...`));
       if (existingPid) {
         try {
           process.kill(existingPid, 'SIGTERM');
@@ -389,13 +389,13 @@ async function startDaemon(options: DaemonOptions) {
           if (stillRunning) {
             process.kill(existingPid, 'SIGKILL');
           }
-          console.log(chalk.green('✓ Existing daemon stopped'));
+          console.log(chalk.green('[ok] Existing daemon stopped'));
         } catch (error) {
           console.log(chalk.yellow('  Existing process may have already exited'));
         }
       }
     } else {
-      console.log(chalk.yellow('⚠ Daemon is already running'));
+      console.log(chalk.yellow('[!] Daemon is already running'));
       console.log(chalk.gray(`  Use ${chalk.cyan('connect daemon status')} for details.`));
       console.log(chalk.gray(`  Or use ${chalk.cyan('connect daemon start --replace')} to restart.\n`));
       return;
@@ -404,7 +404,7 @@ async function startDaemon(options: DaemonOptions) {
 
   const config = loadConfig();
   if (!config) {
-    console.error(chalk.red('✗ Agent not configured'));
+    console.error(chalk.red('[x] Agent not configured'));
     console.log(chalk.gray(`  Run ${chalk.cyan('connect up')} first.\n`));
     process.exit(1);
   }
@@ -432,7 +432,7 @@ async function startDaemon(options: DaemonOptions) {
   // Save PID
   fs.writeFileSync(pidPath, child.pid?.toString() || '');
   
-  console.log(chalk.green(`✓ Daemon started (PID: ${child.pid})`));
+  console.log(chalk.green(`[ok] Daemon started (PID: ${child.pid})`));
   console.log(chalk.gray(`  Logs: ${logPath}\n`));
 }
 
@@ -448,7 +448,7 @@ async function stopDaemon() {
     if (fs.existsSync(plistPath)) {
       try {
         execSync(`launchctl stop ${SERVICE_NAME}`);
-        console.log(chalk.green('\n✓ Daemon stopped\n'));
+        console.log(chalk.green('\n[ok] Daemon stopped\n'));
         return;
       } catch {
         // Fall through to PID-based stop
@@ -459,7 +459,7 @@ async function stopDaemon() {
     if (fs.existsSync(servicePath)) {
       try {
         execSync('systemctl --user stop private-connect.service');
-        console.log(chalk.green('\n✓ Daemon stopped\n'));
+        console.log(chalk.green('\n[ok] Daemon stopped\n'));
         return;
       } catch {
         // Fall through to PID-based stop
@@ -471,7 +471,7 @@ async function stopDaemon() {
   const { running, pid } = isRunning();
   
   if (!running) {
-    console.log(chalk.yellow('\n⚠ Daemon is not running\n'));
+    console.log(chalk.yellow('\n[!] Daemon is not running\n'));
     return;
   }
 
@@ -499,10 +499,10 @@ async function stopDaemon() {
       fs.unlinkSync(pidPath);
     }
     
-    console.log(chalk.green('\n✓ Daemon stopped\n'));
+    console.log(chalk.green('\n[ok] Daemon stopped\n'));
   } catch (error) {
     const err = error as Error;
-    console.error(chalk.red(`\n✗ Failed to stop daemon: ${err.message}\n`));
+    console.error(chalk.red(`\n[x] Failed to stop daemon: ${err.message}\n`));
   }
 }
 
@@ -568,7 +568,7 @@ async function statusDaemon() {
     console.log(chalk.gray(`    Label: ${config.label}`));
     console.log(chalk.gray(`    Hub: ${config.hubUrl}`));
   } else {
-    console.log(chalk.yellow('\n  ⚠ Not configured. Run: connect up'));
+    console.log(chalk.yellow('\n  [!] Not configured. Run: connect up'));
   }
 
   console.log();
@@ -604,11 +604,11 @@ async function showLogs() {
     const lastLines = lines.slice(-50);
     
     lastLines.forEach(line => {
-      if (line.includes('✓') || line.includes('Connected')) {
+      if (line.includes('[ok]') || line.includes('Connected')) {
         console.log(chalk.green(line));
-      } else if (line.includes('✗') || line.includes('error') || line.includes('Error')) {
+      } else if (line.includes('[x]') || line.includes('error') || line.includes('Error')) {
         console.log(chalk.red(line));
-      } else if (line.includes('⚠') || line.includes('warning')) {
+      } else if (line.includes('[!]') || line.includes('warning')) {
         console.log(chalk.yellow(line));
       } else {
         console.log(chalk.gray(line));
@@ -619,7 +619,7 @@ async function showLogs() {
     console.log(chalk.gray(`\n  Showing last ${lastLines.length} lines. Full log: ${logPath}\n`));
   } catch (error) {
     const err = error as Error;
-    console.error(chalk.red(`\n✗ Error reading logs: ${err.message}\n`));
+    console.error(chalk.red(`\n[x] Error reading logs: ${err.message}\n`));
   }
 }
 

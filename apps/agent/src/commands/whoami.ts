@@ -27,7 +27,7 @@ export async function whoamiCommand(options: WhoamiOptions) {
     if (options.json) {
       console.log(JSON.stringify({ error: 'Not configured', configured: false }));
     } else {
-      console.log(chalk.yellow('\n⚠ Agent not configured'));
+      console.log(chalk.yellow('\n[!] Agent not configured'));
       console.log(chalk.gray(`  Run ${chalk.cyan('connect up --api-key <key>')} to configure.\n`));
     }
     process.exit(1);

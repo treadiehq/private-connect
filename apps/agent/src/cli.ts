@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { program } from 'commander';
+import { program, InvalidArgumentError } from 'commander';
 import { upCommand } from './commands/up';
 import { exposeCommand } from './commands/expose';
 import { reachCommand } from './commands/reach';
@@ -20,14 +20,156 @@ import { shellInitCommand, shellSetupCommand } from './commands/shell';
 import { dnsCommand, serveDns } from './commands/dns';
 import { mcpCommand } from './commands/mcp';
 import { cloneCommand, cloneListCommand } from './commands/clone';
+import { brokerCommand } from './commands/broker';
 import { setConfigPath } from './config';
+import { validateHubUrl } from './security';
 
-// Version - keep in sync with package.json
-const VERSION = '0.1.16';
+// Read version from package.json to avoid drift
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const pkg = require('../package.json') as { version: string };
+const VERSION = pkg.version;
 
-// Default hub URL - can be overridden via CONNECT_HUB_URL env var
-// Set CONNECT_HUB_URL or use --hub flag for production
-const DEFAULT_HUB_URL = process.env.CONNECT_HUB_URL || 'https://api.privateconnect.co';
+// ─────────────────────────────────────────────────────────────────────────────
+// Validation & Coercion Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Parse and validate a port number
+ */
+function parsePort(value: string, defaultValue?: number): number {
+  const port = parseInt(value, 10);
+  if (isNaN(port)) {
+    if (defaultValue !== undefined) return defaultValue;
+    throw new InvalidArgumentError(`Invalid port: "${value}" is not a number`);
+  }
+  if (port < 1 || port > 65535) {
+    throw new InvalidArgumentError(`Invalid port: ${port} (must be 1-65535)`);
+  }
+  return port;
+}
+
+/**
+ * Parse and validate a timeout in milliseconds
+ */
+function parseTimeout(value: string): number {
+  const timeout = parseInt(value, 10);
+  if (isNaN(timeout) || timeout < 0) {
+    throw new InvalidArgumentError(`Invalid timeout: "${value}" (must be a positive number)`);
+  }
+  return timeout;
+}
+
+/**
+ * Parse and validate a limit (positive integer)
+ */
+function parseLimit(value: string): number {
+  const limit = parseInt(value, 10);
+  if (isNaN(limit) || limit < 1) {
+    throw new InvalidArgumentError(`Invalid limit: "${value}" (must be a positive number)`);
+  }
+  return limit;
+}
+
+/**
+ * Parse and validate comma-separated ports
+ */
+function parsePorts(value: string): number[] {
+  const ports = value.split(',').map(p => p.trim()).filter(Boolean);
+  return ports.map(p => {
+    const port = parseInt(p, 10);
+    if (isNaN(port) || port < 1 || port > 65535) {
+      throw new InvalidArgumentError(`Invalid port in list: "${p}"`);
+    }
+    return port;
+  });
+}
+
+/**
+ * Parse and validate expiration duration
+ */
+function parseDuration(value: string): string {
+  const validDurations = /^(\d+[hd]|never)$/i;
+  if (!validDurations.test(value)) {
+    throw new InvalidArgumentError(
+      `Invalid duration: "${value}" (use format: 1h, 24h, 7d, 30d, or "never")`
+    );
+  }
+  return value.toLowerCase();
+}
+
+/**
+ * Parse and validate HTTP methods
+ */
+function parseMethods(value: string): string[] {
+  const validMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
+  const methods = value.split(',').map(m => m.trim().toUpperCase()).filter(Boolean);
+  
+  for (const method of methods) {
+    if (!validMethods.includes(method)) {
+      throw new InvalidArgumentError(
+        `Invalid HTTP method: "${method}" (allowed: ${validMethods.join(', ')})`
+      );
+    }
+  }
+  return methods;
+}
+
+/**
+ * Parse and validate URL paths
+ */
+function parsePaths(value: string): string[] {
+  const paths = value.split(',').map(p => p.trim()).filter(Boolean);
+  
+  for (const path of paths) {
+    if (!path.startsWith('/')) {
+      throw new InvalidArgumentError(`Invalid path: "${path}" (paths must start with /)`);
+    }
+  }
+  return paths;
+}
+
+/**
+ * Validate hub URL from environment or option
+ */
+function getValidatedHubUrl(): string {
+  const envUrl = process.env.CONNECT_HUB_URL;
+  const defaultUrl = 'https://api.privateconnect.co';
+  
+  if (envUrl) {
+    const result = validateHubUrl(envUrl);
+    if (!result.valid) {
+      console.error(`[!] Invalid CONNECT_HUB_URL: ${result.error}`);
+      console.error(`    Using default: ${defaultUrl}`);
+      return defaultUrl;
+    }
+    return envUrl;
+  }
+  return defaultUrl;
+}
+
+// Validated default hub URL
+const DEFAULT_HUB_URL = getValidatedHubUrl();
+
+// Valid daemon actions
+const DAEMON_ACTIONS = ['install', 'uninstall', 'start', 'stop', 'restart', 'status', 'logs'] as const;
+type DaemonAction = typeof DAEMON_ACTIONS[number];
+
+/**
+ * Validate daemon action
+ */
+function validateDaemonAction(action: string | undefined): DaemonAction | undefined {
+  if (!action) return undefined;
+  if (!DAEMON_ACTIONS.includes(action as DaemonAction)) {
+    console.error(`[x] Invalid daemon action: "${action}"`);
+    console.error(`    Valid actions: ${DAEMON_ACTIONS.join(', ')}`);
+    process.exit(1);
+  }
+  return action as DaemonAction;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CLI Program Definition
+// ─────────────────────────────────────────────────────────────────────────────
 
 program
   .name('connect')
@@ -37,7 +179,7 @@ program
 program
   .command('up')
   .description('Start the agent and connect to the hub')
-  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-k, --api-key <key>', 'Workspace API key')
   .option('-l, --label <label>', 'Environment label (default: hostname)')
   .option('-n, --name <name>', 'Agent name')
@@ -52,7 +194,7 @@ program
   .command('expose <target>')
   .description('Expose a local service through the tunnel (make something private available)')
   .option('-n, --name <name>', 'Service name', 'default')
-  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-k, --api-key <key>', 'Workspace API key')
   .option('-p, --protocol <protocol>', 'Protocol hint: auto|tcp|http|https', 'auto')
   .option('--public', 'Make service publicly accessible via URL (for webhooks)')
@@ -65,8 +207,8 @@ program
 program
   .command('reach <service>')
   .description('Connect to an exposed service and create a local tunnel')
-  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
-  .option('-t, --timeout <ms>', 'Timeout in milliseconds', '5000')
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-t, --timeout <ms>', 'Timeout in milliseconds', parseTimeout, 5000)
   .option('-p, --port <port>', 'Local port to listen on (default: same as service port)')
   .option('--check', 'Only run diagnostics, do not create local tunnel')
   .option('--json', 'Output as JSON')
@@ -79,23 +221,23 @@ program
 program
   .command('proxy')
   .description('Start a local HTTP proxy to access services via subdomains (e.g., my-api.localhost:3000)')
-  .option('-p, --port <port>', 'Port to listen on', '3000')
-  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-p, --port <port>', 'Port to listen on', parsePort, 3000)
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-c, --config <path>', 'Config file path (for multiple agents)')
   .option('-r, --replace', 'Kill existing proxy on the same port and take over')
   .action((options) => {
     if (options.config) setConfigPath(options.config);
-    proxyCommand({ ...options, port: parseInt(options.port, 10) });
+    proxyCommand(options);
   });
 
 program
   .command('link <service>')
   .description('Create a public URL for a service (no account needed to access)')
-  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
-  .option('-e, --expires <duration>', 'Expiration: 1h, 24h, 7d, 30d, never', '24h')
-  .option('-m, --methods <methods>', 'Allowed HTTP methods (comma-separated, e.g., GET,POST)')
-  .option('-p, --paths <paths>', 'Allowed paths (comma-separated, e.g., /api,/health)')
-  .option('-r, --rate-limit <rpm>', 'Rate limit per minute')
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-e, --expires <duration>', 'Expiration: 1h, 24h, 7d, 30d, never', parseDuration, '24h')
+  .option('-m, --methods <methods>', 'Allowed HTTP methods (comma-separated)', parseMethods)
+  .option('-p, --paths <paths>', 'Allowed paths (comma-separated, e.g., /api,/health)', parsePaths)
+  .option('-r, --rate-limit <rpm>', 'Rate limit per minute', parseLimit)
   .option('-n, --name <name>', 'Link name (for identification)')
   .option('-c, --config <path>', 'Config file path (for multiple agents)')
   .action((service, options) => {
@@ -117,7 +259,7 @@ program
   .command('discover')
   .description('Scan for local services and optionally expose them')
   .option('--host <host>', 'Host to scan', 'localhost')
-  .option('--ports <ports>', 'Comma-separated list of ports to scan')
+  .option('--ports <ports>', 'Comma-separated list of ports to scan', parsePorts)
   .option('--json', 'Output as JSON')
   .option('-c, --config <path>', 'Config file path (for multiple agents)')
   .action((options) => {
@@ -146,14 +288,21 @@ program
 program
   .command('share')
   .description('Share your current environment with teammates')
-  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-n, --name <name>', 'Friendly name for the share')
-  .option('-e, --expires <duration>', 'Expiry duration (e.g., 4h, 24h, 7d)', '24h')
+  .option('-e, --expires <duration>', 'Expiry duration (e.g., 4h, 24h, 7d)', parseDuration, '24h')
   .option('-c, --config <path>', 'Config file path')
   .option('-l, --list', 'List active shares')
   .option('-r, --revoke <code>', 'Revoke a share by code')
   .action((options) => {
     if (options.config) setConfigPath(options.config);
+    
+    // Enforce mutual exclusivity
+    if (options.list && options.revoke) {
+      console.error('[x] Cannot use --list and --revoke together');
+      process.exit(1);
+    }
+    
     if (options.list) {
       listSharesCommand(options);
     } else if (options.revoke) {
@@ -166,7 +315,7 @@ program
 program
   .command('join <code>')
   .description('Join a shared environment from a teammate')
-  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-c, --config <path>', 'Config file path')
   .action((code, options) => {
     if (options.config) setConfigPath(options.config);
@@ -177,7 +326,7 @@ program
 program
   .command('map [service] [localPort]')
   .description('Map a service to a local port (e.g., staging-db → localhost:5432)')
-  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-c, --config <path>', 'Config file path')
   .option('-r, --remove', 'Remove the mapping')
   .option('-s, --status', 'Show status of all mappings')
@@ -186,7 +335,9 @@ program
     if (options.status) {
       mapStatusCommand(options);
     } else {
-      mapCommand(service, localPort, options);
+      // Coerce localPort to number if provided
+      const port = localPort ? parsePort(localPort) : undefined;
+      mapCommand(service, port, options);
     }
   });
 
@@ -194,27 +345,35 @@ program
 program
   .command('daemon [action]')
   .description('Manage the background daemon (install|uninstall|start|stop|restart|status|logs)')
-  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-c, --config <path>', 'Config file path')
   .option('--proxy', 'Also run the proxy server')
-  .option('--proxy-port <port>', 'Proxy port (default: 3000)')
+  .option('--proxy-port <port>', 'Proxy port', parsePort, 3000)
   .option('-r, --replace', 'Kill existing daemon and start a new one')
   .action((action, options) => {
     if (options.config) setConfigPath(options.config);
-    daemonCommand(action, options);
+    const validatedAction = validateDaemonAction(action);
+    daemonCommand(validatedAction, options);
   });
 
 // Dev Mode Commands
 program
   .command('dev')
   .description('Connect to all services defined in pconnect.yml')
-  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
-  .option('-f, --file <path>', 'Config file path')
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-f, --file <path>', 'Path to pconnect.yml file')
   .option('-c, --config <path>', 'Agent config file path')
   .option('-b, --background', 'Run in background')
-  .option('--init', 'Initialize a new .privateconnect.yml file')
+  .option('--init', 'Initialize a new pconnect.yml file (cannot be used with other options)')
   .action((options) => {
     if (options.config) setConfigPath(options.config);
+    
+    // Enforce --init exclusivity
+    if (options.init && (options.file || options.background)) {
+      console.error('[x] --init cannot be used with --file or --background');
+      process.exit(1);
+    }
+    
     if (options.init) {
       devInitCommand(options);
     } else {
@@ -252,7 +411,7 @@ program
 program
   .command('clone [target]')
   .description('Clone a teammate\'s environment (connect clone alice)')
-  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-o, --output <path>', 'Output .env file path', '.env.pconnect')
   .option('--no-env', 'Skip .env file generation')
   .option('-l, --list', 'List teammates with clonable environments')
@@ -288,8 +447,8 @@ program
 program
   .command('dns [action]')
   .description('Manage local DNS for *.connect domains (install|uninstall|start|stop|status|test)')
-  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
-  .option('-p, --port <port>', 'DNS server port', '15353')
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-p, --port <port>', 'DNS server port', parsePort, 15353)
   .option('-d, --domain <domain>', 'Domain suffix', 'connect')
   .option('-c, --config <path>', 'Config file path')
   .action(async (action, options) => {
@@ -297,15 +456,9 @@ program
     
     // Handle internal 'serve' action for background DNS server
     if (action === 'serve') {
-      await serveDns({
-        ...options,
-        port: parseInt(options.port, 10),
-      });
+      await serveDns(options);
     } else {
-      await dnsCommand(action, {
-        ...options,
-        port: parseInt(options.port, 10),
-      });
+      await dnsCommand(action, options);
     }
   });
 
@@ -313,11 +466,39 @@ program
 program
   .command('mcp [action]')
   .description('AI assistant integration via MCP (setup|serve)')
-  .option('-h, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-c, --config <path>', 'Config file path')
   .action(async (action, options) => {
     if (options.config) setConfigPath(options.config);
     await mcpCommand(action, options);
   });
 
-program.parse();
+// Agent Permission Broker Commands
+program
+  .command('broker [action] [args...]')
+  .description('Agent Permission Broker - Zero Trust for AI agents (init|status|run|exec|hooks|audit)')
+  .option('-w, --working-dir <path>', 'Working directory')
+  .option('-a, --agent <id>', 'Agent identifier')
+  .option('-o, --observe', 'Observe mode - log but do not enforce')
+  .option('-l, --limit <n>', 'Limit audit entries', parseLimit, 50)
+  .option('-t, --type <type>', 'Filter by type (file|command|git)')
+  .option('--action <action>', 'Filter by action (allow|block|review)')
+  .option('-s, --stats', 'Show audit statistics')
+  .option('-u, --uninstall', 'Uninstall hooks')
+  .action(async (action, args, options) => {
+    await brokerCommand(action, args, options);
+  });
+
+program
+  .command('audit')
+  .description('View agent action audit log')
+  .option('-l, --limit <n>', 'Number of entries to show', parseLimit, 50)
+  .option('-t, --type <type>', 'Filter by type (file|command|git)')
+  .option('--action <action>', 'Filter by action (allow|block|review)')
+  .option('-s, --stats', 'Show audit statistics')
+  .action(async (options) => {
+    const { brokerAuditCommand } = await import('./commands/broker');
+    await brokerAuditCommand(options);
+  });
+
+program.parse(process.argv);

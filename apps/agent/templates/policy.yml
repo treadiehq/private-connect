@@ -1,0 +1,346 @@
+# Connect Agent Permission Broker Policy
+# =======================================
+# 
+# This file controls what AI agents can do in your workspace.
+# Place this file at: .connect/policy.yml
+#
+# Actions:
+#   allow  - Permit the operation silently
+#   block  - Deny the operation immediately
+#   review - Prompt user for approval
+#
+# Rules are evaluated in order - first match wins.
+# If no rule matches, the 'default' action is used.
+
+version: 1
+default: review
+
+rules:
+  # ─────────────────────────────────────────────────────────────
+  # SOURCE CODE - Allow normal development
+  # ─────────────────────────────────────────────────────────────
+  
+  - path: "src/**"
+    action: allow
+  
+  - path: "lib/**"
+    action: allow
+  
+  - path: "app/**"
+    action: allow
+  
+  - path: "pages/**"
+    action: allow
+  
+  - path: "components/**"
+    action: allow
+  
+  - path: "tests/**"
+    action: allow
+  
+  - path: "test/**"
+    action: allow
+  
+  # Common source file extensions
+  - path: "**/*.ts"
+    action: allow
+  
+  - path: "**/*.tsx"
+    action: allow
+  
+  - path: "**/*.js"
+    action: allow
+  
+  - path: "**/*.jsx"
+    action: allow
+  
+  - path: "**/*.py"
+    action: allow
+  
+  - path: "**/*.go"
+    action: allow
+  
+  - path: "**/*.rs"
+    action: allow
+  
+  - path: "**/*.css"
+    action: allow
+  
+  - path: "**/*.scss"
+    action: allow
+  
+  - path: "**/*.html"
+    action: allow
+  
+  - path: "**/*.md"
+    action: allow
+
+  # ─────────────────────────────────────────────────────────────
+  # CONFIG FILES - Review changes
+  # ─────────────────────────────────────────────────────────────
+  
+  - path: "**/*.json"
+    action: review
+    reason: "Config files should be reviewed"
+  
+  - path: "**/*.yaml"
+    action: review
+    reason: "Config files should be reviewed"
+  
+  - path: "**/*.yml"
+    action: review
+    reason: "Config files should be reviewed"
+  
+  - path: "**/*.toml"
+    action: review
+    reason: "Config files should be reviewed"
+
+  # ─────────────────────────────────────────────────────────────
+  # SECRETS & CREDENTIALS - Block access
+  # ─────────────────────────────────────────────────────────────
+  
+  - path: ".env*"
+    action: block
+    reason: "Environment files may contain secrets"
+  
+  - path: "**/.env*"
+    action: block
+    reason: "Environment files may contain secrets"
+  
+  - path: "**/*.pem"
+    action: block
+    reason: "Private keys are sensitive"
+  
+  - path: "**/*.key"
+    action: block
+    reason: "Private keys are sensitive"
+  
+  - path: "**/id_rsa*"
+    action: block
+    reason: "SSH keys are sensitive"
+  
+  - path: "**/id_ed25519*"
+    action: block
+    reason: "SSH keys are sensitive"
+  
+  - path: "**/.ssh/**"
+    action: block
+    reason: "SSH configuration is sensitive"
+  
+  - path: "**/secrets/**"
+    action: block
+    reason: "Secrets directory is protected"
+  
+  - path: "**/credentials*"
+    action: block
+    reason: "Credentials are sensitive"
+  
+  - path: "**/.aws/**"
+    action: block
+    reason: "AWS credentials are sensitive"
+  
+  - path: "**/.gcloud/**"
+    action: block
+    reason: "GCloud credentials are sensitive"
+
+  # ─────────────────────────────────────────────────────────────
+  # CI/CD & INFRASTRUCTURE - Block to prevent supply chain attacks
+  # ─────────────────────────────────────────────────────────────
+  
+  - path: ".github/workflows/**"
+    action: block
+    reason: "CI/CD workflows can run arbitrary code"
+  
+  - path: ".gitlab-ci.yml"
+    action: block
+    reason: "CI/CD config can run arbitrary code"
+  
+  - path: "Jenkinsfile"
+    action: block
+    reason: "CI/CD config can run arbitrary code"
+  
+  - path: ".circleci/**"
+    action: block
+    reason: "CI/CD config can run arbitrary code"
+  
+  - path: ".travis.yml"
+    action: block
+    reason: "CI/CD config can run arbitrary code"
+  
+  - path: "azure-pipelines.yml"
+    action: block
+    reason: "CI/CD config can run arbitrary code"
+  
+  - path: "**/terraform/**"
+    action: block
+    reason: "Infrastructure as code is sensitive"
+  
+  - path: "**/*.tf"
+    action: block
+    reason: "Terraform files are sensitive"
+  
+  - path: "**/pulumi/**"
+    action: block
+    reason: "Infrastructure as code is sensitive"
+
+  # Container config - review instead of block
+  - path: "Dockerfile*"
+    action: review
+    reason: "Container config should be reviewed"
+  
+  - path: "docker-compose*"
+    action: review
+    reason: "Container config should be reviewed"
+
+  # ─────────────────────────────────────────────────────────────
+  # BROKER SELF-PROTECTION
+  # ─────────────────────────────────────────────────────────────
+  
+  - path: ".connect/**"
+    action: block
+    reason: "Broker configuration is protected"
+  
+  - path: "**/.connect/**"
+    action: block
+    reason: "Broker configuration is protected"
+
+  # ─────────────────────────────────────────────────────────────
+  # SHELL COMMANDS - Dangerous patterns
+  # ─────────────────────────────────────────────────────────────
+  
+  # Destructive commands
+  - command: "rm -rf *"
+    action: block
+    reason: "Destructive command"
+  
+  - command: "rm -rf /"
+    action: block
+    reason: "Destructive command"
+  
+  - command: "rm -rf ~"
+    action: block
+    reason: "Destructive command"
+  
+  # Remote code execution
+  - command: "curl *|*sh"
+    action: block
+    reason: "Remote code execution"
+  
+  - command: "wget *|*sh"
+    action: block
+    reason: "Remote code execution"
+  
+  - command: "curl *|*bash"
+    action: block
+    reason: "Remote code execution"
+  
+  - command: "wget *|*bash"
+    action: block
+    reason: "Remote code execution"
+  
+  # Insecure permissions
+  - command: "chmod 777*"
+    action: block
+    reason: "Insecure permissions"
+  
+  # Elevated privileges
+  - command: "sudo *"
+    action: review
+    reason: "Elevated privileges"
+
+  # ─────────────────────────────────────────────────────────────
+  # SHELL COMMANDS - Package managers (generally safe)
+  # ─────────────────────────────────────────────────────────────
+  
+  - command: "npm install *"
+    action: allow
+  
+  - command: "npm run *"
+    action: allow
+  
+  - command: "pnpm *"
+    action: allow
+  
+  - command: "yarn *"
+    action: allow
+  
+  - command: "pip install *"
+    action: allow
+  
+  - command: "pip3 install *"
+    action: allow
+  
+  - command: "cargo *"
+    action: allow
+  
+  - command: "go *"
+    action: allow
+  
+  # npx can run arbitrary code - review
+  - command: "npx *"
+    action: review
+    reason: "npx can execute arbitrary packages"
+
+  # ─────────────────────────────────────────────────────────────
+  # GIT COMMANDS
+  # ─────────────────────────────────────────────────────────────
+  
+  - command: "git add *"
+    action: allow
+  
+  - command: "git commit *"
+    action: allow
+  
+  - command: "git status"
+    action: allow
+  
+  - command: "git diff*"
+    action: allow
+  
+  - command: "git log*"
+    action: allow
+  
+  - command: "git branch*"
+    action: allow
+  
+  - command: "git checkout*"
+    action: allow
+  
+  - command: "git switch*"
+    action: allow
+  
+  - command: "git pull*"
+    action: allow
+  
+  - command: "git fetch*"
+    action: allow
+  
+  - command: "git stash*"
+    action: allow
+  
+  # Push requires review
+  - command: "git push*"
+    action: review
+    reason: "Pushing code to remote"
+  
+  # Force push is blocked
+  - command: "git push -f*"
+    action: block
+    reason: "Force push can overwrite history"
+  
+  - command: "git push --force*"
+    action: block
+    reason: "Force push can overwrite history"
+
+  # ─────────────────────────────────────────────────────────────
+  # GIT OPERATIONS (via hooks)
+  # ─────────────────────────────────────────────────────────────
+  
+  - git: force-push
+    action: block
+    reason: "Force push can destroy history"
+  
+  - git: branch-delete
+    action: review
+    reason: "Deleting branches should be reviewed"
+

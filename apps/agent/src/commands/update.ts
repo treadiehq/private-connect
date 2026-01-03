@@ -119,7 +119,7 @@ export async function updateCommand(options: { force?: boolean }) {
     spinner.succeed(`Latest version: ${chalk.green(latestVersion)}`);
     
     if (currentVersion === latestVersion && !options.force) {
-      console.log(chalk.green('\n✓ You already have the latest version!'));
+      console.log(chalk.green('\n[ok] You already have the latest version!'));
       return;
     }
     
@@ -170,7 +170,7 @@ export async function updateCommand(options: { force?: boolean }) {
         installSpinner.info('Requires sudo to install');
         try {
           execSync(`sudo cp "${tmpFile}" "${installPath}"`, { stdio: 'inherit' });
-          console.log(chalk.green('✓ Installed with sudo'));
+          console.log(chalk.green('[ok] Installed with sudo'));
         } catch {
           console.error(chalk.red('Failed to install. Try running with sudo.'));
           process.exit(1);
@@ -185,7 +185,7 @@ export async function updateCommand(options: { force?: boolean }) {
     
     // Verify
     const newVersion = getInstalledVersion();
-    console.log(chalk.green(`\n✓ Updated to version ${newVersion}!`));
+    console.log(chalk.green(`\n[ok] Updated to version ${newVersion}!`));
     
   } catch (error: any) {
     spinner.fail('Update failed');

@@ -1,6 +1,6 @@
 # Private Connect
 
-Securely access any private services from anywhere, no VPNs, no firewall rules.
+Connect to private services securely from anywhere. Let AI agents connect too, on your terms.
 
 ## Install
 
@@ -210,6 +210,9 @@ connect clone <teammate>      # Clone a teammate's environment
 connect shell-init            # Shell integration (prompt & auto-connect)
 connect dns <action>          # Local DNS for *.connect domains
 connect mcp <action>          # AI assistant integration
+connect broker <action>       # Agent Permission Broker (init|status|hooks|audit)
+connect broker run <command>  # Run command through permission broker
+connect audit                 # View agent action audit log
 ```
 
 ### Options
@@ -356,6 +359,61 @@ Example prompts:
 - "List all my connected services"
 - "Connect to the staging database"  
 - "Check if the user-service is healthy"
+
+### Agent Permission Broker
+
+**Zero Trust for AI Agents** — control what AI coding assistants can do in your workspace.
+
+```bash
+# Initialize in your project (creates .connect/policy.yml)
+connect broker init
+
+# Run any CLI-based AI agent through the broker  
+connect broker run -- claude      # Anthropic Claude Code CLI
+connect broker run -- aider       # Aider
+connect broker run -- opencode    # OpenCode
+
+# View what agents tried to do
+connect audit
+```
+
+**How it works:**
+- Policy file (`.connect/policy.yml`) defines allow/block/review rules
+- AI agent actions are evaluated against rules before execution
+- Audit log records every action for security review
+
+> **Note:** `connect broker run -- aider` executes `aider` on your machine, install the tool first. For GUI apps like Cursor, use MCP: `connect mcp setup`
+
+**Default protections:**
+- Source code (`src/**`, `*.ts`, `*.py`) → allow
+- Config files (`*.json`, `*.yml`) → review  
+- Secrets (`.env`, `*.key`) → block
+- CI/CD (`.github/workflows/**`) → block
+- Destructive commands (`rm -rf *`) → block
+
+```yaml
+# .connect/policy.yml
+version: 1
+default: review
+
+rules:
+  - path: "src/**"
+    action: allow
+  - path: ".env*"
+    action: block
+    reason: "Environment files contain secrets"
+  - path: ".github/workflows/**"
+    action: block
+    reason: "CI/CD can run arbitrary code"
+  - command: "rm -rf *"
+    action: block
+```
+
+```bash
+connect broker status   # Check policy and hooks
+connect broker hooks    # Install git pre-commit/pre-push hooks
+connect audit --stats   # View audit statistics
+```
 
 ### Self-Healing & Diagnostics
 

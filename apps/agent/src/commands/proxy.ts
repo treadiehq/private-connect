@@ -54,7 +54,7 @@ export async function proxyCommand(options: ProxyOptions) {
   const config = loadConfig();
   
   if (!config) {
-    console.error(chalk.red('✗ Agent not configured'));
+    console.error(chalk.red('[x] Agent not configured'));
     console.log(chalk.gray(`  Run ${chalk.cyan('connect up')} first to authenticate.\n`));
     process.exit(1);
   }
@@ -72,14 +72,14 @@ export async function proxyCommand(options: ProxyOptions) {
   if (!(await isPortAvailable(preferredPort))) {
     if (options.replace) {
       // Try to kill the existing process on this port
-      console.log(chalk.yellow(`  ⚠ Port ${preferredPort} in use, attempting to take over...`));
+      console.log(chalk.yellow(`  [!] Port ${preferredPort} in use, attempting to take over...`));
       const killed = await tryKillPortProcess(preferredPort);
       if (killed) {
-        console.log(chalk.green(`  ✓ Killed existing process`));
+        console.log(chalk.green(`  [ok] Killed existing process`));
         // Wait for port to become available
         await new Promise(resolve => setTimeout(resolve, 500));
       } else {
-        console.log(chalk.red(`  ✗ Could not kill existing process`));
+        console.log(chalk.red(`  [x] Could not kill existing process`));
       }
     }
     
@@ -89,9 +89,9 @@ export async function proxyCommand(options: ProxyOptions) {
       if (alternativePort) {
         actualPort = alternativePort;
         wasAutoSelected = true;
-        console.log(chalk.yellow(`  ⚠ Port ${preferredPort} in use, using ${actualPort} instead`));
+        console.log(chalk.yellow(`  [!] Port ${preferredPort} in use, using ${actualPort} instead`));
       } else {
-        console.error(chalk.red(`\n✗ Port ${preferredPort} is in use and no alternatives available`));
+        console.error(chalk.red(`\n[x] Port ${preferredPort} is in use and no alternatives available`));
         console.log(chalk.gray(`  Try: ${chalk.cyan(`connect proxy --port ${preferredPort + 100}`)}`));
         console.log(chalk.gray(`  Or:  ${chalk.cyan(`connect proxy --replace`)} to take over\n`));
         process.exit(1);
@@ -121,10 +121,10 @@ export async function proxyCommand(options: ProxyOptions) {
   await refreshServices();
   
   if (services.length === 0) {
-    console.log(chalk.yellow('⚠ No services found. Expose some services first:'));
+    console.log(chalk.yellow('[!] No services found. Expose some services first:'));
     console.log(chalk.gray(`  ${chalk.cyan('connect expose localhost:8080 --name my-api')}\n`));
   } else {
-    console.log(chalk.green(`✓ Found ${services.length} service(s):`));
+    console.log(chalk.green(`[ok] Found ${services.length} service(s):`));
     services.forEach(s => {
       const tunnelInfo = s.tunnelPort ? `:${s.tunnelPort}` : ' (external)';
       console.log(chalk.gray(`  • ${s.name} → ${s.targetHost}:${s.targetPort}${tunnelInfo}`));
@@ -157,7 +157,7 @@ export async function proxyCommand(options: ProxyOptions) {
         available: services.map(s => s.name),
         hint: `Try: ${services[0]?.name || 'my-service'}.localhost:${options.port}`,
       }, null, 2));
-      console.log(chalk.red(`  ✗ ${subdomain} → not found`));
+      console.log(chalk.red(`  [x] ${subdomain} → not found`));
       return;
     }
 
@@ -183,7 +183,7 @@ export async function proxyCommand(options: ProxyOptions) {
     });
 
     proxyReq.on('error', (err) => {
-      console.log(chalk.red(`  ✗ ${service.name} → connection failed: ${err.message}`));
+      console.log(chalk.red(`  [x] ${service.name} → connection failed: ${err.message}`));
       res.writeHead(502, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         error: 'Service unavailable',
@@ -237,7 +237,7 @@ export async function proxyCommand(options: ProxyOptions) {
     });
 
     proxySocket.on('error', (err) => {
-      console.log(chalk.red(`  ✗ ${service.name} → WebSocket failed: ${err.message}`));
+      console.log(chalk.red(`  [x] ${service.name} → WebSocket failed: ${err.message}`));
       socket.destroy();
     });
 
@@ -288,17 +288,17 @@ export async function proxyCommand(options: ProxyOptions) {
   // Start server
   server.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {
-      console.error(chalk.red(`\n✗ Port ${actualPort} is already in use`));
+      console.error(chalk.red(`\n[x] Port ${actualPort} is already in use`));
       console.log(chalk.gray(`  Try: ${chalk.cyan(`connect proxy --port ${actualPort + 1}`)}`));
       console.log(chalk.gray(`  Or:  ${chalk.cyan(`connect proxy --replace`)} to take over\n`));
     } else {
-      console.error(chalk.red(`\n✗ Server error: ${err.message}\n`));
+      console.error(chalk.red(`\n[x] Server error: ${err.message}\n`));
     }
     process.exit(1);
   });
 
   server.listen(actualPort, '127.0.0.1', () => {
-    console.log(chalk.green.bold(`✓ Proxy running on port ${actualPort}\n`));
+    console.log(chalk.green.bold(`[ok] Proxy running on port ${actualPort}\n`));
     console.log(chalk.white('  Access your services via subdomains:'));
     console.log();
     

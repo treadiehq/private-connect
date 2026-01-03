@@ -171,7 +171,7 @@ export async function shellInitCommand(shell: string | undefined, options: Shell
   if (shell === 'zsh' || shell === 'bash' || shell === 'fish') {
     detectedShell = shell;
   } else if (shell) {
-    console.error(chalk.red(`\n✗ Unknown shell: ${shell}`));
+    console.error(chalk.red(`\n[x] Unknown shell: ${shell}`));
     console.log(chalk.gray('  Supported shells: zsh, bash, fish\n'));
     process.exit(1);
     return; // TypeScript needs this
@@ -180,7 +180,7 @@ export async function shellInitCommand(shell: string | undefined, options: Shell
   }
   
   if (detectedShell === 'unknown') {
-    console.error(chalk.red('\n✗ Could not detect shell type.'));
+    console.error(chalk.red('\n[x] Could not detect shell type.'));
     console.log(chalk.gray('  Specify your shell: connect shell-init zsh|bash|fish\n'));
     process.exit(1);
     return; // TypeScript needs this
@@ -203,7 +203,7 @@ export async function shellSetupCommand(options: ShellOptions) {
   console.log(chalk.cyan('\n🐚 Shell Integration Setup\n'));
   
   if (shell === 'unknown') {
-    console.log(chalk.yellow('⚠ Could not detect your shell.'));
+    console.log(chalk.yellow('[!] Could not detect your shell.'));
     console.log(chalk.gray('  Please manually add one of the following to your shell config:\n'));
     console.log(chalk.white('  For Zsh (~/.zshrc):'));
     console.log(chalk.cyan('    eval "$(connect shell-init zsh)"'));
@@ -244,7 +244,7 @@ export async function shellSetupCommand(options: ShellOptions) {
     if (fs.existsSync(expandedRcFile)) {
       const content = fs.readFileSync(expandedRcFile, 'utf-8');
       if (content.includes('connect shell-init')) {
-        console.log(chalk.green('  ✓ Shell integration already installed!\n'));
+        console.log(chalk.green('  [ok] Shell integration already installed!\n'));
         return;
       }
     }
@@ -252,7 +252,7 @@ export async function shellSetupCommand(options: ShellOptions) {
     // Ignore
   }
 
-  console.log(chalk.yellow('  ⚠ Not yet installed. Add the line above to enable.\n'));
+  console.log(chalk.yellow('  [!] Not yet installed. Add the line above to enable.\n'));
 }
 
 /**
