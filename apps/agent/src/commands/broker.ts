@@ -50,6 +50,8 @@ export async function brokerInitCommand(options: BrokerOptions) {
   const workingDir = options.workingDir || process.cwd();
   
   console.log(chalk.cyan('\n🛡️  Initializing Agent Permission Broker\n'));
+  console.log(chalk.yellow('  ⚠️  Experimental: AI agent governance is an emerging space.'));
+  console.log(chalk.yellow('     This feature is forward-looking and may change.\n'));
   
   // Check if already initialized
   const existingPolicy = path.join(workingDir, '.connect', 'policy.yml');
