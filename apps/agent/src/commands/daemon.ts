@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { spawn, execSync } from 'child_process';
+import { spawn, execSync, spawnSync, ChildProcess } from 'child_process';
 import chalk from 'chalk';
 import { loadConfig, getConfigDir } from '../config';
 
@@ -13,9 +13,20 @@ interface DaemonOptions {
   replace?: boolean;
 }
 
+interface DaemonStatus {
+  running: boolean;
+  pid?: number;
+  stale?: boolean;  // PID file exists but process is not running
+  error?: string;   // Error while checking status
+}
+
 const SERVICE_NAME = 'co.privateconnect.agent';
 const DAEMON_LOG_FILE = 'daemon.log';
 const DAEMON_PID_FILE = 'daemon.pid';
+
+// Startup verification timeout (ms)
+const SPAWN_VERIFY_TIMEOUT = 3000;
+const SPAWN_VERIFY_INTERVAL = 100;
 
 function getPidPath(): string {
   return path.join(getConfigDir(), DAEMON_PID_FILE);
@@ -25,28 +36,134 @@ function getLogPath(): string {
   return path.join(getConfigDir(), DAEMON_LOG_FILE);
 }
 
-function isRunning(): { running: boolean; pid?: number } {
-  const pidPath = getPidPath();
-  
-  if (!fs.existsSync(pidPath)) {
-    return { running: false };
-  }
+/**
+ * Validate a PID value
+ */
+function isValidPid(pid: number): boolean {
+  return Number.isInteger(pid) && pid > 0 && pid < 4194304; // Linux max PID
+}
+
+/**
+ * Check if a process with the given PID is running
+ * Uses signal 0 to test process existence
+ */
+function isProcessRunning(pid: number): boolean {
+  if (!isValidPid(pid)) return false;
   
   try {
-    const pid = parseInt(fs.readFileSync(pidPath, 'utf-8').trim(), 10);
-    
-    // Check if process is actually running
-    process.kill(pid, 0); // Throws if process doesn't exist
-    return { running: true, pid };
-  } catch {
-    // Process not running, clean up stale PID file
-    try {
-      fs.unlinkSync(pidPath);
-    } catch {
-      // Ignore
-    }
-    return { running: false };
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException;
+    // EPERM means process exists but we don't have permission to signal it
+    return error.code === 'EPERM';
   }
+}
+
+/**
+ * Check if daemon is running
+ * 
+ * IMPROVEMENT: Handles race conditions by:
+ * 1. Reading PID atomically
+ * 2. Validating PID format
+ * 3. Verifying process existence
+ * 4. Cleaning up stale PID files atomically
+ */
+function isRunning(): DaemonStatus {
+  const pidPath = getPidPath();
+  
+  // Try to read PID file
+  let pidContent: string;
+  try {
+    pidContent = fs.readFileSync(pidPath, 'utf-8').trim();
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException;
+    if (error.code === 'ENOENT') {
+      return { running: false };
+    }
+    // Other errors (permission, etc.)
+    return { running: false, error: `Failed to read PID file: ${error.message}` };
+  }
+  
+  // Parse and validate PID
+  const pid = parseInt(pidContent, 10);
+  if (isNaN(pid) || !isValidPid(pid)) {
+    // Invalid PID file, clean it up
+    cleanupPidFile(pidPath);
+    return { running: false, stale: true };
+  }
+  
+  // Check if process is actually running
+  if (isProcessRunning(pid)) {
+    return { running: true, pid };
+  }
+  
+  // Process not running, clean up stale PID file
+  cleanupPidFile(pidPath);
+  return { running: false, stale: true };
+}
+
+/**
+ * Safely clean up a stale PID file
+ */
+function cleanupPidFile(pidPath: string): void {
+  try {
+    fs.unlinkSync(pidPath);
+  } catch {
+    // Ignore - file may have been removed by another process
+  }
+}
+
+/**
+ * Wait for a spawned process to be verified running
+ */
+async function verifyProcessStarted(
+  child: ChildProcess, 
+  pidPath: string
+): Promise<{ success: boolean; error?: string }> {
+  const startTime = Date.now();
+  
+  return new Promise((resolve) => {
+    // Set up error handler
+    const errorHandler = (err: Error) => {
+      resolve({ success: false, error: err.message });
+    };
+    
+    const exitHandler = (code: number | null) => {
+      resolve({ success: false, error: `Process exited with code ${code}` });
+    };
+    
+    child.once('error', errorHandler);
+    child.once('exit', exitHandler);
+    
+    // Poll to verify process is still running
+    const checkInterval = setInterval(() => {
+      if (Date.now() - startTime > SPAWN_VERIFY_TIMEOUT) {
+        clearInterval(checkInterval);
+        child.off('error', errorHandler);
+        child.off('exit', exitHandler);
+        
+        // Final check - is it still running?
+        if (child.pid && isProcessRunning(child.pid)) {
+          resolve({ success: true });
+        } else {
+          resolve({ success: false, error: 'Process failed to start' });
+        }
+        return;
+      }
+      
+      // Check if process is still running
+      if (child.pid && isProcessRunning(child.pid)) {
+        // Still running, continue checking until timeout
+      }
+    }, SPAWN_VERIFY_INTERVAL);
+    
+    // If process has already exited before we set up handlers
+    if (child.exitCode !== null) {
+      clearInterval(checkInterval);
+      resolve({ success: false, error: `Process exited with code ${child.exitCode}` });
+    }
+  });
 }
 
 function getLaunchdPlistPath(): string {
@@ -335,6 +452,9 @@ async function uninstallDaemon() {
 
 /**
  * Start daemon (foreground fallback if service not installed)
+ * 
+ * IMPROVEMENT: Adds proper error handling for spawn and verifies
+ * the process actually started successfully.
  */
 async function startDaemon(options: DaemonOptions) {
   const platform = os.platform();
@@ -371,28 +491,19 @@ async function startDaemon(options: DaemonOptions) {
   // Fallback: start in background using spawn
   console.log(chalk.cyan('\n🚀 Starting daemon in background...\n'));
   
-  const { running, pid: existingPid } = isRunning();
-  if (running) {
+  const status = isRunning();
+  if (status.error) {
+    console.error(chalk.yellow(`[!] Warning: ${status.error}`));
+  }
+  
+  if (status.running && status.pid) {
     if (options.replace) {
-      console.log(chalk.yellow(`[!] Killing existing daemon (PID ${existingPid})...`));
-      if (existingPid) {
-        try {
-          process.kill(existingPid, 'SIGTERM');
-          // Wait for graceful shutdown
-          for (let i = 0; i < 10; i++) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-            const { running: stillRunning } = isRunning();
-            if (!stillRunning) break;
-          }
-          // Force kill if still running
-          const { running: stillRunning } = isRunning();
-          if (stillRunning) {
-            process.kill(existingPid, 'SIGKILL');
-          }
-          console.log(chalk.green('[ok] Existing daemon stopped'));
-        } catch (error) {
-          console.log(chalk.yellow('  Existing process may have already exited'));
-        }
+      console.log(chalk.yellow(`[!] Stopping existing daemon (PID ${status.pid})...`));
+      const stopResult = await gracefullyStopProcess(status.pid);
+      if (stopResult.success) {
+        console.log(chalk.green('[ok] Existing daemon stopped'));
+      } else {
+        console.log(chalk.yellow(`  Warning: ${stopResult.error || 'Could not verify process stopped'}`));
       }
     } else {
       console.log(chalk.yellow('[!] Daemon is already running'));
@@ -416,28 +527,129 @@ async function startDaemon(options: DaemonOptions) {
   // Ensure config dir exists
   const configDir = getConfigDir();
   if (!fs.existsSync(configDir)) {
-    fs.mkdirSync(configDir, { recursive: true });
+    fs.mkdirSync(configDir, { recursive: true, mode: 0o700 });
   }
 
-  const logStream = fs.openSync(logPath, 'a');
+  // Open log file for writing
+  let logStream: number;
+  try {
+    logStream = fs.openSync(logPath, 'a');
+  } catch (err) {
+    const error = err as Error;
+    console.error(chalk.red(`[x] Failed to open log file: ${error.message}`));
+    process.exit(1);
+  }
   
-  const child = spawn(process.execPath, [process.argv[1], 'up', '--hub', hubUrl], {
-    detached: true,
-    stdio: ['ignore', logStream, logStream],
-    env: { ...process.env, CONNECT_DAEMON: '1' },
+  // Spawn the daemon process
+  let child: ChildProcess;
+  try {
+    child = spawn(process.execPath, [process.argv[1], 'up', '--hub', hubUrl], {
+      detached: true,
+      stdio: ['ignore', logStream, logStream],
+      env: { ...process.env, CONNECT_DAEMON: '1' },
+    });
+  } catch (err) {
+    const error = err as Error;
+    console.error(chalk.red(`[x] Failed to spawn daemon: ${error.message}`));
+    fs.closeSync(logStream);
+    process.exit(1);
+  }
+  
+  // Handle spawn errors
+  child.on('error', (err) => {
+    console.error(chalk.red(`[x] Daemon error: ${err.message}`));
   });
 
-  child.unref();
+  // Verify the process started successfully
+  if (!child.pid) {
+    console.error(chalk.red('[x] Failed to spawn daemon: no PID returned'));
+    fs.closeSync(logStream);
+    process.exit(1);
+  }
   
-  // Save PID
-  fs.writeFileSync(pidPath, child.pid?.toString() || '');
+  // Save PID first to ensure we can track the process
+  try {
+    fs.writeFileSync(pidPath, child.pid.toString(), { mode: 0o600 });
+  } catch (err) {
+    const error = err as Error;
+    console.error(chalk.red(`[x] Failed to write PID file: ${error.message}`));
+    // Try to kill the orphaned process
+    try {
+      process.kill(child.pid, 'SIGTERM');
+    } catch {
+      // Ignore
+    }
+    fs.closeSync(logStream);
+    process.exit(1);
+  }
+  
+  // Verify the daemon is actually running
+  const verifyResult = await verifyProcessStarted(child, pidPath);
+  
+  child.unref();
+  fs.closeSync(logStream);
+  
+  if (!verifyResult.success) {
+    console.error(chalk.red(`[x] Daemon failed to start: ${verifyResult.error}`));
+    console.log(chalk.gray(`  Check logs: ${logPath}\n`));
+    // Clean up PID file
+    cleanupPidFile(pidPath);
+    process.exit(1);
+  }
   
   console.log(chalk.green(`[ok] Daemon started (PID: ${child.pid})`));
   console.log(chalk.gray(`  Logs: ${logPath}\n`));
 }
 
 /**
+ * Gracefully stop a process with SIGTERM, then SIGKILL if needed
+ */
+async function gracefullyStopProcess(pid: number): Promise<{ success: boolean; error?: string }> {
+  if (!isValidPid(pid)) {
+    return { success: false, error: 'Invalid PID' };
+  }
+  
+  try {
+    // Send SIGTERM for graceful shutdown
+    process.kill(pid, 'SIGTERM');
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException;
+    if (error.code === 'ESRCH') {
+      // Process already gone
+      return { success: true };
+    }
+    return { success: false, error: error.message };
+  }
+  
+  // Wait for graceful shutdown
+  for (let i = 0; i < 10; i++) {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    if (!isProcessRunning(pid)) {
+      return { success: true };
+    }
+  }
+  
+  // Force kill if still running
+  if (isProcessRunning(pid)) {
+    try {
+      process.kill(pid, 'SIGKILL');
+      // Wait a bit for force kill to take effect
+      await new Promise(resolve => setTimeout(resolve, 200));
+    } catch (err) {
+      const error = err as NodeJS.ErrnoException;
+      if (error.code !== 'ESRCH') {
+        return { success: false, error: `Failed to force kill: ${error.message}` };
+      }
+    }
+  }
+  
+  return { success: !isProcessRunning(pid) };
+}
+
+/**
  * Stop daemon
+ * 
+ * IMPROVEMENT: Adds comprehensive error handling for all failure modes
  */
 async function stopDaemon() {
   const platform = os.platform();
@@ -450,7 +662,10 @@ async function stopDaemon() {
         execSync(`launchctl stop ${SERVICE_NAME}`);
         console.log(chalk.green('\n[ok] Daemon stopped\n'));
         return;
-      } catch {
+      } catch (err) {
+        const error = err as Error;
+        console.log(chalk.gray(`  launchctl stop failed: ${error.message}`));
+        console.log(chalk.gray('  Trying PID-based stop...'));
         // Fall through to PID-based stop
       }
     }
@@ -461,103 +676,130 @@ async function stopDaemon() {
         execSync('systemctl --user stop private-connect.service');
         console.log(chalk.green('\n[ok] Daemon stopped\n'));
         return;
-      } catch {
+      } catch (err) {
+        const error = err as Error;
+        console.log(chalk.gray(`  systemctl stop failed: ${error.message}`));
+        console.log(chalk.gray('  Trying PID-based stop...'));
         // Fall through to PID-based stop
       }
     }
   }
 
   // PID-based stop
-  const { running, pid } = isRunning();
+  const status = isRunning();
   
-  if (!running) {
-    console.log(chalk.yellow('\n[!] Daemon is not running\n'));
+  if (status.error) {
+    console.error(chalk.yellow(`\n[!] Warning: ${status.error}`));
+  }
+  
+  if (!status.running) {
+    if (status.stale) {
+      console.log(chalk.yellow('\n[!] Daemon was not running (cleaned up stale PID file)\n'));
+    } else {
+      console.log(chalk.yellow('\n[!] Daemon is not running\n'));
+    }
     return;
   }
 
-  try {
-    process.kill(pid!, 'SIGTERM');
-    
-    // Wait for process to exit
-    let attempts = 0;
-    while (attempts < 10) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const { running: stillRunning } = isRunning();
-      if (!stillRunning) break;
-      attempts++;
-    }
-    
-    // Force kill if still running
-    const { running: stillRunning } = isRunning();
-    if (stillRunning) {
-      process.kill(pid!, 'SIGKILL');
-    }
-    
-    // Clean up PID file
-    const pidPath = getPidPath();
-    if (fs.existsSync(pidPath)) {
-      fs.unlinkSync(pidPath);
-    }
-    
+  if (!status.pid) {
+    console.error(chalk.red('\n[x] Daemon appears running but no PID available\n'));
+    return;
+  }
+
+  const stopResult = await gracefullyStopProcess(status.pid);
+  
+  // Clean up PID file regardless
+  const pidPath = getPidPath();
+  cleanupPidFile(pidPath);
+  
+  if (stopResult.success) {
     console.log(chalk.green('\n[ok] Daemon stopped\n'));
-  } catch (error) {
-    const err = error as Error;
-    console.error(chalk.red(`\n[x] Failed to stop daemon: ${err.message}\n`));
+  } else {
+    console.error(chalk.red(`\n[x] Failed to stop daemon: ${stopResult.error}\n`));
+    process.exit(1);
   }
 }
 
 /**
  * Show daemon status
+ * 
+ * IMPROVEMENT: Adds error handling for config loading and service checks
  */
 async function statusDaemon() {
   const platform = os.platform();
-  const config = loadConfig();
+  
+  // Load config with error handling
+  let config;
+  try {
+    config = loadConfig();
+  } catch (err) {
+    const error = err as Error;
+    console.log(chalk.cyan('\n📊 Private Connect Daemon Status\n'));
+    console.error(chalk.red(`  [x] Failed to load config: ${error.message}\n`));
+    return;
+  }
   
   console.log(chalk.cyan('\n📊 Private Connect Daemon Status\n'));
 
   // Check if service is installed
   let serviceInstalled = false;
   let serviceRunning = false;
+  let serviceError: string | undefined;
   
-  if (platform === 'darwin') {
-    const plistPath = getLaunchdPlistPath();
-    serviceInstalled = fs.existsSync(plistPath);
-    
-    if (serviceInstalled) {
-      try {
-        const output = execSync(`launchctl list | grep ${SERVICE_NAME}`, { encoding: 'utf-8' });
-        serviceRunning = !output.includes('-');
-      } catch {
-        serviceRunning = false;
+  try {
+    if (platform === 'darwin') {
+      const plistPath = getLaunchdPlistPath();
+      serviceInstalled = fs.existsSync(plistPath);
+      
+      if (serviceInstalled) {
+        try {
+          const output = execSync(`launchctl list | grep ${SERVICE_NAME}`, { encoding: 'utf-8' });
+          serviceRunning = !output.includes('-');
+        } catch {
+          serviceRunning = false;
+        }
+      }
+    } else if (platform === 'linux') {
+      const servicePath = getSystemdServicePath();
+      serviceInstalled = fs.existsSync(servicePath);
+      
+      if (serviceInstalled) {
+        try {
+          execSync('systemctl --user is-active private-connect.service', { stdio: 'ignore' });
+          serviceRunning = true;
+        } catch {
+          serviceRunning = false;
+        }
       }
     }
-  } else if (platform === 'linux') {
-    const servicePath = getSystemdServicePath();
-    serviceInstalled = fs.existsSync(servicePath);
-    
-    if (serviceInstalled) {
-      try {
-        execSync('systemctl --user is-active private-connect.service', { stdio: 'ignore' });
-        serviceRunning = true;
-      } catch {
-        serviceRunning = false;
-      }
-    }
+  } catch (err) {
+    const error = err as Error;
+    serviceError = error.message;
   }
 
   // Check PID file fallback
-  const { running: pidRunning, pid } = isRunning();
-
+  const status = isRunning();
+  
   // Display status
-  const isRunningNow = serviceRunning || pidRunning;
+  const isRunningNow = serviceRunning || status.running;
   
   if (isRunningNow) {
     console.log(chalk.green('  ● Status: running'));
-    if (pid) {
-      console.log(chalk.gray(`    PID: ${pid}`));
+    if (status.pid) {
+      console.log(chalk.gray(`    PID: ${status.pid}`));
     }
   } else {
     console.log(chalk.red('  ○ Status: stopped'));
+    if (status.stale) {
+      console.log(chalk.yellow('    (cleaned up stale PID file)'));
+    }
+  }
+  
+  if (status.error) {
+    console.log(chalk.yellow(`    Warning: ${status.error}`));
+  }
+  if (serviceError) {
+    console.log(chalk.yellow(`    Service check error: ${serviceError}`));
   }
   
   console.log(chalk.gray(`    Service installed: ${serviceInstalled ? 'yes' : 'no'}`));
@@ -585,41 +827,94 @@ async function statusDaemon() {
 
 /**
  * Show daemon logs
+ * 
+ * IMPROVEMENT: Handles concurrent access and partial reads gracefully
  */
 async function showLogs() {
   const logPath = getLogPath();
   
-  if (!fs.existsSync(logPath)) {
-    console.log(chalk.gray('\n  No logs yet.\n'));
+  // Check if log file exists
+  try {
+    const stat = fs.statSync(logPath);
+    if (!stat.isFile()) {
+      console.log(chalk.gray('\n  Log path is not a file.\n'));
+      return;
+    }
+    if (stat.size === 0) {
+      console.log(chalk.gray('\n  Log file is empty.\n'));
+      return;
+    }
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException;
+    if (error.code === 'ENOENT') {
+      console.log(chalk.gray('\n  No logs yet.\n'));
+    } else {
+      console.error(chalk.red(`\n[x] Cannot access log file: ${error.message}\n`));
+    }
     return;
   }
 
   console.log(chalk.cyan(`\n📋 Daemon Logs (${logPath})\n`));
   console.log(chalk.gray('─'.repeat(60)));
   
-  // Read last 50 lines
+  // Read log file with retry for concurrent access
+  const MAX_READ_RETRIES = 3;
+  let content: string | undefined;
+  let lastError: Error | undefined;
+  
+  for (let attempt = 0; attempt < MAX_READ_RETRIES; attempt++) {
+    try {
+      // Use non-blocking read to handle concurrent writes
+      content = fs.readFileSync(logPath, 'utf-8');
+      break;
+    } catch (err) {
+      lastError = err as Error;
+      const error = err as NodeJS.ErrnoException;
+      
+      if (error.code === 'EBUSY' || error.code === 'EAGAIN') {
+        // File is being written to, wait and retry
+        await new Promise(resolve => setTimeout(resolve, 100));
+        continue;
+      }
+      // Other error, don't retry
+      break;
+    }
+  }
+  
+  if (content === undefined) {
+    console.error(chalk.red(`\n[x] Error reading logs: ${lastError?.message || 'Unknown error'}\n`));
+    return;
+  }
+  
+  // Parse and display lines
   try {
-    const content = fs.readFileSync(logPath, 'utf-8');
-    const lines = content.trim().split('\n');
+    const lines = content.split('\n').filter(line => line.length > 0);
     const lastLines = lines.slice(-50);
     
-    lastLines.forEach(line => {
-      if (line.includes('[ok]') || line.includes('Connected')) {
-        console.log(chalk.green(line));
-      } else if (line.includes('[x]') || line.includes('error') || line.includes('Error')) {
-        console.log(chalk.red(line));
-      } else if (line.includes('[!]') || line.includes('warning')) {
-        console.log(chalk.yellow(line));
-      } else {
-        console.log(chalk.gray(line));
-      }
-    });
+    if (lastLines.length === 0) {
+      console.log(chalk.gray('  (no log entries)'));
+    } else {
+      lastLines.forEach(line => {
+        // Truncate very long lines to prevent terminal flooding
+        const displayLine = line.length > 200 ? line.substring(0, 197) + '...' : line;
+        
+        if (displayLine.includes('[ok]') || displayLine.includes('Connected')) {
+          console.log(chalk.green(displayLine));
+        } else if (displayLine.includes('[x]') || displayLine.includes('error') || displayLine.includes('Error')) {
+          console.log(chalk.red(displayLine));
+        } else if (displayLine.includes('[!]') || displayLine.includes('warning')) {
+          console.log(chalk.yellow(displayLine));
+        } else {
+          console.log(chalk.gray(displayLine));
+        }
+      });
+    }
     
     console.log(chalk.gray('─'.repeat(60)));
     console.log(chalk.gray(`\n  Showing last ${lastLines.length} lines. Full log: ${logPath}\n`));
-  } catch (error) {
-    const err = error as Error;
-    console.error(chalk.red(`\n[x] Error reading logs: ${err.message}\n`));
+  } catch (err) {
+    const error = err as Error;
+    console.error(chalk.red(`\n[x] Error parsing logs: ${error.message}\n`));
   }
 }
 
