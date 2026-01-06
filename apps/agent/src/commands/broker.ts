@@ -53,18 +53,18 @@ export async function brokerInitCommand(options: BrokerOptions) {
   console.log(chalk.yellow('  ⚠️  Experimental: AI agent governance is an emerging space.'));
   console.log(chalk.yellow('     This feature is forward-looking and may change.\n'));
   
-  // Check if already initialized
-  const existingPolicy = path.join(workingDir, '.connect', 'policy.yml');
-  if (fs.existsSync(existingPolicy)) {
-    console.log(chalk.yellow('[!] Policy already exists at .connect/policy.yml'));
-    console.log(chalk.gray(`  Edit it to customize agent permissions.\n`));
+  const result = initPolicy(workingDir);
+  
+  if (!result.success) {
+    console.log(chalk.yellow(`[!] ${result.error}`));
+    if (result.path) {
+      console.log(chalk.gray(`  Edit ${result.path} to customize agent permissions.\n`));
+    }
     return;
   }
   
-  const policyPath = initPolicy(workingDir);
-  
   console.log(chalk.green('[ok] Created policy file'));
-  console.log(chalk.gray(`  ${policyPath}\n`));
+  console.log(chalk.gray(`  ${result.path}\n`));
   
   console.log(chalk.white('  Default policy:'));
   console.log(chalk.gray('    • Source code (src/, lib/, *.ts, etc.) → allow'));
