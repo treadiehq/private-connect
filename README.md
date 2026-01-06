@@ -1,6 +1,6 @@
 # Private Connect
 
-Securely access private services from anywhere. No VPN or SSH tunnels.
+Securely access private services by name, from anywhere.
 
 ## Install
 
@@ -448,8 +448,12 @@ cd apps/api && pnpm db:push
 - All agent-to-hub traffic is encrypted (TLS required in production)
 - Agent tokens expire after 30 days and support rotation
 - Credentials never transit the hub—only connection metadata
+- Payload data passes through the hub as an opaque relay (not inspected or stored)
+- Workspace isolation ensures multi-tenant segregation
 - Audit logging for token usage and IP changes
 - Log scrubbing prevents sensitive data leakage
+
+**[See Security Architecture](docs/security.md)** — full details on hosting, isolation, self-hosting, and compliance
 
 ## License
 

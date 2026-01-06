@@ -14,12 +14,12 @@
         
         <h1 class="mx-auto w-full text-balance text-center font-semibold tracking-tight text-white text-2xl !leading-[1.2] sm:text-4xl md:text-5xl lg:text-6xl">
           Access any service<br/>
-          <span class="text-blue-300">like it's localhost</span>
+          <span class="text-blue-300">from anywhere</span>
         </h1>
         
         <p class="font-normal text-center text-gray-400 max-w-lg mx-auto mb-1 sm:mt-4 text-pretty text-base sm:text-lg sm:leading-6">
           Your staging database. Your prod API behind a firewall. Your teammate's dev server.
-          <span class="text-white">One command and it's on localhost.</span> No VPN, no firewall rules, no SSH tunnels.
+          <span class="text-white">Reach it anywhere or expose yours to your team, not the world</span>.
         </p>
 
         <!-- Quick Install -->
@@ -669,6 +669,25 @@
       </div>
 
       <div class="space-y-3">
+        <!-- FAQ 0: Access Control -->
+        <details class="group bg-gray-500/10 rounded-xl border border-gray-500/10 overflow-hidden">
+          <summary class="flex items-center justify-between p-5 cursor-pointer list-none">
+            <span class="font-medium text-white">Who can access my exposed services?</span>
+            <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </summary>
+          <div class="px-5 pb-5 text-gray-400 text-sm leading-relaxed space-y-3">
+            <p><strong class="text-white">Only authenticated members of your workspace.</strong> By default, exposed services are completely private.</p>
+            <ul class="space-y-2">
+              <li class="flex items-start gap-2"><span class="text-blue-300">✓</span> <span><strong class="text-white">Workspace = access boundary:</strong> Only agents that have authenticated with your workspace credentials can see or reach your services.</span></li>
+              <li class="flex items-start gap-2"><span class="text-blue-300">✓</span> <span><strong class="text-white">Invisible to outsiders:</strong> Someone outside your workspace can't discover, list, or connect to your services.</span></li>
+              <li class="flex items-start gap-2"><span class="text-blue-300">✓</span> <span><strong class="text-white">Public is opt-in:</strong> Use <code class="bg-black/40 px-1.5 py-0.5 rounded text-blue-300">--public</code> only when you explicitly need external access (like webhooks).</span></li>
+            </ul>
+            <p class="text-gray-500 text-xs">Think of it like a private Tailnet — only members can see what's inside.</p>
+          </div>
+        </details>
+
         <!-- FAQ 1 -->
         <details class="group bg-gray-500/10 rounded-xl border border-gray-500/10 overflow-hidden">
           <summary class="flex items-center justify-between p-5 cursor-pointer list-none">
