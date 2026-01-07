@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import { ensureConfig, AgentConfig, loadConfig, generateConfig, getConfigPath, clearConfig } from '../config';
 import { deviceAuthFlow } from '../device-auth';
 import { enforceSecureConnection, handleTokenExpiry, handleSecurityEvent, SecurityError } from '../security';
+import { runZeroTouchSetup, isSetupComplete } from '../setup';
 
 interface UpOptions {
   hub: string;
@@ -65,6 +66,12 @@ export async function upCommand(options: UpOptions) {
     // Save config with the obtained API key
     config = generateConfig(options.hub, authResult.apiKey, options.label, options.name);
     config.workspaceId = authResult.workspaceId;
+    
+    // Run zero-touch setup on first authentication (daemon + DNS)
+    // Skip if we're already running as a daemon
+    if (!process.env.CONNECT_DAEMON) {
+      await runZeroTouchSetup({ hubUrl: options.hub });
+    }
   }
   
   console.log(chalk.gray(`  Agent ID: ${config.agentId}`));

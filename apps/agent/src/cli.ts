@@ -21,6 +21,7 @@ import { dnsCommand, serveDns } from './commands/dns';
 import { mcpCommand } from './commands/mcp';
 import { cloneCommand, cloneListCommand } from './commands/clone';
 import { brokerCommand } from './commands/broker';
+import { connectCommand } from './commands/connect';
 import { setConfigPath } from './config';
 import { validateHubUrl } from './security';
 
@@ -175,6 +176,28 @@ program
   .name('connect')
   .description('Private Connect Agent - Securely expose local services')
   .version(VERSION);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Default Command - The Primitive
+// ─────────────────────────────────────────────────────────────────────────────
+// This is the "one command" that does the right thing contextually.
+// All explicit commands (expose, reach, etc.) remain available for power users.
+
+program
+  .argument('[target]', 'Service to expose (host:port) or reach (name)')
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-n, --name <name>', 'Service name (auto-detected if not provided)')
+  .option('-p, --port <port>', 'Local port for reach (default: same as service)')
+  .option('-t, --timeout <ms>', 'Timeout for reach', parseTimeout, 5000)
+  .option('--public', 'Make exposed service publicly accessible')
+  .option('--protocol <type>', 'Protocol: auto|tcp|http|https', 'auto')
+  .option('--check', 'Only run diagnostics, do not create tunnel')
+  .option('--json', 'Output as JSON')
+  .option('-c, --config <path>', 'Config file path')
+  .action(async (target, options) => {
+    if (options.config) setConfigPath(options.config);
+    await connectCommand(target, options);
+  });
 
 program
   .command('up')

@@ -1,11 +1,48 @@
 # Private Connect
 
-Securely access private services by name, from anywhere.
+The fastest way to securely expose and use a private service.
+
+## Quick Start
+
+```bash
+# Install
+curl -fsSL https://privateconnect.co/install.sh | bash
+
+# Authenticate (once, then it's always on)
+connect up
+
+# That's it. Now:
+connect localhost:5432      # Expose a service (auto-named "postgres")
+connect prod-db             # Connect to a service
+connect clone alice         # Clone a teammate's entire environment
+```
+
+**One command. It just works.**
+
+---
+
+## The Primitive
+
+Private Connect is designed around a single action: **share access to a private service securely**.
+
+| You want to... | Command |
+|----------------|---------|
+| Expose something | `connect localhost:5432` |
+| Connect to something | `connect prod-db` |
+| Clone a teammate's setup | `connect clone alice` |
+| Share your environment | `connect share` |
+
+Everything else is automatic:
+- **Auto-naming**: Detects what's on the port (postgres, redis, etc.)
+- **Always-on daemon**: Installed on first auth, starts on boot
+- **Local DNS**: Services available at `*.connect` (e.g., `psql -h postgres.connect`, may require `sudo connect dns install)
+
+---
 
 ## Install
 
 ```bash
-# Quick install (when releases are published)
+# Quick install
 curl -fsSL https://privateconnect.co/install.sh | bash
 
 # Or from source
@@ -17,11 +54,8 @@ pnpm install
 ### Build from source
 
 ```bash
-# Build single binary (requires Bun)
 cd apps/agent
 pnpm run build:binary
-
-# Install locally
 ./scripts/install.sh
 ```
 
@@ -33,9 +67,9 @@ Try the product live at **https://privateconnect.co**
 
 ## Community & Support
 
-Join our Discord community for discussions, support, and updates:
-
 [![Discord](https://img.shields.io/badge/Discord-Join%20our%20community-7289DA?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/KqdBcqRk5E)
+
+---
 
 ## How It Works
 
@@ -46,40 +80,58 @@ Run agents in different environments. Each agent connects to the hub and can exp
 │   AWS Prod      │                           │   Your Laptop   │
 │                 │         ┌───────┐         │                 │
 │  connect up     │────────▶│  Hub  │◀────────│  connect up     │
-│  --label prod   │         └───────┘         │  --label local  │
-│                 │                           │                 │
-│  connect expose │                           │  connect reach  │
-│  localhost:5432 │                           │  prod-db        │
-│  --name prod-db │                           │                 │
+│                 │         └───────┘         │                 │
+│  connect        │                           │  connect        │
+│  localhost:5432 │                           │  postgres       │
+│  (auto: postgres)                           │                 │
 └─────────────────┘                           └─────────────────┘
+```
+
+Or with explicit options for more control:
+
+```
+connect expose localhost:5432 --name prod-db   # Server side
+connect reach prod-db                          # Client side
 ```
 
 ## Usage
 
-### 1. Connect or start an agent
+### 1. Authenticate (once)
 
 ```bash
 connect up
 ```
 
-First run opens browser for login. On servers, shows a code to enter from any device.
+First run opens browser for login. On servers, shows a code to enter from any device. This also sets up the background daemon automatically.
 
 ### 2. Expose a service
 
 ```bash
-connect expose localhost:5432 --name prod-db # Local service
-connect expose 192.168.1.50:8080 --name internal-api # LAN service  
-connect expose db.internal:5432 --name prod-db       # Internal DNS name
+connect localhost:5432              # Auto-named "postgres"
+connect localhost:6379              # Auto-named "redis"
+connect db.internal:5432            # Auto-named from port
+```
+
+Or with explicit naming:
+
+```bash
+connect expose localhost:5432 --name prod-db
+connect expose 192.168.1.50:8080 --name internal-api
 ```
 
 The agent just needs network access to the target. So you could run an agent on a jump box and expose services on the internal network that only that box can reach.
 
-### 3. From another environment, connect to the service and test connectivity
+### 3. Connect to a service
 
 ```bash
-# On your laptop or staging server
-connect up --label local
-connect reach prod-db
+connect prod-db                     # Creates tunnel to localhost:5432
+connect postgres                    # Works with auto-named services too
+```
+
+Or explicitly:
+
+```bash
+connect reach prod-db --port 5433   # Use a different local port
 ```
 
 Output:
@@ -189,6 +241,12 @@ connect link api --rate-limit 60            # 60 requests/min
 ## CLI Reference
 
 ```bash
+# The Primitive (one command does the right thing)
+connect <target>              # Expose if local (host:port), reach if service name
+connect localhost:5432        # → Exposes, auto-named "postgres"
+connect prod-db               # → Reaches the service
+
+# Explicit commands (for control)
 connect up                    # Start agent, authenticate
 connect expose <host:port>    # Expose a service (run on the server)
 connect reach <service>       # Connect to a service (run on your laptop)
@@ -229,7 +287,7 @@ connect audit                 # View agent action audit log
 -t, --token <token>    Pre-auth token for CI/CD
 
 # connect expose
--n, --name <name>      Service name
+-n, --name <name>      Service name (auto-detected from port if omitted)
 -p, --protocol <type>  auto|tcp|http|https
 --public               Get a public URL for webhooks
 

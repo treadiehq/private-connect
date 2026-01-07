@@ -9,17 +9,17 @@
       <div class="text-center">
         <!-- Problem badge -->
         <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-500/10 border border-gray-500/10 text-gray-500 text-xs font-medium mb-8">
-          <span>From private networks to your terminal</span>
+          <span>No VPN. No firewall rules. No waiting.</span>
         </div>
         
         <h1 class="mx-auto w-full text-balance text-center font-semibold tracking-tight text-white text-2xl !leading-[1.2] sm:text-4xl md:text-5xl lg:text-6xl">
-          Access any service<br/>
-          <span class="text-blue-300">from anywhere</span>
+          The fastest way to<br/>
+          <span class="text-blue-300">access private services</span>
         </h1>
         
         <p class="font-normal text-center text-gray-400 max-w-lg mx-auto mb-1 sm:mt-4 text-pretty text-base sm:text-lg sm:leading-6">
           Your staging database. Your prod API behind a firewall. Your teammate's dev server.
-          <span class="text-white">Reach it anywhere or expose yours to your team, not the world</span>.
+          <span class="text-white">One command. It just works.</span>
         </p>
 
         <!-- Quick Install -->
@@ -103,7 +103,7 @@
             <div class="font-mono text-sm flex-1">
               <div class="flex items-start gap-3 mb-4">
                 <span class="text-blue-300 shrink-0">$</span>
-                <span class="text-gray-200">connect reach prod-api</span>
+                <span class="text-gray-200">connect prod-api</span>
               </div>
               <!-- Diagnostic output -->
               <div class="bg-black/50 rounded-lg p-4">
@@ -162,7 +162,7 @@
           </div>
           <h3 class="font-semibold text-white mb-2">"Production is on fire, but I'm on my laptop"</h3>
           <p class="text-gray-500 text-sm leading-relaxed mb-3">You need to check the database. Now. Not in 20 minutes after the VPN connects.</p>
-          <code class="text-blue-300 text-xs font-mono bg-black/40 px-2 py-1 rounded-md">connect reach prod-db</code>
+          <code class="text-blue-300 text-xs font-mono bg-black/40 px-2 py-1 rounded-md">connect prod-db</code>
         </div>
 
         <!-- Use case 2: Test against staging -->
@@ -174,7 +174,7 @@
           </div>
           <h3 class="font-semibold text-white mb-2">"I need to test against staging, not mocks"</h3>
           <p class="text-gray-500 text-sm leading-relaxed mb-3">Your code works locally but fails in staging. You need to hit the real API.</p>
-          <code class="text-purple-300 text-xs font-mono bg-black/40 px-2 py-1 rounded-md">connect reach staging-api</code>
+          <code class="text-purple-300 text-xs font-mono bg-black/40 px-2 py-1 rounded-md">connect staging-api</code>
         </div>
 
         <!-- Use case 3: New dev onboarding -->
@@ -198,7 +198,7 @@
           </div>
           <h3 class="font-semibold text-white mb-2">"My AI agent needs to query prod"</h3>
           <p class="text-gray-500 text-sm leading-relaxed mb-3">Agents in sandboxes need private data. Secure tunnel, no credentials exposed, full audit trail.</p>
-          <code class="text-emerald-300 text-xs font-mono bg-black/40 px-2 py-1 rounded-md">connect reach prod-db</code>
+          <code class="text-emerald-300 text-xs font-mono bg-black/40 px-2 py-1 rounded-md">connect prod-db</code>
         </div>
 
         <!-- Use case 5: Contractor access -->
@@ -222,7 +222,7 @@
           </div>
           <h3 class="font-semibold text-white mb-2">"CI/CD can't reach our private servers"</h3>
           <p class="text-gray-500 text-sm leading-relaxed mb-3">GitHub Actions needs to deploy to your private infra. Without a self-hosted runner.</p>
-          <code class="text-rose-300 text-xs font-mono bg-black/40 px-2 py-1 rounded-md">connect reach deploy-target</code>
+          <code class="text-rose-300 text-xs font-mono bg-black/40 px-2 py-1 rounded-md">connect deploy-target</code>
         </div>
       </div>
     </section>
@@ -300,7 +300,7 @@
               <span class="ml-2 text-xs text-gray-500 font-mono">your-laptop</span>
             </div>
             
-            <!-- Option A: connect reach -->
+            <!-- Option A: connect to a service -->
             <div class="p-4 border-b border-gray-500/10">
               <div class="flex items-center gap-2 mb-2">
                 <div class="shrink-0 w-5 h-5 rounded-full bg-emerald-300/10 text-emerald-300 flex items-center justify-center font-bold text-xs">A</div>
@@ -309,7 +309,7 @@
               <div class="bg-black/50 rounded-lg p-3 font-mono text-xs space-y-1.5">
                 <div>
                   <span class="text-gray-500">$</span>
-                  <span class="text-gray-200 ml-2">connect reach prod-db</span>
+                  <span class="text-gray-200 ml-2">connect prod-db</span>
                 </div>
                 <div class="text-emerald-300">✓ Connected on localhost:5432</div>
               </div>
