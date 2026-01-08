@@ -1,11 +1,11 @@
 <template>
-  <div class="h-full flex flex-col bg-[#0a0a0f]">
+  <div class="h-full flex flex-col bg-black">
     <!-- Header -->
-    <div class="flex items-center justify-between px-4 py-3 bg-[#12121a] border-b border-gray-700/50">
+    <div class="flex items-center justify-between px-4 py-3 bg-gray-500/5 border-b border-gray-500/10">
       <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center">
-          <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+        <div class="w-10 h-10 rounded-lg bg-emerald-300/10 flex items-center justify-center">
+          <svg class="w-5 h-5 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
           </svg>
         </div>
         <div>
@@ -14,12 +14,12 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <span v-if="isConnected" class="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span v-if="isConnected" class="flex items-center gap-1.5 text-xs text-emerald-300 bg-emerald-300/10 px-2.5 py-1 rounded-full border border-emerald-300/20">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>
           Connected
         </span>
-        <span v-else class="flex items-center gap-1.5 text-xs text-amber-400 bg-amber-500/10 px-2 py-1 rounded-full">
-          <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+        <span v-else class="flex items-center gap-1.5 text-xs text-amber-300 bg-amber-300/10 px-2.5 py-1 rounded-full border border-amber-300/20">
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-300"></span>
           Connecting...
         </span>
       </div>
@@ -28,20 +28,20 @@
     <!-- Main Content -->
     <div class="flex-1 flex flex-col lg:flex-row overflow-hidden">
       <!-- Query Editor Panel -->
-      <div class="flex-1 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-700/50">
+      <div class="flex-1 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-500/10">
         <!-- Editor Header -->
-        <div class="flex items-center justify-between px-4 py-2 bg-[#0d0d14] border-b border-gray-700/30">
-          <span class="text-xs font-medium text-gray-400 uppercase tracking-wider">Query</span>
-          <div class="flex items-center gap-2">
+        <div class="flex items-center justify-between px-4 py-2.5 bg-gray-500/5 border-b border-gray-500/10">
+          <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Query</span>
+          <div class="flex items-center gap-1">
             <button 
               @click="formatQuery"
-              class="text-xs text-gray-400 hover:text-white transition-colors px-2 py-1 rounded hover:bg-white/5"
+              class="text-xs text-gray-500 hover:text-white transition-colors px-2.5 py-1.5 rounded-lg hover:bg-gray-500/10"
             >
               Format
             </button>
             <button 
               @click="clearQuery"
-              class="text-xs text-gray-400 hover:text-white transition-colors px-2 py-1 rounded hover:bg-white/5"
+              class="text-xs text-gray-500 hover:text-white transition-colors px-2.5 py-1.5 rounded-lg hover:bg-gray-500/10"
             >
               Clear
             </button>
@@ -49,12 +49,12 @@
         </div>
 
         <!-- Editor -->
-        <div class="flex-1 relative min-h-[200px]">
+        <div class="flex-1 relative min-h-[200px] bg-black/50">
           <textarea
             ref="editorRef"
             v-model="query"
             @keydown="handleKeydown"
-            class="w-full h-full p-4 bg-transparent text-gray-100 font-mono text-sm resize-none focus:outline-none placeholder-gray-600"
+            class="w-full h-full p-4 bg-transparent text-gray-200 font-mono text-sm resize-none focus:outline-none placeholder-gray-600"
             placeholder="SELECT * FROM users LIMIT 10;"
             spellcheck="false"
           ></textarea>
@@ -64,7 +64,7 @@
             <button 
               @click="executeQuery"
               :disabled="isExecuting || !query.trim()"
-              class="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-sm font-medium rounded-lg shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              class="flex items-center gap-2 px-4 py-2 bg-blue-300 text-black text-sm font-medium rounded-lg hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed transition-a
             >
               <svg v-if="isExecuting" class="animate-spin h-4 w-4" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
@@ -74,7 +74,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
               </svg>
               <span>{{ isExecuting ? 'Running...' : 'Run Query' }}</span>
-              <kbd class="hidden sm:inline-block text-[10px] bg-white/20 px-1.5 py-0.5 rounded ml-1">⌘↵</kbd>
+              <kbd class="hidden sm:inline-block text-[10px] bg-black/20 px-1.5 py-0.5 rounded ml-1">⌘↵</kbd>
             </button>
           </div>
         </div>
@@ -83,24 +83,24 @@
       <!-- Results Panel -->
       <div class="flex-1 flex flex-col min-h-[300px]">
         <!-- Results Header -->
-        <div class="flex items-center justify-between px-4 py-2 bg-[#0d0d14] border-b border-gray-700/30">
+        <div class="flex items-center justify-between px-4 py-2.5 bg-gray-500/5 border-b border-gray-500/10">
           <div class="flex items-center gap-4">
-            <span class="text-xs font-medium text-gray-400 uppercase tracking-wider">Results</span>
-            <span v-if="result" class="text-xs text-gray-500">
+            <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Results</span>
+            <span v-if="result" class="text-xs text-gray-400">
               {{ result.rowCount }} row{{ result.rowCount !== 1 ? 's' : '' }} 
-              <span v-if="result.duration">• {{ result.duration }}ms</span>
+              <span v-if="result.duration" class="text-gray-500">• {{ result.duration }}ms</span>
             </span>
           </div>
-          <div v-if="result?.rows?.length" class="flex items-center gap-2">
+          <div v-if="result?.rows?.length" class="flex items-center gap-1">
             <button 
               @click="copyAsCSV"
-              class="text-xs text-gray-400 hover:text-white transition-colors px-2 py-1 rounded hover:bg-white/5"
+              class="text-xs text-gray-500 hover:text-white transition-colors px-2.5 py-1.5 rounded-lg hover:bg-gray-500/10"
             >
               Copy CSV
             </button>
             <button 
               @click="copyAsJSON"
-              class="text-xs text-gray-400 hover:text-white transition-colors px-2 py-1 rounded hover:bg-white/5"
+              class="text-xs text-gray-500 hover:text-white transition-colors px-2.5 py-1.5 rounded-lg hover:bg-gray-500/10"
             >
               Copy JSON
             </button>
@@ -108,27 +108,31 @@
         </div>
 
         <!-- Results Content -->
-        <div class="flex-1 overflow-auto">
+        <div class="flex-1 overflow-auto bg-black/50">
           <!-- Empty State -->
           <div v-if="!result && !error" class="h-full flex items-center justify-center text-gray-500">
             <div class="text-center">
-              <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
-              </svg>
-              <p class="text-sm">Run a query to see results</p>
+              <div class="w-12 h-12 mx-auto mb-3 rounded-lg bg-gray-500/10 flex items-center justify-center">
+                <svg class="w-6 h-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                </svg>
+              </div>
+              <p class="text-sm text-gray-400">Run a query to see results</p>
             </div>
           </div>
 
           <!-- Error State -->
           <div v-else-if="error" class="p-4">
-            <div class="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+            <div class="bg-red-400/10 border border-red-400/20 rounded-xl p-4">
               <div class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <div class="w-8 h-8 rounded-lg bg-red-400/10 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
                 <div>
                   <p class="text-sm font-medium text-red-400">Query Error</p>
-                  <p class="text-sm text-red-300/80 mt-1 font-mono">{{ error }}</p>
+                  <p class="text-sm text-gray-400 mt-1 font-mono">{{ error }}</p>
                 </div>
               </div>
             </div>
@@ -137,30 +141,30 @@
           <!-- Results Table -->
           <div v-else-if="result?.rows?.length" class="min-w-full">
             <table class="w-full text-sm">
-              <thead class="sticky top-0 bg-[#0d0d14] border-b border-gray-700/50">
+              <thead class="sticky top-0 bg-gray-500/5 border-b border-gray-500/10">
                 <tr>
                   <th 
                     v-for="column in result.columns" 
                     :key="column"
-                    class="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider whitespace-nowrap"
+                    class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"
                   >
                     {{ column }}
                   </th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-gray-700/30">
+              <tbody class="divide-y divide-gray-500/10">
                 <tr 
                   v-for="(row, index) in result.rows" 
                   :key="index"
-                  class="hover:bg-white/5 transition-colors"
+                  class="hover:bg-gray-500/5 transition-colors"
                 >
                   <td 
                     v-for="column in result.columns" 
                     :key="column"
-                    class="px-4 py-2 text-gray-300 font-mono text-xs whitespace-nowrap"
+                    class="px-4 py-2.5 text-gray-300 font-mono text-xs whitespace-nowrap"
                   >
                     <span v-if="row[column] === null" class="text-gray-600 italic">NULL</span>
-                    <span v-else-if="typeof row[column] === 'boolean'" :class="row[column] ? 'text-emerald-400' : 'text-red-400'">
+                    <span v-else-if="typeof row[column] === 'boolean'" :class="row[column] ? 'text-emerald-300' : 'text-red-400'">
                       {{ row[column] }}
                     </span>
                     <span v-else>{{ formatValue(row[column]) }}</span>
@@ -171,13 +175,15 @@
           </div>
 
           <!-- No Results -->
-          <div v-else-if="result" class="h-full flex items-center justify-center text-gray-500">
+          <div v-else-if="result" class="h-full flex items-center justify-center">
             <div class="text-center">
-              <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p class="text-sm">Query executed successfully</p>
-              <p class="text-xs text-gray-600 mt-1">{{ result.rowCount }} rows affected</p>
+              <div class="w-12 h-12 mx-auto mb-3 rounded-lg bg-emerald-300/10 flex items-center justify-center">
+                <svg class="w-6 h-6 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p class="text-sm text-white">Query executed successfully</p>
+              <p class="text-xs text-gray-500 mt-1">{{ result.rowCount }} rows affected</p>
             </div>
           </div>
         </div>
@@ -185,12 +191,12 @@
     </div>
 
     <!-- Query History (Collapsible) -->
-    <div v-if="queryHistory.length > 0" class="border-t border-gray-700/50">
+    <div v-if="queryHistory.length > 0" class="border-t border-gray-500/10">
       <button 
         @click="showHistory = !showHistory"
-        class="w-full flex items-center justify-between px-4 py-2 bg-[#0d0d14] hover:bg-[#12121a] transition-colors"
+        class="w-full flex items-center justify-between px-4 py-2.5 bg-gray-500/5 hover:bg-gray-500/10 transition-colors"
       >
-        <span class="text-xs font-medium text-gray-400 uppercase tracking-wider">History</span>
+        <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">History</span>
         <svg 
           class="w-4 h-4 text-gray-500 transition-transform"
           :class="{ 'rotate-180': showHistory }"
@@ -201,12 +207,12 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
-      <div v-if="showHistory" class="max-h-32 overflow-y-auto bg-[#0a0a0f]">
+      <div v-if="showHistory" class="max-h-32 overflow-y-auto bg-black/50">
         <button 
           v-for="(item, index) in queryHistory" 
           :key="index"
           @click="loadFromHistory(item)"
-          class="w-full text-left px-4 py-2 hover:bg-white/5 transition-colors border-b border-gray-700/20 last:border-b-0"
+          class="w-full text-left px-4 py-2.5 hover:bg-gray-500/10 transition-colors border-b border-gray-500/10 last:border-b-0"
         >
           <code class="text-xs text-gray-400 font-mono line-clamp-1">{{ item }}</code>
         </button>
@@ -364,24 +370,4 @@ onMounted(() => {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-
-/* Custom scrollbar for the component */
-:deep(::-webkit-scrollbar) {
-  width: 6px;
-  height: 6px;
-}
-
-:deep(::-webkit-scrollbar-track) {
-  background: transparent;
-}
-
-:deep(::-webkit-scrollbar-thumb) {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-}
-
-:deep(::-webkit-scrollbar-thumb:hover) {
-  background: rgba(255, 255, 255, 0.2);
-}
 </style>
-

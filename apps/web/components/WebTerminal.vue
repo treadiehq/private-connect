@@ -1,11 +1,11 @@
 <template>
-  <div class="h-full flex flex-col bg-[#0a0a0f]">
+  <div class="h-full flex flex-col bg-black">
     <!-- Header -->
-    <div class="flex items-center justify-between px-4 py-3 bg-[#12121a] border-b border-gray-700/50">
+    <div class="flex items-center justify-between px-4 py-3 bg-gray-500/5 border-b border-gray-500/10">
       <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500/20 to-purple-500/20 border border-violet-500/30 flex items-center justify-center">
-          <svg class="w-4 h-4 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        <div class="w-10 h-10 rounded-lg bg-purple-300/10 flex items-center justify-center">
+          <svg class="w-5 h-5 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
         </div>
         <div>
@@ -14,18 +14,18 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <span v-if="isConnected" class="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span v-if="isConnected" class="flex items-center gap-1.5 text-xs text-emerald-300 bg-emerald-300/10 px-2.5 py-1 rounded-full border border-emerald-300/20">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>
           Connected
         </span>
-        <span v-else-if="isConnecting" class="flex items-center gap-1.5 text-xs text-amber-400 bg-amber-500/10 px-2 py-1 rounded-full">
+        <span v-else-if="isConnecting" class="flex items-center gap-1.5 text-xs text-amber-300 bg-amber-300/10 px-2.5 py-1 rounded-full border border-amber-300/20">
           <svg class="animate-spin h-3 w-3" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
           </svg>
           Connecting...
         </span>
-        <span v-else class="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-500/10 px-2 py-1 rounded-full">
+        <span v-else class="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-500/10 px-2.5 py-1 rounded-full border border-gray-500/20">
           <span class="w-1.5 h-1.5 rounded-full bg-gray-500"></span>
           Disconnected
         </span>
@@ -36,60 +36,60 @@
     <div 
       ref="terminalBody"
       @click="focusInput"
-      class="flex-1 p-4 font-mono text-sm leading-relaxed overflow-y-auto bg-[#0d0d14] cursor-text"
+      class="flex-1 p-4 font-mono text-sm leading-relaxed overflow-y-auto bg-black/50 cursor-text"
     >
       <!-- Welcome Message -->
-      <div class="text-gray-500 mb-4">
-        <p>Welcome to Private Connect Web Terminal</p>
+      <div class="text-gray-500 mb-4 pb-4 border-b border-gray-500/10">
+        <p class="text-gray-400">Welcome to Private Connect Web Terminal</p>
         <p class="text-xs mt-1">Connected to {{ serviceName }} via secure tunnel</p>
-        <p class="text-xs text-gray-600 mt-2">Note: This is a web-based terminal preview. For full SSH access, use:</p>
-        <code class="text-xs text-blue-300 block mt-1">connect {{ serviceName }}</code>
+        <div class="mt-3 p-3 bg-gray-500/5 rounded-lg border border-gray-500/10">
+          <p class="text-xs text-gray-500 mb-2">For full SSH access, use the CLI:</p>
+          <code class="text-xs text-blue-300">connect {{ serviceName }}</code>
+        </div>
       </div>
 
-      <div class="border-t border-gray-700/30 pt-4 mt-4">
-        <!-- Output Lines -->
-        <div 
-          v-for="(line, index) in lines" 
-          :key="index"
-          class="flex items-start gap-2"
-        >
-          <span v-if="line.type === 'input'" class="text-emerald-400">$</span>
-          <span v-else-if="line.type === 'error'" class="text-red-400">!</span>
-          <span v-else class="text-gray-600">&nbsp;</span>
-          <span :class="getLineClass(line.type)">{{ line.text }}</span>
-        </div>
+      <!-- Output Lines -->
+      <div 
+        v-for="(line, index) in lines" 
+        :key="index"
+        class="flex items-start gap-2 py-0.5"
+      >
+        <span v-if="line.type === 'input'" class="text-blue-300">$</span>
+        <span v-else-if="line.type === 'error'" class="text-red-400">!</span>
+        <span v-else class="text-gray-600">&nbsp;</span>
+        <span :class="getLineClass(line.type)">{{ line.text }}</span>
+      </div>
 
-        <!-- Current Input -->
-        <div class="flex items-start gap-2">
-          <span class="text-emerald-400">$</span>
-          <div class="flex-1 relative">
-            <input
-              ref="inputRef"
-              v-model="currentInput"
-              @keydown="handleKeydown"
-              class="w-full bg-transparent text-gray-100 focus:outline-none"
-              :disabled="!isConnected"
-              spellcheck="false"
-              autocomplete="off"
-            />
-            <span v-if="!isConnected" class="absolute inset-0 text-gray-600">
-              {{ isConnecting ? 'Connecting...' : 'Disconnected' }}
-            </span>
-          </div>
+      <!-- Current Input -->
+      <div class="flex items-start gap-2 mt-1">
+        <span class="text-blue-300">$</span>
+        <div class="flex-1 relative">
+          <input
+            ref="inputRef"
+            v-model="currentInput"
+            @keydown="handleKeydown"
+            class="w-full bg-transparent text-gray-200 focus:outline-none"
+            :disabled="!isConnected"
+            spellcheck="false"
+            autocomplete="off"
+          />
+          <span v-if="!isConnected" class="absolute inset-0 text-gray-600">
+            {{ isConnecting ? 'Connecting...' : 'Disconnected' }}
+          </span>
         </div>
       </div>
     </div>
 
     <!-- Footer -->
-    <div class="flex items-center justify-between px-4 py-2 bg-[#0a0a0f] border-t border-gray-700/30 text-xs text-gray-500">
+    <div class="flex items-center justify-between px-4 py-2.5 bg-gray-500/5 border-t border-gray-500/10 text-xs text-gray-500">
       <div class="flex items-center gap-4">
-        <span>Press <kbd class="bg-gray-700 px-1 rounded">↑</kbd> for history</span>
-        <span>Press <kbd class="bg-gray-700 px-1 rounded">Tab</kbd> for completion</span>
+        <span>Press <kbd class="bg-gray-500/20 px-1.5 py-0.5 rounded text-gray-400">↑</kbd> for history</span>
+        <span>Press <kbd class="bg-gray-500/20 px-1.5 py-0.5 rounded text-gray-400">Ctrl+L</kbd> to clear</span>
       </div>
       <div>
         <button 
           @click="clearTerminal"
-          class="text-gray-500 hover:text-white transition-colors"
+          class="text-gray-500 hover:text-white transition-colors px-2 py-1 rounded-lg hover:bg-gray-500/10"
         >
           Clear
         </button>
@@ -221,30 +221,9 @@ const scrollToBottom = () => {
 
 const getLineClass = (type: string): string => {
   switch (type) {
-    case 'input': return 'text-blue-300';
+    case 'input': return 'text-gray-200';
     case 'error': return 'text-red-400';
-    default: return 'text-gray-300';
+    default: return 'text-gray-400';
   }
 };
 </script>
-
-<style scoped>
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-</style>
-

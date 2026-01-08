@@ -1,26 +1,23 @@
 <template>
-  <div class="min-h-screen bg-[#060609] text-white">
+  <div class="min-h-screen bg-black text-white">
     <!-- Loading State -->
     <div v-if="loading" class="min-h-screen flex items-center justify-center">
       <div class="text-center">
-        <div class="w-16 h-16 mx-auto mb-6 relative">
-          <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 animate-pulse"></div>
-          <div class="absolute inset-2 rounded-xl bg-[#12121a] flex items-center justify-center">
-            <svg class="animate-spin h-6 w-6 text-blue-400" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          </div>
+        <div class="w-16 h-16 mx-auto mb-6 rounded-xl bg-blue-300/10 flex items-center justify-center">
+          <svg class="animate-spin h-6 w-6 text-blue-300" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
         </div>
-        <p class="text-gray-400 animate-pulse">Connecting to shared service...</p>
+        <p class="text-gray-400">Connecting to shared service...</p>
       </div>
     </div>
 
     <!-- Error State -->
     <div v-else-if="error" class="min-h-screen flex items-center justify-center p-4">
       <div class="max-w-md w-full text-center">
-        <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center">
-          <svg class="w-10 h-10 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div class="w-16 h-16 mx-auto mb-6 rounded-xl bg-red-400/10 border border-red-400/20 flex items-center justify-center">
+          <svg class="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
         </div>
@@ -28,7 +25,7 @@
         <p class="text-gray-400 mb-6">{{ error }}</p>
         <NuxtLink 
           to="/" 
-          class="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors"
+          class="inline-flex items-center gap-2 text-blue-300 hover:text-blue-200 transition-colors"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -41,18 +38,18 @@
     <!-- Database Client -->
     <div v-else-if="shareInfo && isDatabase" class="h-screen flex flex-col">
       <!-- Top Bar -->
-      <div class="flex items-center justify-between px-6 py-3 bg-[#0a0a0f] border-b border-gray-700/50">
+      <div class="flex items-center justify-between px-6 py-3 bg-gray-500/5 border-b border-gray-500/10">
         <div class="flex items-center gap-4">
-          <NuxtLink to="/" class="text-gray-400 hover:text-white transition-colors">
+          <NuxtLink to="/" class="text-gray-500 hover:text-white transition-colors">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </NuxtLink>
-          <div class="h-6 w-px bg-gray-700"></div>
+          <div class="h-6 w-px bg-gray-500/20"></div>
           <div>
             <div class="flex items-center gap-2">
-              <span class="text-sm font-medium">{{ shareInfo.name }}</span>
-              <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">
+              <span class="text-sm font-medium text-white">{{ shareInfo.name }}</span>
+              <span class="text-xs bg-emerald-300/10 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-300/20">
                 {{ getDatabaseType(shareInfo.service.targetPort) }}
               </span>
             </div>
@@ -81,18 +78,18 @@
     <!-- SSH Terminal -->
     <div v-else-if="shareInfo && isSSH" class="h-screen flex flex-col">
       <!-- Top Bar -->
-      <div class="flex items-center justify-between px-6 py-3 bg-[#0a0a0f] border-b border-gray-700/50">
+      <div class="flex items-center justify-between px-6 py-3 bg-gray-500/5 border-b border-gray-500/10">
         <div class="flex items-center gap-4">
-          <NuxtLink to="/" class="text-gray-400 hover:text-white transition-colors">
+          <NuxtLink to="/" class="text-gray-500 hover:text-white transition-colors">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </NuxtLink>
-          <div class="h-6 w-px bg-gray-700"></div>
+          <div class="h-6 w-px bg-gray-500/20"></div>
           <div>
             <div class="flex items-center gap-2">
-              <span class="text-sm font-medium">{{ shareInfo.name }}</span>
-              <span class="text-xs bg-violet-500/20 text-violet-400 px-2 py-0.5 rounded-full">
+              <span class="text-sm font-medium text-white">{{ shareInfo.name }}</span>
+              <span class="text-xs bg-purple-300/10 text-purple-300 px-2 py-0.5 rounded-full border border-purple-300/20">
                 SSH
               </span>
             </div>
@@ -120,18 +117,18 @@
     <!-- HTTP Service Preview -->
     <div v-else-if="shareInfo && isHTTP" class="min-h-screen">
       <!-- Top Bar -->
-      <div class="flex items-center justify-between px-6 py-3 bg-[#0a0a0f] border-b border-gray-700/50">
+      <div class="flex items-center justify-between px-6 py-3 bg-gray-500/5 border-b border-gray-500/10">
         <div class="flex items-center gap-4">
-          <NuxtLink to="/" class="text-gray-400 hover:text-white transition-colors">
+          <NuxtLink to="/" class="text-gray-500 hover:text-white transition-colors">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </NuxtLink>
-          <div class="h-6 w-px bg-gray-700"></div>
+          <div class="h-6 w-px bg-gray-500/20"></div>
           <div>
             <div class="flex items-center gap-2">
-              <span class="text-sm font-medium">{{ shareInfo.name }}</span>
-              <span class="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">
+              <span class="text-sm font-medium text-white">{{ shareInfo.name }}</span>
+              <span class="text-xs bg-blue-300/10 text-blue-300 px-2 py-0.5 rounded-full border border-blue-300/20">
                 HTTP
               </span>
             </div>
@@ -141,7 +138,7 @@
         <div class="flex items-center gap-3">
           <button 
             @click="openInNewTab"
-            class="flex items-center gap-2 text-xs text-gray-400 hover:text-white transition-colors"
+            class="flex items-center gap-2 text-xs text-gray-500 hover:text-white transition-colors"
           >
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -152,10 +149,10 @@
       </div>
 
       <!-- URL Bar -->
-      <div class="px-6 py-3 bg-[#0d0d14] border-b border-gray-700/30">
+      <div class="px-6 py-3 bg-gray-500/5 border-b border-gray-500/10">
         <div class="flex items-center gap-3 max-w-4xl mx-auto">
-          <div class="flex-1 flex items-center gap-2 bg-[#0a0a0f] rounded-lg px-4 py-2 border border-gray-700/50">
-            <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div class="flex-1 flex items-center gap-2 bg-black/50 rounded-lg px-4 py-2 border border-gray-500/10">
+            <svg class="w-4 h-4 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
             <input 
@@ -168,7 +165,7 @@
           <button 
             @click="loadPath"
             :disabled="httpLoading"
-            class="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
+            class="px-4 py-2 bg-blue-300 text-black text-sm font-medium rounded-lg hover:bg-blue-200 disabled:opacity-50 transition-colors"
           >
             Go
           </button>
@@ -178,7 +175,7 @@
       <!-- Content Area -->
       <div class="p-6">
         <div v-if="httpLoading" class="flex items-center justify-center py-20">
-          <svg class="animate-spin h-6 w-6 text-blue-400" viewBox="0 0 24 24">
+          <svg class="animate-spin h-6 w-6 text-blue-300" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
           </svg>
@@ -188,8 +185,8 @@
           <!-- Response Header -->
           <div class="flex items-center gap-3 mb-4">
             <span 
-              class="text-xs font-medium px-2 py-1 rounded"
-              :class="httpResponse.status < 400 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'"
+              class="text-xs font-medium px-2.5 py-1 rounded-full border"
+              :class="httpResponse.status < 400 ? 'bg-emerald-300/10 text-emerald-300 border-emerald-300/20' : 'bg-red-400/10 text-red-400 border-red-400/20'"
             >
               {{ httpResponse.status }} {{ httpResponse.statusText }}
             </span>
@@ -198,13 +195,13 @@
           </div>
 
           <!-- Response Body -->
-          <div class="bg-[#0d0d14] rounded-lg border border-gray-700/50 overflow-hidden">
+          <div class="bg-gray-500/5 rounded-xl border border-gray-500/10 overflow-hidden">
             <pre v-if="httpResponse.isJSON" class="p-4 text-sm text-gray-300 font-mono overflow-x-auto">{{ JSON.stringify(httpResponse.body, null, 2) }}</pre>
             <div v-else-if="httpResponse.isHTML" class="p-4">
               <div class="text-xs text-gray-500 mb-2">HTML Preview</div>
               <iframe 
                 :srcdoc="httpResponse.body" 
-                class="w-full h-96 bg-white rounded"
+                class="w-full h-96 bg-white rounded-lg"
                 sandbox="allow-same-origin"
               ></iframe>
             </div>
@@ -221,18 +218,18 @@
     <!-- Generic Service Info -->
     <div v-else-if="shareInfo" class="min-h-screen flex items-center justify-center p-4">
       <div class="max-w-lg w-full">
-        <div class="bg-[#12121a] rounded-2xl border border-gray-700/50 p-8 text-center">
-          <div class="w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/30 flex items-center justify-center">
-            <svg class="w-8 h-8 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div class="bg-gray-500/5 rounded-xl border border-gray-500/10 p-8 text-center">
+          <div class="w-16 h-16 mx-auto mb-6 rounded-xl bg-purple-300/10 border border-purple-300/20 flex items-center justify-center">
+            <svg class="w-8 h-8 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
             </svg>
           </div>
           
-          <h1 class="text-2xl font-bold mb-2">{{ shareInfo.name }}</h1>
+          <h1 class="text-2xl font-bold text-white mb-2">{{ shareInfo.name }}</h1>
           <p v-if="shareInfo.description" class="text-gray-400 mb-6">{{ shareInfo.description }}</p>
           
-          <div class="bg-[#0a0a0f] rounded-xl p-6 mb-6">
-            <div class="text-sm text-gray-400 mb-2">Service</div>
+          <div class="bg-black/50 rounded-xl p-6 mb-6 border border-gray-500/10">
+            <div class="text-sm text-gray-500 mb-2">Service</div>
             <div class="text-lg font-mono text-white">{{ shareInfo.service.name }}</div>
             <div class="text-sm text-gray-500 mt-1">
               {{ shareInfo.service.targetHost }}:{{ shareInfo.service.targetPort }}
@@ -244,12 +241,12 @@
           </div>
 
           <!-- Install Command -->
-          <div class="bg-[#0a0a0f] rounded-lg p-4 mb-6">
+          <div class="bg-black/50 rounded-lg p-4 mb-4 border border-gray-500/10">
             <div class="text-xs text-gray-500 mb-2">Quick install:</div>
             <code class="text-sm text-blue-300 font-mono">curl -fsSL https://privateconnect.co/install | sh</code>
           </div>
 
-          <div class="bg-[#0a0a0f] rounded-lg p-4">
+          <div class="bg-black/50 rounded-lg p-4 border border-gray-500/10">
             <div class="text-xs text-gray-500 mb-2">Then connect:</div>
             <code class="text-sm text-emerald-300 font-mono">connect {{ shareInfo.service.name }}</code>
           </div>
@@ -422,15 +419,3 @@ useHead({
   title: computed(() => shareInfo.value ? `${shareInfo.value.name} - Private Connect` : 'Shared Access - Private Connect'),
 });
 </script>
-
-<style>
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out;
-}
-</style>
-
