@@ -64,7 +64,7 @@
             <button 
               @click="executeQuery"
               :disabled="isExecuting || !query.trim()"
-              class="flex items-center gap-2 px-4 py-2 bg-blue-300 text-black text-sm font-medium rounded-lg hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed transition-a
+              class="flex items-center gap-2 px-4 py-2 bg-blue-300 text-black text-sm font-medium rounded-lg hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               <svg v-if="isExecuting" class="animate-spin h-4 w-4" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
@@ -241,6 +241,7 @@ interface QueryResult {
 }
 
 const { success } = useToast();
+const config = useRuntimeConfig();
 
 const query = ref('');
 const result = ref<QueryResult | null>(null);
@@ -260,7 +261,7 @@ const executeQuery = async () => {
   const startTime = Date.now();
   
   try {
-    const response = await fetch(`/api/shared/${props.token}/query`, {
+    const response = await fetch(`${config.public.apiBase}/api/shared/${props.token}/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: query.value }),

@@ -110,6 +110,7 @@ const props = defineProps<{
   connectionInfo: string;
 }>();
 
+const config = useRuntimeConfig();
 const lines = ref<TerminalLine[]>([]);
 const currentInput = ref('');
 const commandHistory = ref<string[]>([]);
@@ -169,7 +170,7 @@ const executeCommand = async (command: string) => {
   currentInput.value = '';
 
   try {
-    const response = await fetch(`/api/shared/${props.token}/exec`, {
+    const response = await fetch(`${config.public.apiBase}/api/shared/${props.token}/exec`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ command }),
