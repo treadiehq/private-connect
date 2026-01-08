@@ -40,10 +40,11 @@
     >
       <!-- Welcome Message -->
       <div class="text-gray-500 mb-4 pb-4 border-b border-gray-500/10">
-        <p class="text-gray-400">Welcome to Private Connect Web Terminal</p>
-        <p class="text-xs mt-1">Connected to {{ serviceName }} via secure tunnel</p>
-        <div class="mt-3 p-3 bg-gray-500/5 rounded-lg border border-gray-500/10">
-          <p class="text-xs text-gray-500 mb-2">For full SSH access, use the CLI:</p>
+        <p class="text-gray-400">Private Connect Web Terminal (Preview)</p>
+        <p class="text-xs mt-1">Service: {{ serviceName }}</p>
+        <div class="mt-3 p-3 bg-amber-500/5 rounded-lg border border-amber-500/20">
+          <p class="text-xs text-amber-300 mb-2">⚠️ Web terminal is a preview feature</p>
+          <p class="text-xs text-gray-500 mb-2">For full SSH access, install the CLI:</p>
           <code class="text-xs text-blue-300">connect {{ serviceName }}</code>
         </div>
       </div>
@@ -169,27 +170,15 @@ const executeCommand = async (command: string) => {
   historyIndex.value = -1;
   currentInput.value = '';
 
-  try {
-    const response = await fetch(`${config.public.apiBase}/api/shared/${props.token}/exec`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      lines.value.push({ type: 'error', text: data.error || 'Command failed' });
-    } else if (data.output) {
-      // Split output into lines
-      const outputLines = data.output.split('\n');
-      outputLines.forEach((line: string) => {
-        lines.value.push({ type: 'output', text: line });
-      });
-    }
-  } catch (error: any) {
-    lines.value.push({ type: 'error', text: error.message });
-  }
+  // Web terminal is a preview feature - full SSH requires the CLI
+  lines.value.push({ 
+    type: 'output', 
+    text: 'Web terminal preview: Command execution requires the CLI.' 
+  });
+  lines.value.push({ 
+    type: 'output', 
+    text: `Run: connect ${props.serviceName}` 
+  });
 
   scrollToBottom();
 };
