@@ -67,6 +67,12 @@ export class SharesService {
         service: {
           include: {
             agent: true,
+            workspace: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
       },

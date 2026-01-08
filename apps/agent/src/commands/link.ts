@@ -23,6 +23,29 @@ interface LinkResponse {
   error?: string;
 }
 
+interface ServiceInfo {
+  id: string;
+  name: string;
+  targetPort: number;
+  protocol?: string;
+}
+
+// Well-known database ports
+const DB_PORTS: Record<number, string> = {
+  5432: 'PostgreSQL',
+  3306: 'MySQL',
+  27017: 'MongoDB',
+  6379: 'Redis',
+  9200: 'Elasticsearch',
+  5984: 'CouchDB',
+  8529: 'ArangoDB',
+  7687: 'Neo4j',
+  9042: 'Cassandra',
+};
+
+const isDatabase = (port: number): boolean => port in DB_PORTS;
+const getDatabaseType = (port: number): string => DB_PORTS[port] || 'Database';
+
 export async function linkCommand(service: string, options: LinkOptions) {
   const config = loadConfig();
   
@@ -49,10 +72,7 @@ export async function linkCommand(service: string, options: LinkOptions) {
       process.exit(1);
     }
 
-    const services = await servicesResponse.json() as Array<{
-      id: string;
-      name: string;
-    }>;
+    const services = await servicesResponse.json() as ServiceInfo[];
 
     const targetService = services.find(s => s.name.toLowerCase() === service.toLowerCase());
 
@@ -106,34 +126,61 @@ export async function linkCommand(service: string, options: LinkOptions) {
     const shareUrl = share.shareUrl.startsWith('http') 
       ? share.shareUrl 
       : `${hubUrl}${share.shareUrl}`;
+    
+    // Convert /shared/ to /share/ for the web UI route
+    const webUrl = shareUrl.replace('/shared/', '/share/');
+    const isDbService = targetService.targetPort && isDatabase(targetService.targetPort);
 
     // Success output
     console.log(chalk.green('[ok] Public link created\n'));
     
-    console.log(chalk.gray('  ┌─────────────────────────────────────────────────────────────┐'));
-    console.log(chalk.gray('  │') + chalk.white('  Share URL                                                   ') + chalk.gray('│'));
-    console.log(chalk.gray('  │') + chalk.cyan(`  ${shareUrl}`) + chalk.gray('        │'));
-    console.log(chalk.gray('  └─────────────────────────────────────────────────────────────┘\n'));
+    if (isDbService) {
+      // Database-specific output with web UI link
+      const dbType = getDatabaseType(targetService.targetPort);
+      console.log(chalk.gray('  ┌─────────────────────────────────────────────────────────────┐'));
+      console.log(chalk.gray('  │') + chalk.white(`  ${dbType} Web Console                                       `) + chalk.gray('│'));
+      console.log(chalk.gray('  │') + chalk.cyan(`  ${webUrl}`) + chalk.gray('│'));
+      console.log(chalk.gray('  └─────────────────────────────────────────────────────────────┘\n'));
 
-    console.log(chalk.gray('  Settings:'));
-    console.log(chalk.gray(`    Expires:     ${expiresAt.toLocaleString()}`));
-    if (allowedMethods) {
-      console.log(chalk.gray(`    Methods:     ${allowedMethods.join(', ')}`));
-    }
-    if (allowedPaths) {
-      console.log(chalk.gray(`    Paths:       ${allowedPaths.join(', ')}`));
-    }
-    if (rateLimitPerMin) {
-      console.log(chalk.gray(`    Rate limit:  ${rateLimitPerMin}/min`));
-    }
-    console.log();
+      console.log(chalk.gray('  Settings:'));
+      console.log(chalk.gray(`    Expires:     ${expiresAt.toLocaleString()}`));
+      console.log();
 
-    console.log(chalk.gray('  Usage:'));
-    console.log(chalk.gray('    Anyone with this URL can access the service.'));
-    console.log(chalk.gray('    No account or CLI installation required.\n'));
+      console.log(chalk.gray('  Usage:'));
+      console.log(chalk.gray('    Open the link in a browser to access the database.'));
+      console.log(chalk.gray('    No installation required - includes a web-based SQL client!\n'));
 
-    console.log(chalk.gray('  Example:'));
-    console.log(chalk.cyan(`    curl ${shareUrl}/health\n`));
+      console.log(chalk.gray('  Features:'));
+      console.log(chalk.gray('    • Run SQL queries directly in the browser'));
+      console.log(chalk.gray('    • Export results as CSV or JSON'));
+      console.log(chalk.gray('    • Query history preserved in session\n'));
+    } else {
+      // HTTP service output
+      console.log(chalk.gray('  ┌─────────────────────────────────────────────────────────────┐'));
+      console.log(chalk.gray('  │') + chalk.white('  Share URL                                                   ') + chalk.gray('│'));
+      console.log(chalk.gray('  │') + chalk.cyan(`  ${shareUrl}`) + chalk.gray('        │'));
+      console.log(chalk.gray('  └─────────────────────────────────────────────────────────────┘\n'));
+
+      console.log(chalk.gray('  Settings:'));
+      console.log(chalk.gray(`    Expires:     ${expiresAt.toLocaleString()}`));
+      if (allowedMethods) {
+        console.log(chalk.gray(`    Methods:     ${allowedMethods.join(', ')}`));
+      }
+      if (allowedPaths) {
+        console.log(chalk.gray(`    Paths:       ${allowedPaths.join(', ')}`));
+      }
+      if (rateLimitPerMin) {
+        console.log(chalk.gray(`    Rate limit:  ${rateLimitPerMin}/min`));
+      }
+      console.log();
+
+      console.log(chalk.gray('  Usage:'));
+      console.log(chalk.gray('    Anyone with this URL can access the service.'));
+      console.log(chalk.gray('    No account or CLI installation required.\n'));
+
+      console.log(chalk.gray('  Example:'));
+      console.log(chalk.cyan(`    curl ${shareUrl}/health\n`));
+    }
 
   } catch (error) {
     const err = error as Error;
