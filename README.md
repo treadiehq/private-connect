@@ -61,6 +61,7 @@ cd apps/agent && pnpm run build:binary
 
 - **Live**: [privateconnect.co](https://privateconnect.co)
 - **Docs**: [DETAILED.md](DETAILED.md) — full CLI reference, all features
+- **AI & MCP**: [docs/AI.md](docs/AI.md) — AI integration, orchestration, SDK
 - **Use Cases**: [USE_CASES.md](USE_CASES.md) — real scenarios
 - **Security**: [docs/security.md](docs/security.md) — architecture details
 - **SDK**: [packages/sdk](packages/sdk) — TypeScript SDK for programmatic access
