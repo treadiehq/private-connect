@@ -1,29 +1,30 @@
 {
-  "name": "@privateconnect/sdk",
+  "name": "private-connect",
   "version": "0.2.1",
-  "description": "TypeScript SDK for Private Connect - programmatic access to services and agent orchestration",
+  "description": "Test connectivity to any service. No signup required.",
+  "bin": {
+    "private-connect": "./dist/index.js"
+  },
   "main": "dist/index.js",
-  "types": "dist/index.d.ts",
   "files": [
     "dist"
   ],
   "scripts": {
     "build": "tsc",
-    "dev": "tsc -w",
-    "clean": "rm -rf dist"
+    "dev": "tsc -w"
   },
   "keywords": [
-    "private-connect",
+    "connectivity",
+    "diagnostics",
+    "network",
     "tunnel",
-    "networking",
-    "orchestration",
-    "agent"
+    "private-connect"
   ],
   "license": "FSL-1.1-MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/treadiehq/private-connect.git",
-    "directory": "packages/sdk"
+    "directory": "packages/cli"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

@@ -194,6 +194,8 @@ program
   .option('--check', 'Only run diagnostics, do not create tunnel')
   .option('--json', 'Output as JSON')
   .option('-c, --config <path>', 'Config file path')
+  .option('-s, --share', 'Create shareable link after exposing')
+  .option('--ttl <duration>', 'Share link TTL: 30m, 1h, 24h, 7d (default: 30m)', '30m')
   .action(async (target, options) => {
     if (options.config) setConfigPath(options.config);
     await connectCommand(target, options);

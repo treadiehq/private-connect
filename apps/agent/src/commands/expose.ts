@@ -21,7 +21,7 @@ interface DiagnosticResult {
   message: string;
 }
 
-export async function exposeCommand(target: string, options: ExposeOptions) {
+export async function exposeCommand(target: string, options: ExposeOptions): Promise<{ serviceId: string } | null> {
   // Enforce HTTPS for non-localhost connections
   try {
     enforceSecureConnection(options.hub);
@@ -37,7 +37,7 @@ export async function exposeCommand(target: string, options: ExposeOptions) {
   
   if (!host || isNaN(port)) {
     console.error(chalk.red('[x] Invalid target format. Use host:port (e.g., 127.0.0.1:8080)'));
-    process.exit(1);
+    return null;
   }
 
   // Warn if trying to expose Private Connect control plane
@@ -59,7 +59,7 @@ export async function exposeCommand(target: string, options: ExposeOptions) {
   if (!existingConfig && !options.apiKey) {
     console.error(chalk.red('\n[x] API key required for first-time setup'));
     console.log(chalk.gray(`  Use: ${chalk.cyan('connect expose <target> --api-key <your-api-key>')}`));
-    process.exit(1);
+    return null;
   }
 
   const config = ensureConfig(options.hub, options.apiKey);
@@ -76,8 +76,11 @@ export async function exposeCommand(target: string, options: ExposeOptions) {
   
   if (!service) {
     console.error(chalk.red('[x] Failed to register service'));
-    process.exit(1);
+    return null;
   }
+
+  // Store serviceId for return value
+  const result = { serviceId: service.id };
 
   console.log(chalk.green(`[ok] Service registered`));
   console.log(chalk.gray(`   Service ID: ${service.id}`));
@@ -221,6 +224,8 @@ export async function exposeCommand(target: string, options: ExposeOptions) {
     socket.disconnect();
     process.exit(0);
   });
+
+  return result;
 }
 
 async function registerAgent(config: { agentId: string; token: string; hubUrl: string; apiKey: string; label: string; name?: string }) {

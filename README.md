@@ -5,19 +5,22 @@ The fastest way to securely expose and use a private service.
 ## Quick Start
 
 ```bash
-# Install
+# Test connectivity (no signup required)
+npx private-connect test vault.internal:8200
+
+# Install for full features
 curl -fsSL https://privateconnect.co/install.sh | bash
 
 # Authenticate (once, then it's always on)
 connect up
 
 # That's it. Now:
-connect localhost:5432      # Expose a service (auto-named "postgres")
-connect prod-db             # Connect to a service
-connect clone alice         # Clone a teammate's entire environment
+connect localhost:5432           # Expose (auto-named "postgres")
+connect prod-db                  # Connect to a service
+connect localhost:5432 --share   # Expose + get shareable link
 ```
 
-**One command. It just works.**
+**Zero friction. One command. It just works.**
 
 ---
 
@@ -290,6 +293,10 @@ connect audit                 # View agent action audit log
 -n, --name <name>      Service name (auto-detected from port if omitted)
 -p, --protocol <type>  auto|tcp|http|https
 --public               Get a public URL for webhooks
+
+# connect <target> --share
+-s, --share            Create shareable link after exposing
+--ttl <duration>       Share link TTL: 30m, 1h, 24h, 7d (default: 30m)
 
 # connect reach
 -p, --port <port>      Local port (default: same as service)

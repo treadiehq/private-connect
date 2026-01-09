@@ -33,6 +33,8 @@ interface ConnectOptions {
   check?: boolean;
   json?: boolean;
   config?: string;
+  share?: boolean;
+  ttl?: string;
 }
 
 interface ServiceInfo {
@@ -107,13 +109,18 @@ async function handleExpose(target: string, port: number, options: ConnectOption
   }
 
   // Delegate to expose command
-  await exposeCommand(target, {
+  const exposeResult = await exposeCommand(target, {
     name: serviceName,
     hub: options.hub,
     protocol: options.protocol || 'auto',
     public: options.public,
     config: options.config,
   });
+
+  // Create share link if --share flag was passed
+  if (options.share && exposeResult?.serviceId) {
+    await createShareLink(config.hubUrl, config.apiKey, exposeResult.serviceId, serviceName!, options.ttl);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -252,6 +259,86 @@ async function findTeammateService(
     return service?.name || null;
   } catch {
     return null;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Share Link Creator
+// ─────────────────────────────────────────────────────────────────────────────
+
+function parseTtl(ttl: string): Date {
+  const now = new Date();
+  const match = ttl.match(/^(\d+)(m|h|d)$/);
+  
+  if (!match) {
+    // Default to 30 minutes
+    return new Date(now.getTime() + 30 * 60 * 1000);
+  }
+  
+  const value = parseInt(match[1], 10);
+  const unit = match[2];
+  
+  switch (unit) {
+    case 'm':
+      return new Date(now.getTime() + value * 60 * 1000);
+    case 'h':
+      return new Date(now.getTime() + value * 60 * 60 * 1000);
+    case 'd':
+      return new Date(now.getTime() + value * 24 * 60 * 60 * 1000);
+    default:
+      return new Date(now.getTime() + 30 * 60 * 1000);
+  }
+}
+
+async function createShareLink(
+  hubUrl: string,
+  apiKey: string,
+  serviceId: string,
+  serviceName: string,
+  ttl?: string
+): Promise<void> {
+  try {
+    const expiresAt = parseTtl(ttl || '30m');
+    
+    const response = await fetch(`${hubUrl}/v1/services/${serviceId}/shares`, {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: `Quick share`,
+        expiresAt: expiresAt.toISOString(),
+      }),
+    });
+    
+    if (!response.ok) {
+      console.log(chalk.yellow('\n[!] Could not create share link'));
+      return;
+    }
+    
+    const share = await response.json() as { token: string };
+    const shareUrl = `https://connect.privateconnect.co/${share.token}`;
+    
+    // Calculate human-readable TTL
+    const minutes = Math.round((expiresAt.getTime() - Date.now()) / 60000);
+    const ttlDisplay = minutes >= 60 
+      ? `${Math.round(minutes / 60)} hour${minutes >= 120 ? 's' : ''}`
+      : `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+    
+    console.log();
+    console.log(chalk.gray('────────────────────────────────────────'));
+    console.log();
+    console.log(chalk.bold('  Secure link created:'));
+    console.log();
+    console.log(`  ${chalk.cyan(shareUrl)}`);
+    console.log();
+    console.log(chalk.gray(`  Expires in ${ttlDisplay}`));
+    console.log();
+    console.log(chalk.gray('────────────────────────────────────────'));
+    console.log();
+  } catch (error) {
+    console.log(chalk.yellow('\n[!] Could not create share link'));
   }
 }
 
