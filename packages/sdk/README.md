@@ -1,4 +1,4 @@
-# @privateconnect/sdk
+# Private Connect SDK
 
 TypeScript SDK for Private Connect - programmatic access to services and agent orchestration.
 
@@ -170,5 +170,5 @@ const pc = new PrivateConnect({
 
 ## License
 
-MIT
+[FSL-1.1-MIT](LICENSE)
 

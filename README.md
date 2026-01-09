@@ -434,69 +434,21 @@ See [docs/broker.md](docs/broker.md) for full documentation.
 
 ## Agent Orchestration
 
-Private Connect enables multi-agent orchestration—coordinating work across agents running on different machines. Perfect for distributed AI coding agents like opencode.
-
-### MCP Tools for Agents
-
-When connected via MCP, AI agents can:
-
-```
-list_agents              - See all agents in your workspace
-find_agents_by_capability - Find agents with specific capabilities (gpu, database, etc.)
-send_agent_message       - Send messages to other agents
-broadcast_message        - Notify all agents
-get_agent_messages       - Receive messages from other agents
-register_capabilities    - Advertise what this agent can do
-get_connection_string    - Get DATABASE_URL, REDIS_URL, etc. for services
-create_session           - Start ephemeral orchestration sessions
-end_session              - Clean up when done
-```
-
-### Example: Multi-Agent Workflow
-
-```
-Agent A (has GPU):
-  → Registers capability: "gpu"
-  → Exposes: localhost:8888 (Jupyter)
-
-Agent B (orchestrator):
-  → Finds agents with "gpu" capability
-  → Sends message: { action: "run-training", model: "v2" }
-  → Waits for response
-
-Agent A:
-  → Receives message
-  → Runs training
-  → Sends response: { status: "complete", metrics: {...} }
-```
-
-### TypeScript SDK
-
-For programmatic access without MCP:
+Coordinate work across agents on different machines. Built for distributed AI coding agents.
 
 ```typescript
 import { PrivateConnect } from '@privateconnect/sdk';
 
 const pc = new PrivateConnect({ apiKey: process.env.PRIVATECONNECT_API_KEY });
 
-// Connect to a database
-const db = await pc.connect('postgres-prod');
-console.log(db.connectionString); // postgres://localhost:5432/...
-
-// Find agents with GPU
-const gpuAgents = await pc.agents.findByCapability('gpu');
-
-// Send work to an agent
-await pc.agents.sendMessage(gpuAgents[0].id, {
-  action: 'run-inference',
-  prompt: 'Hello world',
-});
-
-// Wait for responses
-const messages = await pc.agents.getMessages({ unreadOnly: true });
+const db = await pc.connect('postgres-prod');     // Get connection string
+const gpuAgents = await pc.agents.findByCapability('gpu');  // Find agents
+await pc.agents.sendMessage(gpuAgents[0].id, { action: 'train' });  // Coordinate
 ```
 
-See [packages/sdk/README.md](packages/sdk/README.md) for full SDK documentation.
+MCP tools: `list_agents`, `send_agent_message`, `get_connection_string`, `register_capabilities`
+
+See [packages/sdk](packages/sdk) for full SDK docs.
 
 ### Self-Healing & Diagnostics
 
