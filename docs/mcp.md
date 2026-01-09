@@ -44,7 +44,7 @@ Add to `~/.config/claude/mcp.json`:
       "command": "connect",
       "args": ["mcp", "serve"],
       "env": {
-        "CONNECT_HUB_URL": "https://connect.privateconnect.co"
+        "CONNECT_HUB_URL": "https://api.privateconnect.co"
       }
     }
   }

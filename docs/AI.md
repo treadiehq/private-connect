@@ -229,7 +229,7 @@ import { PrivateConnect } from '@privateconnect/sdk';
 
 const pc = new PrivateConnect({
   apiKey: process.env.PRIVATE_CONNECT_API_KEY,
-  hubUrl: 'https://connect.privateconnect.co'
+  hubUrl: 'https://api.privateconnect.co'
 });
 
 // List services
@@ -401,7 +401,7 @@ connect connection-string <service>
 | Variable | Description |
 |----------|-------------|
 | `PRIVATE_CONNECT_API_KEY` | API key for SDK/programmatic access |
-| `CONNECT_HUB_URL` | Hub URL (default: https://connect.privateconnect.co) |
+| `CONNECT_HUB_URL` | Hub URL (default: https://api.privateconnect.co) |
 | `CONNECT_BROKER` | Set when running under broker |
 | `CONNECT_AGENT` | Agent identifier |
 | `CONNECT_AUTO_APPROVE` | Auto-approve broker reviews |
