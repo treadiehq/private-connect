@@ -270,17 +270,17 @@
               <div class="bg-black/50 rounded-lg p-3 font-mono text-xs space-y-1.5">
                 <div>
                   <span class="text-gray-500">$</span>
-                  <span class="text-gray-200 ml-2">connect up --label prod-server</span>
+                  <span class="text-gray-200 ml-2">connect up</span>
                 </div>
                 <div>
                   <span class="text-gray-500">$</span>
-                  <span class="text-gray-200 ml-2">connect expose localhost:5432 --name prod-db</span>
+                  <span class="text-gray-200 ml-2">connect localhost:5432</span>
                 </div>
                 <div>
                   <span class="text-gray-500">$</span>
-                  <span class="text-gray-200 ml-2">connect expose localhost:3000 --name prod-api</span>
+                  <span class="text-gray-200 ml-2">connect localhost:3000</span>
                 </div>
-                <div class="text-emerald-300 pt-1">✓ Services exposed</div>
+                <div class="text-emerald-300 pt-1">✓ Services exposed (auto-named)</div>
               </div>
             </div>
           </div>
@@ -844,18 +844,18 @@ const commands = [
     category: 'core',
   },
   {
-    name: 'connect expose',
-    description: 'Make a local service reachable',
-    example: 'connect expose localhost:5432 --name prod-db',
-    useCase: 'Running PostgreSQL on a private server? Expose it securely without opening firewall ports. Only your workspace members can reach it.',
+    name: 'connect <target>',
+    description: 'Expose or reach — one command does both',
+    example: 'connect localhost:5432',
+    useCase: 'Running PostgreSQL on a private server? Just run connect localhost:5432. Auto-names it "postgres", no flags needed. Reach it from anywhere with connect postgres.',
     buildTime: '2-3 weeks',
     category: 'core',
   },
   {
-    name: 'connect reach',
-    description: 'Connect to an exposed service',
-    example: 'connect reach prod-db',
-    useCase: 'From your laptop, connect to any exposed service. Creates a local tunnel so your tools think the service is running locally.',
+    name: 'connect --share',
+    description: 'Expose and share in one step',
+    example: 'connect localhost:5432 --share',
+    useCase: 'Need to share access quickly? Add --share to get an instant link. Teammate clicks it and they\'re connected. No CLI install needed to view.',
     buildTime: '2-3 weeks',
     category: 'core',
   },

@@ -29,7 +29,7 @@
       description="Expose a local service to make it available through Private Connect."
       :commands="[
         { comment: 'Connect an agent', command: 'connect up' },
-        { comment: 'Expose a local service', command: 'connect expose localhost:3000 --name my-api' }
+        { comment: 'Expose a local service', command: 'connect localhost:3000' }
       ]"
     >
       <template #icon>

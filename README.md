@@ -18,6 +18,7 @@ connect up
 connect localhost:5432           # Expose a service
 connect prod-db                  # Access a service
 connect localhost:5432 --share   # Get a shareable link
+
 ```
 
 ## What It Does
