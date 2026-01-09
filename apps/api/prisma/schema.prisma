@@ -95,6 +95,9 @@ model Agent {
   sourceDiagnostics DiagnosticResult[] @relation("SourceAgent")
   sessions    Session[]
   tokenAuditLogs AgentTokenAuditLog[]
+  capabilities AgentCapability[]
+  sentMessages AgentMessage[] @relation("SentMessages")
+  receivedMessages AgentMessage[] @relation("ReceivedMessages")
 
   @@index([workspaceId])
   @@index([isOnline]) // For filtering online agents
@@ -293,4 +296,43 @@ model EnvironmentShareJoin {
   
   @@index([envShareId])
   @@index([agentId])
+}
+
+// AgentMessage: cross-agent communication for orchestration
+model AgentMessage {
+  id            String    @id @default(uuid())
+  fromAgentId   String
+  toAgentId     String              // Target agent (or "*" for broadcast)
+  workspaceId   String
+  channel       String    @default("default")  // Channel/topic for filtering
+  type          String              // request | response | event | broadcast
+  payload       String              // JSON payload
+  correlationId String?             // For request/response matching
+  expiresAt     DateTime?           // TTL for message
+  readAt        DateTime?           // When target agent read the message
+  createdAt     DateTime  @default(now())
+
+  fromAgent     Agent     @relation("SentMessages", fields: [fromAgentId], references: [id], onDelete: Cascade)
+  toAgent       Agent?    @relation("ReceivedMessages", fields: [toAgentId], references: [id], onDelete: Cascade)
+
+  @@index([toAgentId, readAt])      // For fetching unread messages
+  @@index([fromAgentId])
+  @@index([workspaceId, channel])   // For channel subscriptions
+  @@index([correlationId])          // For request/response matching
+  @@index([expiresAt])              // For cleanup
+}
+
+// AgentCapability: advertise what an agent can do
+model AgentCapability {
+  id          String   @id @default(uuid())
+  agentId     String
+  name        String              // e.g., "database", "gpu", "mcp-server"
+  metadata    String?             // JSON: additional details
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  agent       Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, name])
+  @@index([name])                 // For capability discovery
 }

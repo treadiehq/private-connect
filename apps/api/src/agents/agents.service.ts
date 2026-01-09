@@ -387,4 +387,239 @@ export class AgentsService {
 
     return agent;
   }
+
+  // ============================================
+  // Agent Orchestration: Messaging & Discovery
+  // ============================================
+
+  /**
+   * Send a message to another agent
+   */
+  async sendMessage(
+    fromAgentId: string,
+    toAgentId: string,
+    workspaceId: string,
+    payload: Record<string, unknown>,
+    options?: {
+      channel?: string;
+      type?: 'request' | 'response' | 'event' | 'broadcast';
+      correlationId?: string;
+      ttlSeconds?: number;
+    }
+  ) {
+    const expiresAt = options?.ttlSeconds 
+      ? new Date(Date.now() + options.ttlSeconds * 1000)
+      : new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h default TTL
+
+    const message = await this.prisma.agentMessage.create({
+      data: {
+        fromAgentId,
+        toAgentId,
+        workspaceId,
+        channel: options?.channel || 'default',
+        type: options?.type || 'event',
+        payload: JSON.stringify(payload),
+        correlationId: options?.correlationId,
+        expiresAt,
+      },
+    });
+
+    // Broadcast via realtime if target agent is online
+    this.realtimeGateway.sendToAgent(toAgentId, 'agent:message', {
+      id: message.id,
+      from: fromAgentId,
+      channel: message.channel,
+      type: message.type,
+      payload,
+      correlationId: message.correlationId,
+    });
+
+    return message;
+  }
+
+  /**
+   * Broadcast a message to all agents in workspace
+   */
+  async broadcastMessage(
+    fromAgentId: string,
+    workspaceId: string,
+    payload: Record<string, unknown>,
+    options?: {
+      channel?: string;
+      ttlSeconds?: number;
+    }
+  ) {
+    const agents = await this.getOnlineAgents(workspaceId);
+    
+    const messages = await Promise.all(
+      agents
+        .filter(a => a.id !== fromAgentId)
+        .map(agent => 
+          this.sendMessage(fromAgentId, agent.id, workspaceId, payload, {
+            ...options,
+            type: 'broadcast',
+          })
+        )
+    );
+
+    return { sent: messages.length };
+  }
+
+  /**
+   * Get unread messages for an agent
+   */
+  async getMessages(
+    agentId: string,
+    options?: {
+      channel?: string;
+      unreadOnly?: boolean;
+      limit?: number;
+    }
+  ) {
+    const where: any = {
+      toAgentId: agentId,
+      expiresAt: { gt: new Date() },
+    };
+
+    if (options?.channel) {
+      where.channel = options.channel;
+    }
+
+    if (options?.unreadOnly !== false) {
+      where.readAt = null;
+    }
+
+    return this.prisma.agentMessage.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: options?.limit || 50,
+      include: {
+        fromAgent: {
+          select: { id: true, label: true, name: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * Mark messages as read
+   */
+  async markMessagesRead(agentId: string, messageIds: string[]) {
+    return this.prisma.agentMessage.updateMany({
+      where: {
+        id: { in: messageIds },
+        toAgentId: agentId,
+      },
+      data: { readAt: new Date() },
+    });
+  }
+
+  /**
+   * Register agent capabilities for discovery
+   */
+  async registerCapabilities(
+    agentId: string,
+    capabilities: Array<{ name: string; metadata?: Record<string, unknown> }>
+  ) {
+    // Upsert each capability
+    const results = await Promise.all(
+      capabilities.map(cap =>
+        this.prisma.agentCapability.upsert({
+          where: {
+            agentId_name: { agentId, name: cap.name },
+          },
+          update: {
+            metadata: cap.metadata ? JSON.stringify(cap.metadata) : null,
+          },
+          create: {
+            agentId,
+            name: cap.name,
+            metadata: cap.metadata ? JSON.stringify(cap.metadata) : null,
+          },
+        })
+      )
+    );
+
+    return results;
+  }
+
+  /**
+   * Find agents with specific capabilities
+   */
+  async findAgentsByCapability(workspaceId: string, capability: string) {
+    return this.prisma.agent.findMany({
+      where: {
+        workspaceId,
+        isOnline: true,
+        capabilities: {
+          some: { name: capability },
+        },
+      },
+      include: {
+        capabilities: true,
+        services: {
+          select: { name: true, targetPort: true, status: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * Get detailed agent info for orchestration
+   */
+  async getAgentDetails(agentId: string) {
+    return this.prisma.agent.findUnique({
+      where: { id: agentId },
+      include: {
+        capabilities: true,
+        services: {
+          select: {
+            id: true,
+            name: true,
+            targetHost: true,
+            targetPort: true,
+            protocol: true,
+            status: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Get all agents in workspace with their capabilities and services
+   */
+  async getAgentsForOrchestration(workspaceId: string) {
+    return this.prisma.agent.findMany({
+      where: { workspaceId },
+      include: {
+        capabilities: true,
+        services: {
+          select: {
+            id: true,
+            name: true,
+            targetHost: true,
+            targetPort: true,
+            protocol: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: [
+        { isOnline: 'desc' },
+        { lastSeenAt: 'desc' },
+      ],
+    });
+  }
+
+  /**
+   * Cleanup expired messages
+   */
+  async cleanupExpiredMessages() {
+    return this.prisma.agentMessage.deleteMany({
+      where: {
+        expiresAt: { lt: new Date() },
+      },
+    });
+  }
 }

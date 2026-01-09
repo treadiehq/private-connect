@@ -17,7 +17,8 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   server!: Server;
 
   private logger = new SecureLogger('RealtimeGateway');
-  private clients = new Map<string, { workspaceId: string }>();
+  private clients = new Map<string, { workspaceId: string; agentId?: string }>();
+  private agentSockets = new Map<string, string>(); // agentId -> socketId
 
   constructor(private authService: AuthService) {}
 
@@ -106,6 +107,64 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     }
     const room = `workspace:${workspaceId}`;
     this.server?.to(room).emit('agent:status', { agentId, isOnline });
+  }
+
+  /**
+   * Send message directly to a specific agent
+   */
+  sendToAgent(agentId: string, event: string, data: any) {
+    const socketId = this.agentSockets.get(agentId);
+    if (socketId) {
+      this.server?.to(socketId).emit(event, data);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Register an agent's socket connection
+   */
+  registerAgent(socketId: string, agentId: string, workspaceId: string) {
+    this.agentSockets.set(agentId, socketId);
+    const clientInfo = this.clients.get(socketId);
+    if (clientInfo) {
+      clientInfo.agentId = agentId;
+    }
+    
+    // Join agent-specific room
+    const socket = this.server?.sockets.sockets.get(socketId);
+    if (socket) {
+      socket.join(`agent:${agentId}`);
+    }
+    
+    this.logger.log(`Agent ${agentId} registered on socket ${socketId}`);
+  }
+
+  /**
+   * Unregister an agent's socket connection
+   */
+  unregisterAgent(agentId: string) {
+    this.agentSockets.delete(agentId);
+  }
+
+  /**
+   * Check if an agent is connected via websocket
+   */
+  isAgentConnected(agentId: string): boolean {
+    return this.agentSockets.has(agentId);
+  }
+
+  /**
+   * Get all connected agents in a workspace
+   */
+  getConnectedAgents(workspaceId: string): string[] {
+    const agents: string[] = [];
+    for (const [socketId, info] of this.clients.entries()) {
+      if (info.workspaceId === workspaceId && info.agentId) {
+        agents.push(info.agentId);
+      }
+    }
+    return agents;
   }
 
   /**

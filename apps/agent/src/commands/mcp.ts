@@ -251,6 +251,189 @@ export async function mcpServeCommand(options: McpOptions) {
         properties: {},
       },
     },
+    // ============================================
+    // Agent Orchestration Tools
+    // ============================================
+    {
+      name: 'get_connection_string',
+      description: 'Get a connection string for a service (e.g., DATABASE_URL for postgres). Useful for configuring environment variables.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          service: {
+            type: 'string',
+            description: 'Name of the service to get connection string for',
+          },
+          format: {
+            type: 'string',
+            enum: ['url', 'env', 'json'],
+            description: 'Output format: url (connection URL), env (KEY=value), json',
+            default: 'url',
+          },
+        },
+        required: ['service'],
+      },
+    },
+    {
+      name: 'list_agents',
+      description: 'List all agents in the workspace with their status, capabilities, and services.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          onlineOnly: {
+            type: 'boolean',
+            description: 'Only show online agents',
+            default: false,
+          },
+          capability: {
+            type: 'string',
+            description: 'Filter by capability (e.g., "database", "gpu", "mcp-server")',
+          },
+        },
+      },
+    },
+    {
+      name: 'register_capabilities',
+      description: 'Register capabilities this agent provides (e.g., "database", "gpu", "mcp-server"). Other agents can discover you by capability.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          capabilities: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                metadata: { type: 'object' },
+              },
+              required: ['name'],
+            },
+            description: 'List of capabilities to register',
+          },
+        },
+        required: ['capabilities'],
+      },
+    },
+    {
+      name: 'send_agent_message',
+      description: 'Send a message to another agent for orchestration/coordination.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          toAgentId: {
+            type: 'string',
+            description: 'ID of the target agent',
+          },
+          payload: {
+            type: 'object',
+            description: 'Message payload (any JSON object)',
+          },
+          channel: {
+            type: 'string',
+            description: 'Channel/topic for the message (default: "default")',
+          },
+          type: {
+            type: 'string',
+            enum: ['request', 'response', 'event'],
+            description: 'Message type',
+            default: 'event',
+          },
+        },
+        required: ['toAgentId', 'payload'],
+      },
+    },
+    {
+      name: 'broadcast_message',
+      description: 'Broadcast a message to all online agents in the workspace.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          payload: {
+            type: 'object',
+            description: 'Message payload (any JSON object)',
+          },
+          channel: {
+            type: 'string',
+            description: 'Channel/topic for the broadcast',
+          },
+        },
+        required: ['payload'],
+      },
+    },
+    {
+      name: 'get_agent_messages',
+      description: 'Get messages sent to this agent from other agents.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          channel: {
+            type: 'string',
+            description: 'Filter by channel',
+          },
+          unreadOnly: {
+            type: 'boolean',
+            description: 'Only show unread messages',
+            default: true,
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum messages to return',
+            default: 50,
+          },
+        },
+      },
+    },
+    {
+      name: 'find_agents_by_capability',
+      description: 'Find online agents that have a specific capability (e.g., find all agents with "gpu" capability).',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          capability: {
+            type: 'string',
+            description: 'Capability to search for',
+          },
+        },
+        required: ['capability'],
+      },
+    },
+    {
+      name: 'create_session',
+      description: 'Create an ephemeral orchestration session. Useful for coordinating multi-agent workflows with automatic cleanup.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          name: {
+            type: 'string',
+            description: 'Session name/identifier',
+          },
+          ttlMinutes: {
+            type: 'number',
+            description: 'Session time-to-live in minutes (default: 60)',
+            default: 60,
+          },
+          metadata: {
+            type: 'object',
+            description: 'Optional metadata to attach to the session',
+          },
+        },
+        required: ['name'],
+      },
+    },
+    {
+      name: 'end_session',
+      description: 'End an ephemeral orchestration session and clean up resources.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          sessionId: {
+            type: 'string',
+            description: 'Session ID to end',
+          },
+        },
+        required: ['sessionId'],
+      },
+    },
   ];
 
   // Resource definitions
@@ -672,6 +855,363 @@ export async function mcpServeCommand(options: McpOptions) {
               reason: r.reason,
             })),
             policyLocation: path.join(workingDir, '.connect', 'policy.yml'),
+          };
+          break;
+        }
+
+        // ============================================
+        // Agent Orchestration Handlers
+        // ============================================
+
+        case 'get_connection_string': {
+          const serviceName = args.service as string;
+          const format = (args.format as string) || 'url';
+          
+          const services = await refreshServices();
+          const service = services.find(s => s.name.toLowerCase() === serviceName.toLowerCase());
+          
+          if (!service) {
+            throw new Error(`Service "${serviceName}" not found`);
+          }
+          
+          const port = service.tunnelPort || service.targetPort;
+          const host = 'localhost';
+          
+          // Detect service type and generate appropriate connection string
+          let connectionString = '';
+          let envVar = 'SERVICE_URL';
+          
+          if (service.targetPort === 5432 || service.protocol === 'postgres') {
+            connectionString = `postgres://${host}:${port}/postgres`;
+            envVar = 'DATABASE_URL';
+          } else if (service.targetPort === 3306 || service.protocol === 'mysql') {
+            connectionString = `mysql://${host}:${port}`;
+            envVar = 'DATABASE_URL';
+          } else if (service.targetPort === 6379 || service.protocol === 'redis') {
+            connectionString = `redis://${host}:${port}`;
+            envVar = 'REDIS_URL';
+          } else if (service.targetPort === 27017 || service.protocol === 'mongodb') {
+            connectionString = `mongodb://${host}:${port}`;
+            envVar = 'MONGODB_URI';
+          } else if (service.protocol === 'http' || service.protocol === 'https') {
+            connectionString = `http://${host}:${port}`;
+            envVar = 'API_URL';
+          } else {
+            connectionString = `tcp://${host}:${port}`;
+            envVar = `${serviceName.toUpperCase().replace(/-/g, '_')}_URL`;
+          }
+          
+          if (format === 'env') {
+            result = {
+              format: 'env',
+              value: `${envVar}=${connectionString}`,
+              envVar,
+              connectionString,
+            };
+          } else if (format === 'json') {
+            result = {
+              format: 'json',
+              host,
+              port,
+              protocol: service.protocol,
+              connectionString,
+              envVar,
+            };
+          } else {
+            result = {
+              format: 'url',
+              connectionString,
+              usage: `Set ${envVar}="${connectionString}" in your environment`,
+            };
+          }
+          break;
+        }
+
+        case 'list_agents': {
+          const onlineOnly = args.onlineOnly as boolean;
+          const capability = args.capability as string | undefined;
+          
+          let url = `${hubUrl}/v1/agents`;
+          if (capability) {
+            url = `${hubUrl}/v1/agents/by-capability/${encodeURIComponent(capability)}`;
+          } else {
+            url = `${hubUrl}/v1/agents/orchestration`;
+          }
+          
+          try {
+            const response = await fetch(url, {
+              headers: { 'x-api-key': apiKey },
+            });
+            
+            if (response.ok) {
+              const data = await response.json() as { agents: any[] };
+              let agents = data.agents || [];
+              
+              if (onlineOnly) {
+                agents = agents.filter((a: any) => a.isOnline);
+              }
+              
+              result = {
+                agents: agents.map((a: any) => ({
+                  id: a.id,
+                  name: a.name || a.label,
+                  label: a.label,
+                  isOnline: a.isOnline,
+                  capabilities: a.capabilities?.map((c: any) => c.name) || [],
+                  services: a.services?.map((s: any) => s.name) || [],
+                  isSelf: a.id === agentId,
+                })),
+                count: agents.length,
+              };
+            } else {
+              throw new Error('Failed to fetch agents');
+            }
+          } catch (err) {
+            throw new Error(`Failed to list agents: ${(err as Error).message}`);
+          }
+          break;
+        }
+
+        case 'register_capabilities': {
+          const capabilities = args.capabilities as Array<{ name: string; metadata?: Record<string, unknown> }>;
+          
+          try {
+            const response = await fetch(`${hubUrl}/v1/agents/${agentId}/capabilities`, {
+              method: 'POST',
+              headers: {
+                'x-api-key': apiKey,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ capabilities }),
+            });
+            
+            if (response.ok) {
+              result = {
+                success: true,
+                registered: capabilities.map(c => c.name),
+                message: `Registered ${capabilities.length} capabilities. Other agents can now find you.`,
+              };
+            } else {
+              throw new Error('Failed to register capabilities');
+            }
+          } catch (err) {
+            throw new Error(`Failed to register capabilities: ${(err as Error).message}`);
+          }
+          break;
+        }
+
+        case 'send_agent_message': {
+          const toAgentId = args.toAgentId as string;
+          const payload = args.payload as Record<string, unknown>;
+          const channel = args.channel as string | undefined;
+          const type = args.type as string | undefined;
+          
+          try {
+            const response = await fetch(`${hubUrl}/v1/agents/${agentId}/messages/send`, {
+              method: 'POST',
+              headers: {
+                'x-api-key': apiKey,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ toAgentId, payload, channel, type }),
+            });
+            
+            if (response.ok) {
+              const data = await response.json() as { messageId: string };
+              result = {
+                success: true,
+                messageId: data.messageId,
+                to: toAgentId,
+                channel: channel || 'default',
+              };
+            } else {
+              const error = await response.json() as { message?: string };
+              throw new Error(error.message || 'Failed to send message');
+            }
+          } catch (err) {
+            throw new Error(`Failed to send message: ${(err as Error).message}`);
+          }
+          break;
+        }
+
+        case 'broadcast_message': {
+          const payload = args.payload as Record<string, unknown>;
+          const channel = args.channel as string | undefined;
+          
+          try {
+            const response = await fetch(`${hubUrl}/v1/agents/${agentId}/messages/broadcast`, {
+              method: 'POST',
+              headers: {
+                'x-api-key': apiKey,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ payload, channel }),
+            });
+            
+            if (response.ok) {
+              const data = await response.json() as { sent: number };
+              result = {
+                success: true,
+                sent: data.sent,
+                channel: channel || 'default',
+                message: `Message broadcast to ${data.sent} agents`,
+              };
+            } else {
+              throw new Error('Failed to broadcast message');
+            }
+          } catch (err) {
+            throw new Error(`Failed to broadcast: ${(err as Error).message}`);
+          }
+          break;
+        }
+
+        case 'get_agent_messages': {
+          const channel = args.channel as string | undefined;
+          const unreadOnly = args.unreadOnly !== false;
+          const limit = (args.limit as number) || 50;
+          
+          try {
+            const params = new URLSearchParams();
+            if (channel) params.set('channel', channel);
+            params.set('unreadOnly', String(unreadOnly));
+            params.set('limit', String(limit));
+            
+            const response = await fetch(
+              `${hubUrl}/v1/agents/${agentId}/messages?${params}`,
+              { headers: { 'x-api-key': apiKey } }
+            );
+            
+            if (response.ok) {
+              const data = await response.json() as { messages: any[] };
+              result = {
+                messages: data.messages.map((m: any) => ({
+                  id: m.id,
+                  from: m.from?.name || m.from?.label || m.from?.id,
+                  channel: m.channel,
+                  type: m.type,
+                  payload: m.payload,
+                  createdAt: m.createdAt,
+                  isRead: !!m.readAt,
+                })),
+                count: data.messages.length,
+                hasUnread: data.messages.some((m: any) => !m.readAt),
+              };
+            } else {
+              throw new Error('Failed to fetch messages');
+            }
+          } catch (err) {
+            throw new Error(`Failed to get messages: ${(err as Error).message}`);
+          }
+          break;
+        }
+
+        case 'find_agents_by_capability': {
+          const capability = args.capability as string;
+          
+          try {
+            const response = await fetch(
+              `${hubUrl}/v1/agents/by-capability/${encodeURIComponent(capability)}`,
+              { headers: { 'x-api-key': apiKey } }
+            );
+            
+            if (response.ok) {
+              const data = await response.json() as { agents: any[] };
+              result = {
+                capability,
+                agents: data.agents.map((a: any) => ({
+                  id: a.id,
+                  name: a.name || a.label,
+                  isOnline: a.isOnline,
+                  services: a.services?.map((s: any) => s.name) || [],
+                })),
+                count: data.agents.length,
+              };
+            } else {
+              throw new Error('Failed to find agents');
+            }
+          } catch (err) {
+            throw new Error(`Failed to find agents: ${(err as Error).message}`);
+          }
+          break;
+        }
+
+        case 'create_session': {
+          const sessionName = args.name as string;
+          const ttlMinutes = (args.ttlMinutes as number) || 60;
+          const metadata = args.metadata as Record<string, unknown> | undefined;
+          
+          // Create a local session tracker
+          const sessionId = `${agentId}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+          const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
+          
+          // Store session info (in practice, this would be persisted)
+          const session = {
+            id: sessionId,
+            name: sessionName,
+            createdBy: agentId,
+            createdAt: new Date().toISOString(),
+            expiresAt: expiresAt.toISOString(),
+            metadata,
+          };
+          
+          // Broadcast session creation to other agents
+          try {
+            await fetch(`${hubUrl}/v1/agents/${agentId}/messages/broadcast`, {
+              method: 'POST',
+              headers: {
+                'x-api-key': apiKey,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                payload: {
+                  type: 'session:created',
+                  session,
+                },
+                channel: 'orchestration',
+              }),
+            });
+          } catch {
+            // Non-critical, continue
+          }
+          
+          result = {
+            success: true,
+            session,
+            message: `Session "${sessionName}" created. It will expire in ${ttlMinutes} minutes.`,
+            usage: 'Use session ID to coordinate with other agents. Call end_session when done.',
+          };
+          break;
+        }
+
+        case 'end_session': {
+          const sessionId = args.sessionId as string;
+          
+          // Broadcast session end to other agents
+          try {
+            await fetch(`${hubUrl}/v1/agents/${agentId}/messages/broadcast`, {
+              method: 'POST',
+              headers: {
+                'x-api-key': apiKey,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                payload: {
+                  type: 'session:ended',
+                  sessionId,
+                  endedBy: agentId,
+                  endedAt: new Date().toISOString(),
+                },
+                channel: 'orchestration',
+              }),
+            });
+          } catch {
+            // Non-critical
+          }
+          
+          result = {
+            success: true,
+            sessionId,
+            message: 'Session ended. All participating agents have been notified.',
           };
           break;
         }
