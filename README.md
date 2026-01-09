@@ -15,8 +15,9 @@ curl -fsSL https://privateconnect.co/install.sh | bash
 connect up
 
 # That's it. Now:
-connect localhost:5432           # Expose (auto-named "postgres")
-connect prod-db                  # Connect to a service
+connect localhost:5432      # Expose a service (auto-named "postgres")
+connect prod-db             # Connect to a service
+connect clone alice         # Clone a teammate's entire environment
 connect localhost:5432 --share   # Expose + get shareable link
 ```
 
