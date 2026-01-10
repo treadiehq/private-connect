@@ -18,8 +18,8 @@
         </h1>
         
         <p class="font-normal text-center text-gray-400 max-w-lg mx-auto mb-1 sm:mt-4 text-pretty text-base sm:text-lg sm:leading-6">
-          Your staging database. Your prod API behind a firewall. Your teammate's dev server.
-          <span class="text-white">One command. It just works.</span>
+          Your staging database. Your prod API. Your AI agent's data sources.
+          <span class="text-white">One command. Works for humans and AI alike.</span>
         </p>
 
         <!-- Quick Install -->
@@ -438,6 +438,108 @@
           
           <p class="text-gray-500 text-xs mt-4">Perfect for contractors, external reviewers, or quick demos.</p>
         </div>
+      </div>
+    </section>
+
+    <!-- Built for AI Agents Section -->
+    <section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
+      <div class="text-center mb-10">
+        <h2 class="text-2xl sm:text-3xl font-bold text-white mb-3">Built for AI agents too</h2>
+        <p class="text-gray-400">Same CLI, same access model. Your agents work like teammates.</p>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <!-- Left: Agent Connectivity -->
+        <div class="bg-gray-500/10 border border-gray-500/10 rounded-xl p-6">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-emerald-300/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-white">Agent connectivity</h3>
+              <p class="text-gray-500 text-sm">No separate "AI mode" needed</p>
+            </div>
+          </div>
+          
+          <div class="space-y-4">
+            <div class="bg-black/40 rounded-lg p-4">
+              <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">Works the same for AI</div>
+              <div class="font-mono text-sm space-y-1">
+                <div><span class="text-gray-500">$</span> <span class="text-gray-200">connect prod-db</span></div>
+                <div class="text-emerald-300">✓ Connected on localhost:5432</div>
+              </div>
+            </div>
+            
+            <div class="space-y-2 text-sm">
+              <div class="flex items-center gap-2">
+                <span class="text-emerald-400">✓</span>
+                <span class="text-gray-400">MCP integration for Claude & Cursor</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-emerald-400">✓</span>
+                <span class="text-gray-400">Secure tunnel from sandboxed agents</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-emerald-400">✓</span>
+                <span class="text-gray-400">Full audit trail of agent actions</span>
+              </div>
+            </div>
+          </div>
+          
+          <p class="text-gray-500 text-xs mt-4">Run <code class="bg-black/40 px-1.5 py-0.5 rounded text-emerald-300">connect mcp</code> to start the MCP server.</p>
+        </div>
+
+        <!-- Right: Orchestration & SDK -->
+        <div class="bg-gray-500/10 border border-gray-500/10 rounded-xl p-6">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-blue-300/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-white">Orchestration & SDK</h3>
+              <p class="text-gray-500 text-sm">Coordinate multi-agent workflows</p>
+            </div>
+          </div>
+          
+          <div class="space-y-4">
+            <div class="bg-black/40 rounded-lg p-4">
+              <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">TypeScript SDK</div>
+              <div class="font-mono text-xs space-y-1 text-gray-300">
+                <div><span class="text-purple-300">const</span> pc = <span class="text-purple-300">new</span> <span class="text-blue-300">PrivateConnect</span>();</div>
+                <div><span class="text-purple-300">const</span> db = <span class="text-purple-300">await</span> pc.<span class="text-blue-300">connect</span>(<span class="text-amber-300">'prod-db'</span>);</div>
+                <div><span class="text-purple-300">const</span> agents = <span class="text-purple-300">await</span> pc.agents.<span class="text-blue-300">list</span>();</div>
+              </div>
+            </div>
+            
+            <div class="space-y-2 text-sm">
+              <div class="flex items-center gap-2">
+                <span class="text-blue-300">✓</span>
+                <span class="text-gray-400">Agents discover each other</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-blue-300">✓</span>
+                <span class="text-gray-400">Inter-agent messaging</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-blue-300">✓</span>
+                <span class="text-gray-400">Policy broker for access control</span>
+              </div>
+            </div>
+          </div>
+          
+          <p class="text-gray-500 text-xs mt-4">Install: <code class="bg-black/40 px-1.5 py-0.5 rounded text-blue-300">npm i @privateconnect/sdk</code></p>
+        </div>
+      </div>
+
+      <!-- Link to full docs -->
+      <div class="text-center mt-8">
+        <a href="https://github.com/treadiehq/private-connect/blob/main/docs/AI.md" target="_blank" class="text-sm text-gray-500 hover:text-white transition-colors">
+          Read the full AI & MCP documentation →
+        </a>
       </div>
     </section>
 
