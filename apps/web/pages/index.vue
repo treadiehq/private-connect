@@ -18,8 +18,8 @@
         </h1>
         
         <p class="font-normal text-center text-gray-400 max-w-lg mx-auto mb-1 sm:mt-4 text-pretty text-base sm:text-lg sm:leading-6">
-          Your staging database. Your prod API. Your AI agent's data sources.
-          <span class="text-white">One command. Works for humans and AI alike.</span>
+          Your staging database. Your prod API behind a firewall. Your AI agent's data sources.
+          <span class="text-white">One command. It just works.</span>
         </p>
 
         <!-- Quick Install -->
@@ -488,7 +488,7 @@
             </div>
           </div>
           
-          <p class="text-gray-500 text-xs mt-4">Run <code class="bg-black/40 px-1.5 py-0.5 rounded text-emerald-300">connect mcp</code> to start the MCP server.</p>
+          <p class="text-gray-500 text-xs mt-4"><code class="bg-black/40 px-1.5 py-0.5 rounded text-emerald-300">connect mcp</code> for AI assistants • <code class="bg-black/40 px-1.5 py-0.5 rounded text-emerald-300">connect broker</code> for policies</p>
         </div>
 
         <!-- Right: Orchestration & SDK -->
