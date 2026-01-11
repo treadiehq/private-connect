@@ -124,7 +124,7 @@ export async function brokerInitCommand(options: BrokerOptions) {
   
   console.log(chalk.white('  Next steps:'));
   console.log(chalk.gray(`    1. Edit ${chalk.cyan('.connect/policy.yml')} to customize rules`));
-  console.log(chalk.gray(`    2. Run AI agents with: ${chalk.cyan('connect broker run -- <command>')}`));
+  console.log(chalk.gray(`    2. Run AI agents with: ${chalk.cyan('connect broker aider')} or ${chalk.cyan('connect broker claude')}`));
   console.log(chalk.gray(`    3. View audit log: ${chalk.cyan('connect audit')}`));
   console.log();
 }
@@ -974,6 +974,20 @@ const VALID_BROKER_ACTIONS = [
 type BrokerAction = typeof VALID_BROKER_ACTIONS[number];
 
 /**
+ * Known AI agent commands that can be used as shortcuts
+ * e.g., `connect broker aider` instead of `connect broker run -- aider`
+ */
+const KNOWN_AGENTS = [
+  'claude',    // Anthropic Claude Code CLI
+  'aider',     // Aider
+  'opencode',  // OpenCode
+  'codex',     // OpenAI Codex CLI
+  'cline',     // Cline
+  'goose',     // Block Goose
+  'amp',       // Amp (Sourcegraph)
+] as const;
+
+/**
  * Main broker command dispatcher
  */
 export async function brokerCommand(
@@ -987,10 +1001,17 @@ export async function brokerCommand(
     uninstall?: boolean;
   }
 ) {
+  // Check if action is a known AI agent shortcut
+  // e.g., `connect broker aider` → `connect broker run -- aider`
+  if (action && KNOWN_AGENTS.includes(action as typeof KNOWN_AGENTS[number])) {
+    return brokerRunCommand([action, ...args], { ...options, agent: action });
+  }
+  
   // Warn about unknown actions
   if (action && !VALID_BROKER_ACTIONS.includes(action as BrokerAction)) {
     console.error(chalk.yellow(`\n[!] Unknown action: ${action}`));
     console.log(chalk.gray(`  Valid actions: ${VALID_BROKER_ACTIONS.join(', ')}`));
+    console.log(chalk.gray(`  Known agents: ${KNOWN_AGENTS.join(', ')}`));
     console.log(chalk.gray(`  Showing status instead...\n`));
     return brokerStatusCommand(options);
   }

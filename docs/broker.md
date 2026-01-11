@@ -20,9 +20,10 @@ The Agent Permission Broker provides policy-based access control for AI agents o
 connect broker init
 
 # Run any CLI-based AI agent through the broker  
-connect broker run -- claude      # Anthropic Claude Code CLI
-connect broker run -- aider       # Aider
-connect broker run -- opencode    # OpenCode
+connect broker claude             # Anthropic Claude Code CLI
+connect broker aider              # Aider
+connect broker opencode           # OpenCode
+connect broker run -- my-tool   # Still works for custom agents
 
 # View what agents tried to do
 connect audit
@@ -34,7 +35,7 @@ connect audit
 2. AI agent actions are evaluated against rules before execution
 3. Audit log records every action for security review
 
-> **Note:** `connect broker run -- aider` executes `aider` on your machine—install the tool first. For GUI apps like Cursor, use MCP: `connect mcp setup`
+> **Note:** `connect broker aider` executes `aider` on your machine—install the tool first. For GUI apps like Cursor, use MCP: `connect mcp setup`
 
 ## Default Policy
 
@@ -131,7 +132,8 @@ connect audit --action block   # Filter by action
 ```bash
 connect broker init            # Initialize policy in workspace
 connect broker status          # Check policy and hooks
-connect broker run -- <cmd>    # Run command through broker
+connect broker <agent>         # Run known agent (claude, aider, opencode, etc.)
+connect broker run -- <cmd>    # Run any command through broker
 connect broker hooks           # Install git hooks
 connect broker hooks --uninstall  # Remove git hooks
 connect audit                  # View audit log
@@ -158,8 +160,14 @@ connect audit --stats          # View statistics
 ### CLI-based agents (Aider, Claude Code, etc.)
 
 ```bash
-connect broker run -- aider
-connect broker run -- claude
+connect broker aider
+connect broker claude
+connect broker opencode
+connect broker goose
+connect broker amp
+
+# Or use the explicit form for any command
+connect broker run -- my-custom-agent
 ```
 
 ### GUI-based agents (Cursor, etc.)
