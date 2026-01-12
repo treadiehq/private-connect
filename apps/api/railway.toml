@@ -3,7 +3,7 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "sh -c 'npx prisma db push --skip-generate --accept-data-loss; echo PRISMA_EXIT_CODE=$?; echo STARTING_NODE; exec node dist/main.js'"
+startCommand = "sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do npx prisma db push --skip-generate --accept-data-loss && break || echo \"DB not ready, retry $i/10...\" && sleep 5; done; exec node dist/main.js'"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 numReplicas = 1
