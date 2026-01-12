@@ -339,3 +339,18 @@ model AgentCapability {
   @@unique([agentId, name])
   @@index([name])                 // For capability discovery
 }
+
+// InstallEvent: track CLI installations for analytics
+model InstallEvent {
+  id          String   @id @default(uuid())
+  os          String              // darwin | linux
+  arch        String              // x64 | arm64
+  version     String              // Version installed
+  source      String   @default("install.sh")  // install.sh | npx | homebrew
+  ipAddress   String?
+  country     String?             // Geo-lookup from IP
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([source])
+}

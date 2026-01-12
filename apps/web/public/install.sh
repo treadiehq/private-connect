@@ -110,6 +110,12 @@ if command -v $BINARY_NAME &> /dev/null; then
   echo -e "  ${CYAN}connect prod-db${NC}               # Access a service"
   echo -e "  ${CYAN}connect localhost:5432 --share${NC} # Get a shareable link"
   echo ""
+  
+  # Track installation (async, don't block)
+  curl -fsSL "https://api.privateconnect.co/v1/events/install" \
+    -H "Content-Type: application/json" \
+    -d "{\"os\":\"$OS\",\"arch\":\"$ARCH\",\"version\":\"$VERSION\",\"source\":\"install.sh\"}" \
+    2>/dev/null &
 else
   echo -e "${RED}Error: Installation failed${NC}"
   exit 1

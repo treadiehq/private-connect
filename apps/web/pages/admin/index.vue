@@ -91,6 +91,53 @@
             <span class="text-gray-500">Exposed endpoints across all agents</span>
           </div>
         </div>
+
+        <!-- Installs -->
+        <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-lg bg-emerald-300/10 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5 text-emerald-300">
+                <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
+                <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
+              </svg>
+            </div>
+            <div>
+              <div class="text-2xl font-bold text-white">{{ installStats?.total || 0 }}</div>
+              <div class="text-xs text-gray-500">Installs</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-4 text-sm pt-2 border-t border-gray-500/10">
+            <div>
+              <span class="text-white font-medium">{{ installStats?.last24h || 0 }}</span>
+              <span class="text-gray-500 ml-1">24h</span>
+            </div>
+            <div>
+              <span class="text-white font-medium">{{ installStats?.last7d || 0 }}</span>
+              <span class="text-gray-500 ml-1">7d</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Install Breakdown -->
+        <div v-if="installStats" class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-lg bg-blue-300/10 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5 text-blue-300">
+                <path fill-rule="evenodd" d="M1 2.75A.75.75 0 0 1 1.75 2h16.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 2.75Zm0 5A.75.75 0 0 1 1.75 7h16.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 7.75ZM1.75 12h6.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1 0-1.5ZM1.75 17h6.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1 0-1.5Z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <div>
+              <div class="text-sm font-medium text-white">By Platform</div>
+              <div class="text-xs text-gray-500">OS breakdown</div>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-3 text-sm pt-2 border-t border-gray-500/10">
+            <div v-for="(count, os) in installStats.byOs" :key="os" class="flex items-center gap-1">
+              <span class="text-white font-medium">{{ count }}</span>
+              <span class="text-gray-500">{{ os }}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Tab Navigation -->
@@ -349,6 +396,16 @@ interface AdminStats {
   freeWorkspaces: number;
 }
 
+interface InstallStats {
+  total: number;
+  last24h: number;
+  last7d: number;
+  byOs: Record<string, number>;
+  byArch: Record<string, number>;
+  bySource: Record<string, number>;
+  recent: { os: string; arch: string; version: string; source: string; createdAt: string }[];
+}
+
 interface AdminUser {
   id: string;
   email: string;
@@ -396,6 +453,7 @@ const { user: currentUser } = useAuth();
 
 const loading = ref(true);
 const stats = ref<AdminStats | null>(null);
+const installStats = ref<InstallStats | null>(null);
 const users = ref<AdminUser[]>([]);
 const workspaces = ref<AdminWorkspace[]>([]);
 const activeTab = ref<'users' | 'workspaces'>('users') as Ref<'users' | 'workspaces'>;
@@ -458,10 +516,11 @@ const formatDate = (dateStr: string) => {
 
 const fetchData = async () => {
   try {
-    const [statsRes, usersRes, workspacesRes] = await Promise.all([
+    const [statsRes, usersRes, workspacesRes, installRes] = await Promise.all([
       fetch(`${baseUrl}/v1/admin/stats`, { credentials: 'include' }),
       fetch(`${baseUrl}/v1/admin/users`, { credentials: 'include' }),
       fetch(`${baseUrl}/v1/admin/workspaces`, { credentials: 'include' }),
+      fetch(`${baseUrl}/v1/events/stats`, { credentials: 'include' }),
     ]);
 
     if (!statsRes.ok || !usersRes.ok || !workspacesRes.ok) {
@@ -471,6 +530,10 @@ const fetchData = async () => {
     stats.value = await statsRes.json();
     users.value = await usersRes.json();
     workspaces.value = await workspacesRes.json();
+    
+    if (installRes.ok) {
+      installStats.value = await installRes.json();
+    }
   } catch (error) {
     console.error('Failed to fetch admin data:', error);
     toastError('Failed to load admin data');

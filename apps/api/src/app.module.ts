@@ -11,6 +11,7 @@ import { ApiKeysModule } from './api-keys/api-keys.module';
 import { SharesModule } from './shares/shares.module';
 import { EnvSharesModule } from './env-shares/env-shares.module';
 import { StatusModule } from './status/status.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { StatusModule } from './status/status.module';
     SharesModule,
     EnvSharesModule,
     StatusModule,
+    EventsModule,
   ],
 })
 export class AppModule {}
