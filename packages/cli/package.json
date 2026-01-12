@@ -1,6 +1,6 @@
 {
   "name": "private-connect",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Test connectivity to any service. No signup required.",
   "bin": {
     "private-connect": "./dist/index.js"

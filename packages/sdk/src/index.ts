@@ -28,6 +28,24 @@ export interface PrivateConnectConfig {
   hubUrl?: string;
   /** Agent ID (auto-detected from config if not provided) */
   agentId?: string;
+  /** Disable usage tracking (default: false) */
+  disableTracking?: boolean;
+}
+
+// Track SDK usage (fire and forget)
+function trackSdkUsage(hubUrl: string): void {
+  const data = JSON.stringify({
+    os: typeof process !== 'undefined' ? process.platform : 'browser',
+    arch: typeof process !== 'undefined' ? (process.arch === 'arm64' ? 'arm64' : 'x64') : 'unknown',
+    version: 'sdk',
+    source: 'sdk',
+  });
+  
+  fetch(`${hubUrl}/v1/events/install`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: data,
+  }).catch(() => {}); // Silently ignore errors
 }
 
 export interface Service {
@@ -324,7 +342,7 @@ export class SessionsAPI {
  * Main Private Connect SDK client
  */
 export class PrivateConnect {
-  private config: Required<PrivateConnectConfig>;
+  private config: { apiKey: string; hubUrl: string; agentId: string };
   
   /** Agents API for discovery and orchestration */
   public agents: AgentsAPI;
@@ -345,6 +363,11 @@ export class PrivateConnect {
     this.agents = new AgentsAPI(this);
     this.services = new ServicesAPI(this);
     this.sessions = new SessionsAPI(this);
+
+    // Track SDK usage (non-blocking)
+    if (!config.disableTracking) {
+      trackSdkUsage(this.config.hubUrl);
+    }
   }
 
   /**

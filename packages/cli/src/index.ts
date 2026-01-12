@@ -33,6 +33,29 @@ const ok = `${c.green}✓${c.reset}`;
 const fail = `${c.red}✗${c.reset}`;
 const warn = `${c.yellow}⚠${c.reset}`;
 
+// Track usage (fire and forget, don't block)
+function trackUsage(command: string): void {
+  const data = JSON.stringify({
+    os: process.platform,
+    arch: process.arch === 'arm64' ? 'arm64' : 'x64',
+    version: 'npx',
+    source: 'npx',
+  });
+  
+  const req = https.request('https://api.privateconnect.co/v1/events/install', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(data),
+    },
+    timeout: 3000,
+  });
+  
+  req.on('error', () => {}); // Silently ignore errors
+  req.write(data);
+  req.end();
+}
+
 interface TestResult {
   tcp: { ok: boolean; latency?: number; error?: string };
   tls: { ok: boolean; issuer?: string; expiry?: string; error?: string } | null;
@@ -603,6 +626,9 @@ if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
   printHelp();
   process.exit(0);
 }
+
+// Track usage (non-blocking)
+trackUsage(args[0] || 'help');
 
 if (args[0] === 'test' || args[0] === 'check') {
   if (!args[1]) {
