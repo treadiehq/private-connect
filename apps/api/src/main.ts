@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { PrismaService } from './prisma/prisma.service';
 import cookieParser from 'cookie-parser';
 import * as http from 'http';
 
@@ -10,28 +11,48 @@ console.error('CWD:', process.cwd());
 console.error('Files in dist:', require('fs').readdirSync('.').join(', '));
 
 const port = parseInt(process.env.PORT || '3001', 10);
-let appReady = false;
+const isProduction = process.env.NODE_ENV === 'production';
 let dbConnected = false;
+let healthServer: http.Server | null = null;
 
-// Start a minimal health check server immediately so Railway knows we're alive
-// This runs BEFORE NestJS bootstraps, so even if DB is down, health checks pass
-const healthServer = http.createServer((req, res) => {
-  if (req.url === '/health' || req.url === '/healthz') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ 
-      status: 'ok', 
-      appReady,
-      dbConnected,
-      timestamp: new Date().toISOString() 
-    }));
-  } else {
-    // Forward to NestJS once it's ready, otherwise return 503
-    if (!appReady) {
-      res.writeHead(503, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'App starting up...', timestamp: new Date().toISOString() }));
+// Only use the health server approach in production (Railway)
+// In development, just use the standard NestJS startup
+function startHealthServer(): Promise<void> {
+  return new Promise((resolve) => {
+    healthServer = http.createServer((req, res) => {
+      if (req.url === '/health' || req.url === '/healthz') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          status: 'ok', 
+          appReady: false,
+          dbConnected,
+          timestamp: new Date().toISOString() 
+        }));
+      } else {
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'App starting up...', timestamp: new Date().toISOString() }));
+      }
+    });
+    healthServer.listen(port, '0.0.0.0', () => {
+      console.log(`🏥 Health check server started on port ${port}`);
+      resolve();
+    });
+  });
+}
+
+function stopHealthServer(): Promise<void> {
+  return new Promise((resolve) => {
+    if (healthServer) {
+      healthServer.close(() => {
+        console.log('🏥 Health check server stopped');
+        healthServer = null;
+        resolve();
+      });
+    } else {
+      resolve();
     }
-  }
-});
+  });
+}
 
 async function bootstrap() {
   console.log('=== BOOTSTRAP STARTING ===');
@@ -75,19 +96,17 @@ async function bootstrap() {
     });
   });
 
+  // Close health server BEFORE NestJS tries to listen (production only)
+  await stopHealthServer();
+
   console.log(`=== STARTING LISTENER ON PORT ${port} ===`);
   // Listen on 0.0.0.0 for Railway/Docker
   await app.listen(port, '0.0.0.0');
   
-  // Close the temporary health server since NestJS is now handling requests
-  healthServer.close();
-  
-  appReady = true;
-  
   // Check if Prisma is connected
   try {
-    const prisma = app.get('PrismaService');
-    dbConnected = prisma.isConnected?.() ?? false;
+    const prisma = app.get(PrismaService);
+    dbConnected = prisma.isConnected() ?? false;
   } catch {
     dbConnected = false;
   }
@@ -100,32 +119,50 @@ async function bootstrap() {
 // Catch any uncaught exceptions
 process.on('uncaughtException', (err) => {
   console.error('=== UNCAUGHT EXCEPTION ===', err);
-  // Don't exit - keep health server running
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('=== UNHANDLED REJECTION ===', reason);
 });
 
-// Start the temporary health server immediately
-healthServer.listen(port, '0.0.0.0', () => {
-  console.log(`🏥 Health check server started on port ${port}`);
-  
-  // Then bootstrap NestJS (which will replace this server)
-  bootstrap().catch((err) => {
-    console.error('=== BOOTSTRAP FAILED ===', err);
-    console.log('🏥 Health server still running - waiting for database...');
+// Main startup logic
+async function main() {
+  if (isProduction) {
+    // In production (Railway): start health server first, then bootstrap NestJS
+    await startHealthServer();
     
-    // Retry bootstrap every 10 seconds
-    const retryBootstrap = setInterval(async () => {
-      console.log('🔄 Retrying NestJS bootstrap...');
-      try {
-        await bootstrap();
-        clearInterval(retryBootstrap);
-      } catch (retryErr: any) {
-        console.error('Bootstrap retry failed:', retryErr?.message || retryErr);
-      }
-    }, 10000);
-  });
-});
+    try {
+      await bootstrap();
+    } catch (err: any) {
+      console.error('=== BOOTSTRAP FAILED ===', err);
+      console.log('🏥 Health server still running - will retry...');
+      
+      // Restart health server since bootstrap failed
+      await startHealthServer();
+      
+      // Retry bootstrap every 10 seconds
+      const retryBootstrap = setInterval(async () => {
+        console.log('🔄 Retrying NestJS bootstrap...');
+        try {
+          await bootstrap();
+          clearInterval(retryBootstrap);
+        } catch (retryErr: any) {
+          console.error('Bootstrap retry failed:', retryErr?.message || retryErr);
+          // Ensure health server is running for next retry
+          if (!healthServer) {
+            await startHealthServer();
+          }
+        }
+      }, 10000);
+    }
+  } else {
+    // In development: just run bootstrap directly
+    bootstrap().catch((err) => {
+      console.error('=== BOOTSTRAP FAILED ===', err);
+      process.exit(1);
+    });
+  }
+}
+
+main();
 
