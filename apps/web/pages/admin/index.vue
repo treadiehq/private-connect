@@ -67,7 +67,7 @@
             </div>
           </div>
           <div class="flex items-center gap-2 text-sm pt-2 border-t border-gray-500/10">
-            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span class="w-2 h-2 rounded-full bg-emerald-300"></span>
             <span class="text-white font-medium">{{ stats?.onlineAgents || 0 }}</span>
             <span class="text-gray-500">online now</span>
           </div>
@@ -163,7 +163,7 @@
                       v-for="ws in user.workspaces" 
                       :key="ws.id"
                       class="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full"
-                      :class="ws.plan === 'PRO' ? 'bg-emerald-300/20 text-emerald-300' : 'bg-gray-500/20 text-gray-400'"
+                      :class="ws.plan === 'PRO' ? 'bg-emerald-300/10 text-emerald-300' : 'bg-gray-500/20 text-gray-400'"
                     >
                       {{ ws.name }}
                       <span class="text-[10px] opacity-70">({{ ws.plan }})</span>
@@ -174,7 +174,7 @@
                 <td class="px-4 py-3">
                   <span 
                     class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded-full"
-                    :class="user.emailVerified ? 'bg-emerald-300/20 text-emerald-300' : 'bg-amber-300/20 text-amber-300'"
+                    :class="user.emailVerified ? 'bg-emerald-300/10 text-emerald-300' : 'bg-amber-300/10 text-amber-300'"
                   >
                     <span class="w-1.5 h-1.5 rounded-full" :class="user.emailVerified ? 'bg-emerald-300' : 'bg-amber-300'"></span>
                     {{ user.emailVerified ? 'Verified' : 'Unverified' }}
@@ -326,7 +326,7 @@
               <button 
                 @click="deleteUser"
                 :disabled="deleteModal.loading"
-                class="px-4 py-2.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 text-sm font-medium rounded-lg transition-all disabled:opacity-50"
+                class="px-4 py-2.5 bg-red-400/20 text-red-400 hover:bg-red-400/30 text-sm font-medium rounded-lg transition-all disabled:opacity-50"
               >
                 {{ deleteModal.loading ? 'Deleting...' : 'Delete User' }}
               </button>
