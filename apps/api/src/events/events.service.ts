@@ -90,9 +90,9 @@ export class EventsService {
       total,
       last24h,
       last7d,
-      byOs: byOs.reduce((acc, item) => ({ ...acc, [item.os]: item._count }), {}),
-      byArch: byArch.reduce((acc, item) => ({ ...acc, [item.arch]: item._count }), {}),
-      bySource: bySource.reduce((acc, item) => ({ ...acc, [item.source]: item._count }), {}),
+      byOs: byOs.reduce((acc: Record<string, number>, item: { os: string; _count: number }) => ({ ...acc, [item.os]: item._count }), {}),
+      byArch: byArch.reduce((acc: Record<string, number>, item: { arch: string; _count: number }) => ({ ...acc, [item.arch]: item._count }), {}),
+      bySource: bySource.reduce((acc: Record<string, number>, item: { source: string; _count: number }) => ({ ...acc, [item.source]: item._count }), {}),
       recent,
     };
   }
