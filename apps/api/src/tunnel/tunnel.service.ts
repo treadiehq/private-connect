@@ -87,6 +87,23 @@ export class TunnelService {
   }
 
   /**
+   * Get current connection statistics
+   */
+  getStats() {
+    let totalServices = 0;
+    this.agents.forEach(agent => {
+      totalServices += agent.services.size;
+    });
+
+    return {
+      connectedAgents: this.agents.size,
+      activeServices: totalServices,
+      pendingConnections: this.pendingConnections.size,
+      activeBridges: this.agentBridges.size,
+    };
+  }
+
+  /**
    * Start a tunnel listener for a service.
    * When clients connect to this port, we'll request the agent to dial the target.
    */

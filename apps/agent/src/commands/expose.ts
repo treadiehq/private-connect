@@ -103,7 +103,30 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
   });
 
   socket.on('connect', () => {
-    console.log(chalk.green('[ok] Connected to hub'));
+    const timestamp = new Date().toLocaleTimeString();
+    console.log(chalk.green(`[${timestamp}] Connected to hub`));
+  });
+
+  socket.on('disconnect', (reason: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    console.log(chalk.yellow(`[${timestamp}] Disconnected: ${reason}`));
+  });
+
+  socket.on('reconnect', (attempt: number) => {
+    const timestamp = new Date().toLocaleTimeString();
+    console.log(chalk.green(`[${timestamp}] Reconnected after ${attempt} attempt(s)`));
+  });
+
+  socket.on('reconnect_attempt', (attempt: number) => {
+    if (attempt === 1 || attempt % 5 === 0) {
+      const timestamp = new Date().toLocaleTimeString();
+      console.log(chalk.gray(`[${timestamp}] Reconnecting... (attempt ${attempt})`));
+    }
+  });
+
+  socket.on('connect_error', (err: Error) => {
+    const timestamp = new Date().toLocaleTimeString();
+    console.log(chalk.red(`[${timestamp}] Connection error: ${err.message}`));
   });
 
   // Handle token expiry warnings

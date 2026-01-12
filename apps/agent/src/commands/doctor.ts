@@ -447,11 +447,47 @@ export async function cleanupCommand(options: { force?: boolean }) {
  * Status command - quick overview
  */
 export async function statusCommand(options: { json?: boolean }) {
+  const config = loadConfig();
   const report = await runHealthCheck();
+  
+  // Hub URL from env or config
+  const hubUrl = process.env.CONNECT_HUB_URL || config?.hubUrl || 'https://api.privateconnect.co';
+  
+  // Check hub connectivity
+  let hubStatus: { connected: boolean; uptime?: number; agents?: number; error?: string } = { connected: false };
+  if (hubUrl) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const response = await fetch(`${hubUrl}/v1/status`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      
+      if (response.ok) {
+        const data = await response.json() as { uptime?: number; hub?: { connectedAgents?: number } };
+        hubStatus = {
+          connected: true,
+          uptime: data.uptime,
+          agents: data.hub?.connectedAgents || 0,
+        };
+      } else {
+        hubStatus = { connected: false, error: `HTTP ${response.status}` };
+      }
+    } catch (err: any) {
+      hubStatus = { connected: false, error: err.name === 'AbortError' ? 'timeout' : err.message };
+    }
+  }
 
   if (options.json) {
     console.log(JSON.stringify({
       healthy: report.healthy,
+      configured: !!config,
+      agentId: config?.agentId,
+      hubUrl: config?.hubUrl,
+      hubConnected: hubStatus.connected,
+      hubUptime: hubStatus.uptime,
+      hubAgents: hubStatus.agents,
       daemon: report.info.daemonRunning ? 'running' : 'stopped',
       processes: report.info.activeProcesses.length,
       issues: report.issues.length,
@@ -462,14 +498,37 @@ export async function statusCommand(options: { json?: boolean }) {
 
   const statusIcon = report.healthy ? chalk.green('●') : chalk.yellow('●');
   const daemonStatus = report.info.daemonRunning ? chalk.green('running') : chalk.gray('stopped');
+  const hubIcon = hubStatus.connected ? chalk.green('●') : chalk.red('●');
 
   console.log(`\n  ${statusIcon} Private Connect`);
+  
+  // Agent config
+  if (config) {
+    console.log(chalk.gray(`    Agent:  ${config.agentId.slice(0, 8)}...`));
+    console.log(chalk.gray(`    Label:  ${config.label}`));
+  } else {
+    console.log(chalk.yellow(`    Agent:  not configured`));
+  }
+  
+  // Hub connectivity
+  console.log(`    Hub:    ${hubIcon} ${hubStatus.connected ? chalk.green('connected') : chalk.red(hubStatus.error || 'disconnected')}`);
+  if (hubStatus.connected && hubStatus.agents !== undefined) {
+    console.log(chalk.gray(`    Online: ${hubStatus.agents} agents`));
+  }
+  
+  // Local status
   console.log(chalk.gray(`    Daemon: ${daemonStatus}`));
-  console.log(chalk.gray(`    Processes: ${report.info.activeProcesses.length}`));
-  console.log(chalk.gray(`    Issues: ${report.issues.length}`));
+  
+  if (report.info.activeProcesses.length > 0) {
+    console.log(chalk.gray(`    Procs:  ${report.info.activeProcesses.length}`));
+  }
+  
+  if (report.issues.length > 0) {
+    console.log(chalk.yellow(`    Issues: ${report.issues.length}`));
+  }
   
   if (report.info.portsInUse.length > 0) {
-    console.log(chalk.gray(`    Ports: ${report.info.portsInUse.join(', ')}`));
+    console.log(chalk.gray(`    Ports:  ${report.info.portsInUse.join(', ')}`));
   }
   console.log();
 }
