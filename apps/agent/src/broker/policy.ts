@@ -205,7 +205,7 @@ export function matchPattern(pattern: string, target: string): boolean {
         i += 2;
         // Skip trailing / after **
         if (normalizedPattern[i] === '/') {
-          regex += '(?:/|$)';
+          regex += '/?';  // Make slash optional to match zero or more directories
           i++;
         }
       } else {

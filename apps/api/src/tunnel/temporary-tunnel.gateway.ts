@@ -73,6 +73,16 @@ export class TemporaryTunnelGateway implements OnGatewayConnection, OnGatewayDis
       body: string;
     },
   ) {
+    // Extract tunnelId from requestId (format: ${tunnelId}-${timestamp}-${random})
+    const tunnelId = data.requestId.split('-').slice(0, -2).join('-');
+    
+    // Verify this socket owns the tunnel
+    const registeredTunnelId = this.socketToTunnel.get(client.id);
+    if (registeredTunnelId !== tunnelId) {
+      this.logger.warn(`Socket ${client.id} attempted to respond to request for tunnel ${tunnelId}`);
+      return { success: false, error: 'Unauthorized' };
+    }
+    
     this.tempTunnelService.handleResponse(data.requestId, {
       status: data.status,
       headers: data.headers,

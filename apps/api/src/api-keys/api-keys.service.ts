@@ -172,11 +172,20 @@ export class ApiKeysService {
       throw new ForbiddenException('Cannot update revoked API key');
     }
 
-    // Validate CIDR format
+    // Validate CIDR format and mask range
     const cidrRegex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
     for (const range of ipRanges) {
       if (!cidrRegex.test(range)) {
         throw new ForbiddenException(`Invalid CIDR format: ${range}`);
+      }
+      
+      // Validate mask value is in valid range for IPv4
+      const [, maskStr] = range.split('/');
+      if (maskStr) {
+        const mask = parseInt(maskStr, 10);
+        if (isNaN(mask) || mask < 0 || mask > 32) {
+          throw new ForbiddenException(`Invalid CIDR mask: ${range}. Mask must be between 0 and 32`);
+        }
       }
     }
 

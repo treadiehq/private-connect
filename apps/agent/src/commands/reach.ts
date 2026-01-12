@@ -227,7 +227,7 @@ async function createLocalTunnel(
     reconnection: true,
   });
 
-  const connections = new Map<string, { localSocket: net.Socket; ready: boolean }>();
+  const connections = new Map<string, { localSocket: net.Socket; ready: boolean; buffer: Buffer[] }>();
 
   socket.on('connect', () => {
     console.log(chalk.green('  [ok] Connected to hub'));
@@ -243,6 +243,14 @@ async function createLocalTunnel(
     const conn = connections.get(data.connectionId);
     if (conn) {
       conn.ready = true;
+      // Flush any buffered data that arrived before connection was ready
+      for (const chunk of conn.buffer) {
+        socket.emit('reach_data', {
+          connectionId: data.connectionId,
+          data: chunk.toString('base64'),
+        });
+      }
+      conn.buffer = []; // Clear buffer
     }
   });
 
@@ -278,7 +286,7 @@ async function createLocalTunnel(
   const server = net.createServer((localSocket) => {
     const connectionId = uuidv4();
     
-    connections.set(connectionId, { localSocket, ready: false });
+    connections.set(connectionId, { localSocket, ready: false, buffer: [] });
 
     // Request connection to the service through the hub
     socket.emit('reach_connect', {
@@ -295,11 +303,17 @@ async function createLocalTunnel(
     // Forward local data to hub
     localSocket.on('data', (chunk) => {
       const conn = connections.get(connectionId);
-      if (conn?.ready) {
-        socket.emit('reach_data', {
-          connectionId,
-          data: chunk.toString('base64'),
-        });
+      if (conn) {
+        if (conn.ready) {
+          // Connection ready, forward immediately
+          socket.emit('reach_data', {
+            connectionId,
+            data: chunk.toString('base64'),
+          });
+        } else {
+          // Buffer data until connection is ready
+          conn.buffer.push(chunk);
+        }
       }
     });
 

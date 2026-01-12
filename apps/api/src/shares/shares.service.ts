@@ -121,7 +121,15 @@ export class SharesService {
     // Check allowed paths
     if (share.allowedPaths && path) {
       const allowedPaths = JSON.parse(share.allowedPaths) as string[];
-      const isPathAllowed = allowedPaths.some((allowed) => path.startsWith(allowed));
+      const isPathAllowed = allowedPaths.some((allowed) => {
+        // Exact match
+        if (path === allowed) return true;
+        // Prefix match with path separator (subdirectory)
+        if (path.startsWith(allowed + '/')) return true;
+        // Handle trailing slash in allowed path
+        if (allowed.endsWith('/') && path.startsWith(allowed)) return true;
+        return false;
+      });
       if (!isPathAllowed) {
         return { valid: false, reason: 'Path not allowed' };
       }

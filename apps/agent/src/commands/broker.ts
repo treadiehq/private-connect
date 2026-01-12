@@ -396,10 +396,16 @@ async function detectForcePush(workingDir: string): Promise<boolean> {
         }
       }
       
+      // SECURITY: If no data was received, fail safe by assuming force push
+      if (refUpdates.length === 0) {
+        resolve(true);
+        return;
+      }
+      
       resolve(false);
     });
     
-    // Handle timeout - if stdin never closes, assume normal push
+    // Handle timeout - if stdin never closes or no data received, fail safe
     setTimeout(() => {
       rl.close();
     }, 1000);

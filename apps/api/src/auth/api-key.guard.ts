@@ -13,6 +13,11 @@ function ipMatchesCidr(ip: string, cidr: string): boolean {
   const [range, bits] = cidr.split('/');
   const mask = bits ? parseInt(bits, 10) : 32;
   
+  // Validate mask is in valid range for IPv4
+  if (isNaN(mask) || mask < 0 || mask > 32) {
+    return false; // Invalid CIDR mask
+  }
+  
   // Convert IP addresses to numbers
   const ipToNumber = (addr: string): number => {
     const parts = addr.split('.').map(Number);

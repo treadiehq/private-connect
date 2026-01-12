@@ -37,16 +37,38 @@ export function scrubSensitiveData(input: string): string {
 
 /**
  * Scrub sensitive fields from an object for safe logging
+ * Recursively traverses nested objects and arrays
  */
 export function scrubObject<T extends Record<string, unknown>>(obj: T): Record<string, unknown> {
   if (!obj || typeof obj !== 'object') return obj;
-  
-  const scrubbed: Record<string, unknown> = { ...obj };
-  for (const field of SENSITIVE_FIELDS) {
-    if (field in scrubbed && scrubbed[field]) {
-      scrubbed[field] = '[REDACTED]';
+
+  // Handle arrays - recursively scrub each element
+  if (Array.isArray(obj)) {
+    return obj.map(item => {
+      if (typeof item === 'object' && item !== null) {
+        return scrubObject(item as Record<string, unknown>);
+      }
+      return item;
+    }) as unknown as Record<string, unknown>;
+  }
+
+  const scrubbed: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(obj)) {
+    // Scrub if this is a sensitive field
+    if (SENSITIVE_FIELDS.includes(key) && value) {
+      scrubbed[key] = '[REDACTED]';
+    }
+    // Recursively scrub nested objects and arrays
+    else if (typeof value === 'object' && value !== null) {
+      scrubbed[key] = scrubObject(value as Record<string, unknown>);
+    }
+    // Keep non-sensitive primitives as-is
+    else {
+      scrubbed[key] = value;
     }
   }
+
   return scrubbed;
 }
 

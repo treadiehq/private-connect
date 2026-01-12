@@ -149,6 +149,14 @@ export class EnvSharesController {
 
     const share = validation.share;
 
+    // Validate workspace isolation - agents can only join shares from their own workspace
+    if (agent.workspaceId !== share.workspaceId) {
+      throw new HttpException(
+        'Share not found',  // Use generic message to avoid leaking share existence
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
     // Record the join
     await this.envSharesService.recordJoin(
       share.id,

@@ -73,6 +73,38 @@ export class TunnelService {
         this.logger.log(`Closing tunnel listener on port ${listener.port}`);
         listener.server.close();
       });
+
+      // Clean up pending connections for this agent
+      this.pendingConnections.forEach((pending, connectionId) => {
+        if (pending.agentId === agentId) {
+          clearTimeout(pending.timeout);
+          pending.clientSocket.end();
+          pending.dataBuffer = []; // Free buffer memory
+          this.pendingConnections.delete(connectionId);
+          this.logger.log(`Cleaned up pending connection ${connectionId} for disconnected agent`);
+        }
+      });
+
+      // Clean up agent bridges where this agent is involved
+      this.agentBridges.forEach((bridge, connectionId) => {
+        if (bridge.reachingAgentId === agentId || bridge.exposingAgentId === agentId) {
+          clearTimeout(bridge.timeout);
+
+          // Notify the other agent in the bridge
+          if (bridge.reachingAgentId === agentId && bridge.exposingSocket) {
+            bridge.exposingSocket.emit('close', { connectionId });
+          } else if (bridge.exposingAgentId === agentId && bridge.reachingSocket) {
+            bridge.reachingSocket.emit('reach_error', {
+              connectionId,
+              error: 'Exposing agent disconnected',
+            });
+          }
+
+          this.agentBridges.delete(connectionId);
+          this.logger.log(`Cleaned up bridge ${connectionId} for disconnected agent`);
+        }
+      });
+
       this.agents.delete(agentId);
       this.logger.log(`Agent unregistered: ${agentId}`);
     }
