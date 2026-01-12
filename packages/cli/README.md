@@ -1,50 +1,78 @@
 # private-connect
 
-Test connectivity to any service. No signup required.
+Zero-friction connectivity tools. No signup required.
 
-## Usage
+## Quick Start
+
+```bash
+# Test connectivity to any service
+npx private-connect test db.internal:5432
+
+# Create a temporary public tunnel
+npx private-connect tunnel 3000
+```
+
+## Commands
+
+### `test` - Test connectivity
 
 ```bash
 npx private-connect test <target>
 ```
 
-## Examples
+**Examples:**
+```bash
+npx private-connect test db.internal:5432      # Database
+npx private-connect test redis:6379            # Redis
+npx private-connect test https://api.internal  # API
+```
+
+**What it checks:**
+- TCP connection
+- TLS/SSL (if applicable)
+- HTTP response (for web services)
+- Latency
+
+### `tunnel` - Create a temporary tunnel
 
 ```bash
-# Test database connectivity
-npx private-connect test db.internal:5432
-
-# Test Redis
-npx private-connect test redis:6379
-
-# Test an API
-npx private-connect test api.internal:8080
+npx private-connect tunnel <port>
 ```
 
-## What it checks
+Instantly expose a local service to the internet. No signup required.
 
-- DNS resolution
-- TCP connection
-- Port accessibility
-- TLS/SSL (if applicable)
-- Response time
-
-## Output
-
+**Examples:**
+```bash
+npx private-connect tunnel 3000              # Expose localhost:3000
+npx private-connect tunnel localhost:8080    # Specify host and port
 ```
-Testing db.internal:5432...
 
-✓ DNS resolved (12ms)
-✓ TCP connection (45ms)
-✓ Port open
-✓ PostgreSQL detected
-
-Connection successful!
+**Output:**
 ```
+Private Connect - Temporary Tunnel
+────────────────────────────────────
+
+  Local:   localhost:3000
+  Public:  https://api.privateconnect.co/t/abc123
+  Expires: 120 minutes
+
+────────────────────────────────────
+
+  Press Ctrl+C to stop
+
+  [12:00:01] GET /api/users
+  [12:00:02] POST /api/login
+```
+
+**Features:**
+- No signup or account required
+- Auto-expires in 2 hours
+- Real-time request logging
+- Works with any HTTP service
 
 ## Need more?
 
-For tunneling, sharing, and accessing private services:
+For permanent tunnels, sharing with teammates, and AI agent integration:
 
 ```bash
 curl -fsSL https://privateconnect.co/install.sh | bash
@@ -52,4 +80,3 @@ connect up
 ```
 
 → [privateconnect.co](https://privateconnect.co)
-

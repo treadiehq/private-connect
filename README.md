@@ -8,7 +8,10 @@ The fastest way to securely expose and access private services.
 # Test connectivity (no signup)
 npx private-connect test db.internal:5432
 
-# Install
+# Quick tunnel (no signup, 2hr expiry)
+npx private-connect tunnel 3000
+
+# Install for permanent tunnels
 curl -fsSL https://privateconnect.co/install.sh | bash
 
 # Authenticate once
@@ -25,6 +28,7 @@ connect localhost:5432 --share   # Get a shareable link
 
 | You want to... | Command |
 |----------------|---------|
+| Quick tunnel (no signup) | `npx private-connect tunnel 3000` |
 | Expose a service | `connect localhost:5432` |
 | Access a service | `connect prod-db` |
 | Share with a teammate | `connect localhost:5432 --share` |
