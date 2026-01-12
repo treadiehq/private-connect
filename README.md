@@ -29,6 +29,7 @@ connect localhost:5432 --share   # Get a shareable link
 | Access a service | `connect prod-db` |
 | Share with a teammate | `connect localhost:5432 --share` |
 | Clone a teammate's setup | `connect clone alice` |
+| Check status | `connect status` |
 
 Everything is automatic: auto-naming, background daemon, local DNS.
 
