@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
+import { AdminModule } from './admin/admin.module';
 import { AgentsModule } from './agents/agents.module';
 import { ServicesModule } from './services/services.module';
 import { TunnelModule } from './tunnel/tunnel.module';
@@ -15,6 +16,7 @@ import { StatusModule } from './status/status.module';
   imports: [
     PrismaModule,
     AuthModule,
+    AdminModule,
     WorkspaceModule,
     ApiKeysModule,
     AgentsModule,

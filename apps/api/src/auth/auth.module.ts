@@ -6,13 +6,14 @@ import { DeviceController } from './device.controller';
 import { DeviceService } from './device.service';
 import { AuthGuard } from './auth.guard';
 import { ApiKeyGuard } from './api-key.guard';
+import { AdminGuard } from './admin.guard';
 import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
   imports: [PrismaModule],
   controllers: [AuthController, DeviceController],
-  providers: [AuthService, EmailService, DeviceService, AuthGuard, ApiKeyGuard],
-  exports: [AuthService, DeviceService, AuthGuard, ApiKeyGuard],
+  providers: [AuthService, EmailService, DeviceService, AuthGuard, ApiKeyGuard, AdminGuard],
+  exports: [AuthService, DeviceService, AuthGuard, ApiKeyGuard, AdminGuard],
 })
 export class AuthModule {}
 

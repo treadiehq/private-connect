@@ -2,6 +2,7 @@ interface User {
   id: string;
   email: string;
   emailVerified: boolean;
+  isAdmin: boolean;
 }
 
 interface Workspace {
@@ -154,6 +155,7 @@ export function useAuth() {
     workspace: computed(() => authState.workspace),
     isLoading: computed(() => authState.isLoading),
     isAuthenticated: computed(() => authState.isAuthenticated),
+    isAdmin: computed(() => authState.user?.isAdmin ?? false),
     
     // Methods
     register,

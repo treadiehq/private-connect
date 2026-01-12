@@ -12,6 +12,7 @@ model User {
   id            String        @id @default(uuid())
   email         String        @unique
   emailVerified Boolean       @default(false)
+  isAdmin       Boolean       @default(false)  // Admin users can manage all workspaces
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   workspaces    Workspace[]

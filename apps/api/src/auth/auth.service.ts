@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, BadRequestException, ConflictExcepti
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from './email.service';
 import { randomBytes } from 'crypto';
+import { isAdminEmail } from '../common/admin';
 
 // Reserved workspace names that cannot be used
 const RESERVED_WORKSPACE_NAMES = [
@@ -286,7 +287,7 @@ export class AuthService {
 
   // Validate session token
   async validateSession(token: string): Promise<{
-    user: { id: string; email: string; emailVerified: boolean };
+    user: { id: string; email: string; emailVerified: boolean; isAdmin: boolean };
     workspace: { id: string; name: string } | null;
   } | null> {
     const session = await this.prisma.authSession.findUnique({
@@ -311,6 +312,7 @@ export class AuthService {
         id: session.user.id,
         email: session.user.email,
         emailVerified: session.user.emailVerified,
+        isAdmin: isAdminEmail(session.user.email),
       },
       workspace: workspace ? {
         id: workspace.id,
