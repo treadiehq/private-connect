@@ -118,8 +118,8 @@
           </div>
         </div>
 
-        <!-- Install Breakdown -->
-        <div v-if="installStats" class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
+        <!-- Install Breakdown by Platform -->
+        <div v-if="installStats && Object.keys(installStats.byOs || {}).length" class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
           <div class="flex items-center gap-3 mb-3">
             <div class="w-10 h-10 rounded-lg bg-blue-300/10 flex items-center justify-center">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5 text-blue-300">
@@ -135,6 +135,27 @@
             <div v-for="(count, os) in installStats.byOs" :key="os" class="flex items-center gap-1">
               <span class="text-white font-medium">{{ count }}</span>
               <span class="text-gray-500">{{ os }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Install Breakdown by Source -->
+        <div v-if="installStats && Object.keys(installStats.bySource || {}).length" class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-lg bg-emerald-300/10 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5 text-emerald-300">
+                <path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.378 2H4.5Zm2.25 8.5a.75.75 0 0 0 0 1.5h6.5a.75.75 0 0 0 0-1.5h-6.5Zm0 3a.75.75 0 0 0 0 1.5h6.5a.75.75 0 0 0 0-1.5h-6.5Z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <div>
+              <div class="text-sm font-medium text-white">By Source</div>
+              <div class="text-xs text-gray-500">How installed</div>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-3 text-sm pt-2 border-t border-gray-500/10">
+            <div v-for="(count, source) in installStats.bySource" :key="source" class="flex items-center gap-1">
+              <span class="text-white font-medium">{{ count }}</span>
+              <span class="text-gray-500">{{ source }}</span>
             </div>
           </div>
         </div>
