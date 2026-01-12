@@ -1,6 +1,6 @@
 {
   "name": "@privateconnect/sdk",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "description": "TypeScript SDK for Private Connect - programmatic access to services and agent orchestration",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
