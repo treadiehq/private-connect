@@ -258,7 +258,8 @@ function printHelp(): void {
 ${c.bold}Private Connect${c.reset} - Zero-friction connectivity tools
 
 ${c.bold}Commands:${c.reset}
-  test <target>      Test connectivity to any service
+  check <target>     Test connectivity to any service
+  test <target>      Alias for check
   tunnel <port>      Create a temporary public tunnel
 
 ${c.bold}Examples:${c.reset}
@@ -603,10 +604,10 @@ if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
   process.exit(0);
 }
 
-if (args[0] === 'test') {
+if (args[0] === 'test' || args[0] === 'check') {
   if (!args[1]) {
     console.error(`${c.red}Error: Target required${c.reset}`);
-    console.error(`Usage: npx private-connect test <host:port>`);
+    console.error(`Usage: npx private-connect ${args[0]} <host:port>`);
     process.exit(1);
   }
   runTest(args[1]).catch(console.error);
