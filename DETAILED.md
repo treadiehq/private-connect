@@ -195,7 +195,8 @@ connect dev                   # Project dev mode (pconnect.yml)
 connect dns <action>          # Local DNS (*.connect domains)
 connect mcp <action>          # AI assistant integration
 connect broker <action>       # Agent Permission Broker
-connect doctor                # Diagnose issues
+connect status                # Quick status check (hub, agent, daemon)
+connect doctor                # Full diagnostics
 connect cleanup               # Clean orphaned processes
 connect whoami                # Show agent info
 connect update                # Update CLI
@@ -235,6 +236,9 @@ connect logout                # Clear credentials
 
 # connect daemon
 -r, --replace          Replace existing
+
+# connect status
+--json                 JSON output
 
 # connect doctor
 --fix                  Auto-fix issues
@@ -404,6 +408,46 @@ Open http://localhost:3000:
 - View services and status
 - Diagnostic history
 - Manage API keys
+
+---
+
+## Monitoring
+
+### Health Check
+
+```bash
+curl https://api.privateconnect.co/health
+```
+
+Returns `{ "status": "ok", "database": "connected" }`.
+
+### Hub Status
+
+```bash
+curl https://api.privateconnect.co/v1/status
+```
+
+Returns connected agents, active services, and runtime metrics:
+
+```json
+{
+  "status": "ok",
+  "uptime": 3600,
+  "database": "connected",
+  "hub": {
+    "connectedAgents": 5,
+    "activeServices": 12,
+    "activeBridges": 3
+  }
+}
+```
+
+### CLI Status
+
+```bash
+connect status        # Quick overview
+connect status --json # Machine-readable
+```
 
 ---
 
