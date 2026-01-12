@@ -55,8 +55,10 @@ export class ApiKeysService {
         id: true,
         name: true,
         keyPrefix: true,
+        allowedIpRanges: true,
         createdAt: true,
         lastUsedAt: true,
+        lastUsedIp: true,
       },
     });
 
@@ -115,6 +117,79 @@ export class ApiKeysService {
         revokedAt: null,
       },
     });
+  }
+
+  // Get a single API key by ID (for details view)
+  async getApiKey(workspaceId: string, keyId: string) {
+    const apiKey = await this.prisma.apiKey.findUnique({
+      where: { id: keyId },
+      select: {
+        id: true,
+        name: true,
+        keyPrefix: true,
+        allowedIpRanges: true,
+        createdAt: true,
+        lastUsedAt: true,
+        lastUsedIp: true,
+      },
+    });
+
+    if (!apiKey) {
+      throw new NotFoundException('API key not found');
+    }
+
+    // Verify ownership via workspace check
+    const fullKey = await this.prisma.apiKey.findUnique({
+      where: { id: keyId },
+    });
+    
+    if (fullKey?.workspaceId !== workspaceId) {
+      throw new ForbiddenException('API key does not belong to this workspace');
+    }
+
+    return apiKey;
+  }
+
+  // Update IP restrictions for an API key
+  async updateIpRestrictions(
+    workspaceId: string, 
+    keyId: string, 
+    ipRanges: string[]
+  ): Promise<{ id: string; allowedIpRanges: string[] }> {
+    const apiKey = await this.prisma.apiKey.findUnique({
+      where: { id: keyId },
+    });
+
+    if (!apiKey) {
+      throw new NotFoundException('API key not found');
+    }
+
+    if (apiKey.workspaceId !== workspaceId) {
+      throw new ForbiddenException('API key does not belong to this workspace');
+    }
+
+    if (apiKey.revokedAt) {
+      throw new ForbiddenException('Cannot update revoked API key');
+    }
+
+    // Validate CIDR format
+    const cidrRegex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
+    for (const range of ipRanges) {
+      if (!cidrRegex.test(range)) {
+        throw new ForbiddenException(`Invalid CIDR format: ${range}`);
+      }
+    }
+
+    const updated = await this.prisma.apiKey.update({
+      where: { id: keyId },
+      data: { allowedIpRanges: ipRanges },
+      select: {
+        id: true,
+        allowedIpRanges: true,
+      },
+    });
+
+    return updated;
   }
 }
 

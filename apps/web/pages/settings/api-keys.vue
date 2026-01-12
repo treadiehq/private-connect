@@ -61,12 +61,42 @@
           </div>
         </div>
 
-        <div class="flex items-center gap-6">
+        <div class="flex items-center gap-4">
+          <!-- IP Restriction Badge -->
+          <div v-if="key.allowedIpRanges && key.allowedIpRanges.length > 0" class="flex items-center gap-1.5 px-2 py-1 bg-emerald-300/10 text-emerald-300 rounded text-xs font-medium">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            {{ key.allowedIpRanges.length }} IP{{ key.allowedIpRanges.length > 1 ? 's' : '' }}
+          </div>
+          <div v-else class="flex items-center gap-1.5 px-2 py-1 bg-amber-300/10 text-amber-300 rounded text-xs font-medium">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Any IP
+          </div>
+
           <div class="text-right text-sm">
             <div class="text-gray-400">Created {{ formatDate(key.createdAt) }}</div>
-            <div v-if="key.lastUsedAt" class="text-gray-500">Last used {{ formatDate(key.lastUsedAt) }}</div>
+            <div v-if="key.lastUsedAt" class="text-gray-500">
+              Last used {{ formatDate(key.lastUsedAt) }}
+              <span v-if="key.lastUsedIp" class="text-gray-600">from {{ key.lastUsedIp }}</span>
+            </div>
             <div v-else class="text-gray-500">Never used</div>
           </div>
+
+          <!-- Edit IP Restrictions -->
+          <button
+            @click="openIpModal(key)"
+            class="p-2 text-gray-400 hover:text-blue-300 transition-colors"
+            title="Edit IP restrictions"
+          >
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+
           <button
             @click="confirmRevoke(key)"
             class="p-2 text-gray-400 hover:text-red-400 transition-colors"
@@ -197,6 +227,87 @@
         </div>
       </div>
     </div>
+
+    <!-- IP Restrictions Modal -->
+    <div v-if="ipEditKey" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" @click.self="closeIpModal">
+      <div class="bg-black border border-gray-500/20 rounded-xl w-full max-w-lg p-6 animate-fade-in">
+        <h2 class="text-xl font-semibold mb-2">IP Restrictions</h2>
+        <p class="text-gray-400 text-sm mb-6">
+          Limit which IP addresses can use <span class="text-white font-medium">{{ ipEditKey.name }}</span>. 
+          Leave empty to allow all IPs.
+        </p>
+
+        <!-- Current IP ranges -->
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-white mb-2">Allowed IP Ranges (CIDR)</label>
+          
+          <div v-if="editingIpRanges.length > 0" class="space-y-2 mb-3">
+            <div 
+              v-for="(range, index) in editingIpRanges" 
+              :key="index"
+              class="flex items-center gap-2"
+            >
+              <input
+                v-model="editingIpRanges[index]"
+                type="text"
+                placeholder="e.g., 10.0.0.0/8"
+                class="flex-1 px-3 py-2 bg-gray-500/10 border border-gray-500/10 rounded-lg font-mono text-sm focus:border-blue-300 focus:ring-1 focus:ring-blue-300 focus:outline-none transition-colors"
+              />
+              <button
+                @click="removeIpRange(index)"
+                class="p-2 text-gray-400 hover:text-red-400 transition-colors"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <button
+            @click="addIpRange"
+            class="flex items-center gap-2 text-sm text-blue-300 hover:text-blue-200 transition-colors"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Add IP range
+          </button>
+        </div>
+
+        <!-- Examples -->
+        <div class="p-3 bg-gray-500/5 rounded-lg mb-6 text-xs text-gray-500">
+          <p class="font-medium text-gray-400 mb-1">Examples:</p>
+          <ul class="space-y-0.5">
+            <li><code class="text-gray-400">10.0.0.0/8</code> — Private network</li>
+            <li><code class="text-gray-400">192.168.1.0/24</code> — Office subnet</li>
+            <li><code class="text-gray-400">203.0.113.45/32</code> — Single IP</li>
+          </ul>
+        </div>
+
+        <p v-if="ipError" class="mb-4 text-sm text-red-400">{{ ipError }}</p>
+
+        <div class="flex gap-3">
+          <button
+            @click="closeIpModal"
+            class="flex-1 py-3 bg-gray-500/10 hover:bg-gray-500/20 rounded-lg transition-colors font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            @click="saveIpRestrictions"
+            :disabled="savingIp"
+            class="flex-1 py-3 bg-blue-300 hover:bg-blue-400 disabled:opacity-50 text-black font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            <svg v-if="savingIp" class="animate-spin h-5 w-5" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>{{ savingIp ? 'Saving...' : 'Save Restrictions' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -208,8 +319,10 @@ interface ApiKey {
   name: string;
   key?: string;
   keyPrefix: string;
+  allowedIpRanges?: string[];
   createdAt: string;
   lastUsedAt: string | null;
+  lastUsedIp?: string | null;
 }
 
 const config = useRuntimeConfig();
@@ -230,6 +343,12 @@ const copied = ref(false);
 const keyToRevoke = ref<ApiKey | null>(null);
 const revoking = ref(false);
 const revokeError = ref('');
+
+// IP restrictions modal
+const ipEditKey = ref<ApiKey | null>(null);
+const editingIpRanges = ref<string[]>([]);
+const savingIp = ref(false);
+const ipError = ref('');
 
 const fetchApiKeys = async () => {
   try {
@@ -323,6 +442,73 @@ const revokeKey = async () => {
     revokeError.value = e.message || 'Failed to revoke API key';
   } finally {
     revoking.value = false;
+  }
+};
+
+const openIpModal = (key: ApiKey) => {
+  ipEditKey.value = key;
+  editingIpRanges.value = [...(key.allowedIpRanges || [])];
+  ipError.value = '';
+};
+
+const closeIpModal = () => {
+  ipEditKey.value = null;
+  editingIpRanges.value = [];
+  ipError.value = '';
+};
+
+const addIpRange = () => {
+  editingIpRanges.value.push('');
+};
+
+const removeIpRange = (index: number) => {
+  editingIpRanges.value.splice(index, 1);
+};
+
+const saveIpRestrictions = async () => {
+  if (!ipEditKey.value) return;
+
+  // Filter out empty entries and validate
+  const ranges = editingIpRanges.value
+    .map(r => r.trim())
+    .filter(r => r.length > 0);
+
+  // Basic CIDR validation
+  const cidrRegex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
+  for (const range of ranges) {
+    if (!cidrRegex.test(range)) {
+      ipError.value = `Invalid CIDR format: ${range}`;
+      return;
+    }
+  }
+
+  savingIp.value = true;
+  ipError.value = '';
+
+  try {
+    const response = await fetch(`${baseUrl}/v1/api-keys/${ipEditKey.value.id}/ip-restrictions`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ allowedIpRanges: ranges }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to update IP restrictions');
+    }
+
+    // Update local state
+    const keyIndex = apiKeys.value.findIndex(k => k.id === ipEditKey.value?.id);
+    if (keyIndex !== -1) {
+      apiKeys.value[keyIndex].allowedIpRanges = ranges;
+    }
+
+    closeIpModal();
+  } catch (e: any) {
+    ipError.value = e.message || 'Failed to update IP restrictions';
+  } finally {
+    savingIp.value = false;
   }
 };
 

@@ -65,15 +65,17 @@ model Workspace {
 
 // ApiKey: for workspace API access
 model ApiKey {
-  id          String    @id @default(uuid())
-  workspaceId String
-  name        String
-  key         String    @unique
-  keyPrefix   String    // First 8 chars for display (pc_xxxxxxxx...)
-  createdAt   DateTime  @default(now())
-  lastUsedAt  DateTime?
-  revokedAt   DateTime?
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id               String    @id @default(uuid())
+  workspaceId      String
+  name             String
+  key              String    @unique
+  keyPrefix        String    // First 8 chars for display (pc_xxxxxxxx...)
+  allowedIpRanges  String[]  // CIDR ranges: ["10.0.0.0/8", "192.168.1.0/24"]
+  createdAt        DateTime  @default(now())
+  lastUsedAt       DateTime?
+  lastUsedIp       String?   // Last IP that used this key
+  revokedAt        DateTime?
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, name])
 }
