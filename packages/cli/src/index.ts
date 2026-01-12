@@ -15,6 +15,7 @@ import * as https from 'https';
 import * as http from 'http';
 import { URL } from 'url';
 import { randomBytes } from 'crypto';
+import { io, Socket } from 'socket.io-client';
 
 // Colors (no dependencies)
 const c = {
@@ -354,9 +355,22 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
     console.log();
     console.log(`${c.gray}────────────────────────────────────${c.reset}`);
     console.log();
+    const data = JSON.parse(response.body) as { 
+      tunnel: { tunnelId: string; publicUrl: string; wsUrl: string; expiresAt: string; ttlMinutes: number } 
+    };
+    
+    // For local dev, adjust the WS URL
+    let wsUrl = data.tunnel.wsUrl;
+    if (HUB_URL.includes('localhost')) {
+      wsUrl = HUB_URL.replace('http', 'ws') + '/temp-tunnel';
+    }
+    
+    console.log();
+    console.log(`${c.gray}────────────────────────────────────${c.reset}`);
+    console.log();
     console.log(`  ${c.bold}Local:${c.reset}   ${c.cyan}${host}:${port}${c.reset}`);
-    console.log(`  ${c.bold}Public:${c.reset}  ${c.green}${publicUrl}${c.reset}`);
-    console.log(`  ${c.bold}Expires:${c.reset} ${ttl} minutes`);
+    console.log(`  ${c.bold}Public:${c.reset}  ${c.green}${data.tunnel.publicUrl}${c.reset}`);
+    console.log(`  ${c.bold}Expires:${c.reset} ${data.tunnel.ttlMinutes} minutes`);
     console.log();
     console.log(`${c.gray}────────────────────────────────────${c.reset}`);
     console.log();
@@ -364,7 +378,7 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
     console.log();
     
     // Keep connection alive and handle incoming requests
-    await runTunnelProxy(tunnelId, host, port);
+    await runTunnelProxy(data.tunnel.tunnelId, wsUrl, host, port);
     
   } catch (err: any) {
     console.log(`${fail}`);
@@ -419,31 +433,149 @@ function httpRequest(url: string, options: {
   });
 }
 
-// Placeholder for tunnel proxy - would use WebSocket in full implementation
-async function runTunnelProxy(tunnelId: string, localHost: string, localPort: number): Promise<void> {
-  // In a full implementation, this would:
-  // 1. Open a WebSocket to the hub
-  // 2. Listen for incoming connection requests
-  // 3. Forward traffic between the public URL and local service
-  
-  // For now, just keep the process alive
-  await new Promise<void>((resolve) => {
+/**
+ * Connect to hub via WebSocket and forward HTTP requests to local service
+ */
+async function runTunnelProxy(tunnelId: string, wsUrl: string, localHost: string, localPort: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    // Extract base URL and namespace
+    const url = new URL(wsUrl.replace('ws://', 'http://').replace('wss://', 'https://'));
+    const baseUrl = `${url.protocol}//${url.host}`;
+    const namespace = url.pathname || '/temp-tunnel';
+    
+    const socket = io(`${baseUrl}${namespace}`, {
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+    });
+
+    let requestCount = 0;
+
+    socket.on('connect', () => {
+      // Register this tunnel
+      socket.emit('register', { tunnelId }, (response: { success: boolean; error?: string }) => {
+        if (!response.success) {
+          console.log(`  ${c.red}Failed to register: ${response.error}${c.reset}`);
+          socket.disconnect();
+          resolve();
+        }
+      });
+    });
+
+    socket.on('disconnect', (reason) => {
+      if (reason === 'io server disconnect') {
+        console.log(`  ${c.yellow}Tunnel expired or closed by server${c.reset}`);
+      }
+    });
+
+    socket.on('tunnel_expired', () => {
+      console.log();
+      console.log(`  ${c.yellow}Tunnel expired${c.reset}`);
+      console.log();
+      socket.disconnect();
+      resolve();
+    });
+
+    socket.on('connect_error', (err) => {
+      console.log(`  ${c.red}Connection error: ${err.message}${c.reset}`);
+    });
+
+    // Handle incoming HTTP requests from the hub
+    socket.on('http_request', async (data: {
+      requestId: string;
+      method: string;
+      path: string;
+      headers: Record<string, string>;
+      body: string;
+    }) => {
+      requestCount++;
+      const timestamp = new Date().toLocaleTimeString();
+      console.log(`  ${c.gray}[${timestamp}]${c.reset} ${c.cyan}${data.method}${c.reset} ${data.path}`);
+
+      try {
+        // Forward request to local service
+        const response = await forwardToLocal(localHost, localPort, data);
+        
+        // Send response back to hub
+        socket.emit('http_response', {
+          requestId: data.requestId,
+          status: response.status,
+          headers: response.headers,
+          body: response.body,
+        });
+      } catch (err: any) {
+        // Send error response
+        socket.emit('http_response', {
+          requestId: data.requestId,
+          status: 502,
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ error: 'Bad Gateway', message: err.message }),
+        });
+      }
+    });
+
+    // Handle shutdown
     process.on('SIGINT', () => {
       console.log();
       console.log(`  ${c.yellow}Tunnel closed${c.reset}`);
+      console.log(`  ${c.gray}Handled ${requestCount} requests${c.reset}`);
       console.log();
+      socket.disconnect();
       resolve();
     });
-    
-    // Keep alive with periodic checks
-    const interval = setInterval(async () => {
-      const check = await testTcp(localHost, localPort, 2000);
-      if (!check.ok) {
-        console.log(`  ${c.yellow}⚠ Local service stopped${c.reset}`);
-      }
-    }, 30000);
-    
-    process.on('SIGINT', () => clearInterval(interval));
+  });
+}
+
+/**
+ * Forward an HTTP request to the local service
+ */
+function forwardToLocal(
+  host: string, 
+  port: number, 
+  request: { method: string; path: string; headers: Record<string, string>; body: string }
+): Promise<{ status: number; headers: Record<string, string>; body: string }> {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: host,
+      port: port,
+      path: request.path,
+      method: request.method,
+      headers: { ...request.headers, host: `${host}:${port}` },
+      timeout: 30000,
+    };
+
+    const req = http.request(options, (res) => {
+      const chunks: Buffer[] = [];
+      
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => {
+        const body = Buffer.concat(chunks).toString('utf-8');
+        const headers: Record<string, string> = {};
+        
+        for (const [key, value] of Object.entries(res.headers)) {
+          if (typeof value === 'string') {
+            headers[key] = value;
+          } else if (Array.isArray(value)) {
+            headers[key] = value.join(', ');
+          }
+        }
+        
+        resolve({
+          status: res.statusCode || 500,
+          headers,
+          body,
+        });
+      });
+    });
+
+    req.on('error', reject);
+    req.on('timeout', () => reject(new Error('Request timeout')));
+
+    if (request.body) {
+      req.write(request.body);
+    }
+    req.end();
   });
 }
 

@@ -26,6 +26,9 @@
     "url": "https://github.com/treadiehq/private-connect.git",
     "directory": "packages/cli"
   },
+  "dependencies": {
+    "socket.io-client": "^4.7.0"
+  },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0"

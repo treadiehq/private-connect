@@ -178,6 +178,10 @@ importers:
         version: 5.9.3
 
   packages/cli:
+    dependencies:
+      socket.io-client:
+        specifier: ^4.7.0
+        version: 4.8.1
     devDependencies:
       '@types/node':
         specifier: ^20.0.0
