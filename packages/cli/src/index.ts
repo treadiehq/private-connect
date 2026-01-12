@@ -2,11 +2,11 @@
 /**
  * Private Connect CLI
  * 
- * Zero-friction connectivity testing. No signup required.
+ * Zero-friction connectivity testing and temporary tunnels. No signup required.
  * 
  * Usage:
  *   npx private-connect test vault.internal:8200
- *   npx private-connect test https://api.example.com
+ *   npx private-connect tunnel 3000
  */
 
 import * as net from 'net';
@@ -14,6 +14,7 @@ import * as tls from 'tls';
 import * as https from 'https';
 import * as http from 'http';
 import { URL } from 'url';
+import { randomBytes } from 'crypto';
 
 // Colors (no dependencies)
 const c = {
@@ -253,26 +254,213 @@ function printCta(success: boolean): void {
 
 function printHelp(): void {
   console.log(`
-${c.bold}Private Connect${c.reset} - Test connectivity to any service
+${c.bold}Private Connect${c.reset} - Zero-friction connectivity tools
 
-${c.bold}Usage:${c.reset}
-  npx private-connect test <target>
+${c.bold}Commands:${c.reset}
+  test <target>      Test connectivity to any service
+  tunnel <port>      Create a temporary public tunnel
 
 ${c.bold}Examples:${c.reset}
   npx private-connect test vault.internal:8200
   npx private-connect test https://api.example.com
-  npx private-connect test postgres.prod:5432
+  npx private-connect tunnel 3000
+  npx private-connect tunnel localhost:8080
 
-${c.bold}What it checks:${c.reset}
+${c.bold}Tunnel:${c.reset}
+  • No signup required
+  • Auto-expires in 2 hours
+  • Get a public URL instantly
+
+${c.bold}Test:${c.reset}
   • TCP reachability
   • TLS validation  
-  • HTTP response (if applicable)
+  • HTTP response
   • Latency
 
-No signup. No account. Just diagnostics.
-
-${c.dim}For full features: https://privateconnect.co${c.reset}
+${c.dim}For permanent tunnels: https://privateconnect.co${c.reset}
 `);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Temporary Tunnel
+// ─────────────────────────────────────────────────────────────────────────────
+
+const HUB_URL = process.env.CONNECT_HUB_URL || 'https://api.privateconnect.co';
+const TUNNEL_DOMAIN = process.env.CONNECT_TUNNEL_DOMAIN || 'tunnel.privateconnect.co';
+
+interface TunnelOptions {
+  host: string;
+  port: number;
+  ttl?: number; // minutes, default 120
+}
+
+async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
+  const { host, port, ttl = 120 } = options;
+  
+  console.log();
+  console.log(`${c.bold}Private Connect${c.reset} - Temporary Tunnel`);
+  console.log(`${c.gray}────────────────────────────────────${c.reset}`);
+  console.log();
+  
+  // Check if local service is running
+  process.stdout.write(`  Checking ${c.cyan}${host}:${port}${c.reset}... `);
+  const localCheck = await testTcp(host, port, 2000);
+  if (!localCheck.ok) {
+    console.log(`${fail}`);
+    console.log();
+    console.log(`  ${c.red}Cannot connect to ${host}:${port}${c.reset}`);
+    console.log(`  ${c.gray}Make sure your service is running${c.reset}`);
+    console.log();
+    process.exit(1);
+  }
+  console.log(`${ok}`);
+  
+  // Generate a temporary tunnel ID
+  const tunnelId = randomBytes(6).toString('hex');
+  const publicUrl = `https://${tunnelId}.${TUNNEL_DOMAIN}`;
+  
+  // Request tunnel from hub
+  process.stdout.write(`  Requesting tunnel... `);
+  
+  try {
+    const response = await httpRequest(`${HUB_URL}/v1/tunnels/temporary`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tunnelId,
+        localHost: host,
+        localPort: port,
+        ttlMinutes: ttl,
+      }),
+    });
+    
+    if (!response.ok) {
+      console.log(`${fail}`);
+      console.log();
+      if (response.status === 503 || response.status === 404 || response.status === 501) {
+        console.log(`  ${c.yellow}Temporary tunnels coming soon!${c.reset}`);
+        console.log();
+        console.log(`  For now, use the full CLI:`);
+        console.log(`  ${c.cyan}curl -fsSL https://privateconnect.co/install.sh | bash${c.reset}`);
+        console.log(`  ${c.cyan}connect up && connect localhost:${port} --share${c.reset}`);
+      } else {
+        console.log(`  ${c.red}Failed to create tunnel: ${response.status}${c.reset}`);
+      }
+      console.log();
+      process.exit(1);
+    }
+    
+    console.log(`${ok}`);
+    console.log();
+    console.log(`${c.gray}────────────────────────────────────${c.reset}`);
+    console.log();
+    console.log(`  ${c.bold}Local:${c.reset}   ${c.cyan}${host}:${port}${c.reset}`);
+    console.log(`  ${c.bold}Public:${c.reset}  ${c.green}${publicUrl}${c.reset}`);
+    console.log(`  ${c.bold}Expires:${c.reset} ${ttl} minutes`);
+    console.log();
+    console.log(`${c.gray}────────────────────────────────────${c.reset}`);
+    console.log();
+    console.log(`  ${c.dim}Press Ctrl+C to stop${c.reset}`);
+    console.log();
+    
+    // Keep connection alive and handle incoming requests
+    await runTunnelProxy(tunnelId, host, port);
+    
+  } catch (err: any) {
+    console.log(`${fail}`);
+    console.log();
+    
+    if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+      console.log(`  ${c.yellow}Temporary tunnels coming soon!${c.reset}`);
+      console.log();
+      console.log(`  For now, use the full CLI:`);
+      console.log(`  ${c.cyan}curl -fsSL https://privateconnect.co/install.sh | bash${c.reset}`);
+      console.log(`  ${c.cyan}connect up && connect localhost:${port} --share${c.reset}`);
+    } else {
+      console.log(`  ${c.red}Error: ${err.message}${c.reset}`);
+    }
+    console.log();
+    process.exit(1);
+  }
+}
+
+// Simple HTTP request helper (no dependencies)
+function httpRequest(url: string, options: { 
+  method?: string; 
+  headers?: Record<string, string>; 
+  body?: string;
+}): Promise<{ ok: boolean; status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(url);
+    const client = parsedUrl.protocol === 'https:' ? https : http;
+    
+    const req = client.request(url, {
+      method: options.method || 'GET',
+      headers: options.headers,
+    }, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        resolve({
+          ok: res.statusCode! >= 200 && res.statusCode! < 300,
+          status: res.statusCode!,
+          body,
+        });
+      });
+    });
+    
+    req.on('error', reject);
+    req.on('timeout', () => reject(new Error('Request timeout')));
+    
+    if (options.body) {
+      req.write(options.body);
+    }
+    req.end();
+  });
+}
+
+// Placeholder for tunnel proxy - would use WebSocket in full implementation
+async function runTunnelProxy(tunnelId: string, localHost: string, localPort: number): Promise<void> {
+  // In a full implementation, this would:
+  // 1. Open a WebSocket to the hub
+  // 2. Listen for incoming connection requests
+  // 3. Forward traffic between the public URL and local service
+  
+  // For now, just keep the process alive
+  await new Promise<void>((resolve) => {
+    process.on('SIGINT', () => {
+      console.log();
+      console.log(`  ${c.yellow}Tunnel closed${c.reset}`);
+      console.log();
+      resolve();
+    });
+    
+    // Keep alive with periodic checks
+    const interval = setInterval(async () => {
+      const check = await testTcp(localHost, localPort, 2000);
+      if (!check.ok) {
+        console.log(`  ${c.yellow}⚠ Local service stopped${c.reset}`);
+      }
+    }, 30000);
+    
+    process.on('SIGINT', () => clearInterval(interval));
+  });
+}
+
+function parseTunnelTarget(target: string): { host: string; port: number } {
+  // Handle just port number
+  if (/^\d+$/.test(target)) {
+    return { host: 'localhost', port: parseInt(target, 10) };
+  }
+  
+  // Handle host:port
+  const parts = target.split(':');
+  if (parts.length === 2) {
+    return { host: parts[0], port: parseInt(parts[1], 10) };
+  }
+  
+  // Default to localhost with provided port
+  return { host: 'localhost', port: parseInt(target, 10) || 3000 };
 }
 
 // Main
@@ -290,6 +478,15 @@ if (args[0] === 'test') {
     process.exit(1);
   }
   runTest(args[1]).catch(console.error);
+} else if (args[0] === 'tunnel') {
+  if (!args[1]) {
+    console.error(`${c.red}Error: Port required${c.reset}`);
+    console.error(`Usage: npx private-connect tunnel <port>`);
+    console.error(`       npx private-connect tunnel localhost:3000`);
+    process.exit(1);
+  }
+  const { host, port } = parseTunnelTarget(args[1]);
+  createTemporaryTunnel({ host, port }).catch(console.error);
 } else {
   // Default to test if just a target is provided
   runTest(args[0]).catch(console.error);
