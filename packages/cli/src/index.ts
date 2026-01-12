@@ -290,11 +290,12 @@ ${c.bold}Examples:${c.reset}
   npx private-connect test https://api.example.com
   npx private-connect tunnel 3000
   npx private-connect tunnel localhost:8080
+  npx private-connect tunnel 4096 --tcp
 
 ${c.bold}Tunnel:${c.reset}
   • No signup required
   • Auto-expires in 2 hours
-  • Get a public URL instantly
+  • HTTP or raw TCP (--tcp flag)
 
 ${c.bold}Test:${c.reset}
   • TCP reachability
@@ -317,13 +318,15 @@ interface TunnelOptions {
   host: string;
   port: number;
   ttl?: number; // minutes, default 120
+  tcp?: boolean; // raw TCP mode instead of HTTP
 }
 
 async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
-  const { host, port, ttl = 120 } = options;
+  const { host, port, ttl = 120, tcp = false } = options;
+  const tunnelType = tcp ? 'tcp' : 'http';
   
   console.log();
-  console.log(`${c.bold}Private Connect${c.reset} - Temporary Tunnel`);
+  console.log(`${c.bold}Private Connect${c.reset} - Temporary ${tcp ? 'TCP ' : ''}Tunnel`);
   console.log(`${c.gray}────────────────────────────────────${c.reset}`);
   console.log();
   
@@ -342,10 +345,9 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
   
   // Generate a temporary tunnel ID
   const tunnelId = randomBytes(6).toString('hex');
-  const publicUrl = `https://${tunnelId}.${TUNNEL_DOMAIN}`;
   
   // Request tunnel from hub
-  process.stdout.write(`  Requesting tunnel... `);
+  process.stdout.write(`  Requesting ${tunnelType} tunnel... `);
   
   try {
     const response = await httpRequest(`${HUB_URL}/v1/tunnels/temporary`, {
@@ -356,6 +358,7 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
         localHost: host,
         localPort: port,
         ttlMinutes: ttl,
+        type: tunnelType,
       }),
     });
     
@@ -380,7 +383,16 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
     console.log(`${c.gray}────────────────────────────────────${c.reset}`);
     console.log();
     const data = JSON.parse(response.body) as { 
-      tunnel: { tunnelId: string; publicUrl: string; wsUrl: string; expiresAt: string; ttlMinutes: number } 
+      tunnel: { 
+        tunnelId: string; 
+        type: 'http' | 'tcp';
+        publicUrl: string; 
+        wsUrl: string; 
+        expiresAt: string; 
+        ttlMinutes: number;
+        tcpHost?: string;
+        tcpPort?: number;
+      } 
     };
     
     // For local dev, adjust the WS URL
@@ -394,6 +406,9 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
     console.log();
     console.log(`  ${c.bold}Local:${c.reset}   ${c.cyan}${host}:${port}${c.reset}`);
     console.log(`  ${c.bold}Public:${c.reset}  ${c.green}${data.tunnel.publicUrl}${c.reset}`);
+    if (data.tunnel.type === 'tcp' && data.tunnel.tcpHost && data.tunnel.tcpPort) {
+      console.log(`  ${c.bold}Connect:${c.reset} ${c.cyan}${data.tunnel.tcpHost}:${data.tunnel.tcpPort}${c.reset}`);
+    }
     console.log(`  ${c.bold}Expires:${c.reset} ${data.tunnel.ttlMinutes} minutes`);
     console.log();
     console.log(`${c.gray}────────────────────────────────────${c.reset}`);
@@ -402,7 +417,11 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
     console.log();
     
     // Keep connection alive and handle incoming requests
-    await runTunnelProxy(data.tunnel.tunnelId, wsUrl, host, port);
+    if (data.tunnel.type === 'tcp') {
+      await runTcpTunnelProxy(data.tunnel.tunnelId, wsUrl, host, port);
+    } else {
+      await runTunnelProxy(data.tunnel.tunnelId, wsUrl, host, port);
+    }
     
   } catch (err: any) {
     console.log(`${fail}`);
@@ -603,6 +622,129 @@ function forwardToLocal(
   });
 }
 
+/**
+ * Run TCP tunnel proxy - forward raw TCP connections
+ */
+async function runTcpTunnelProxy(tunnelId: string, wsUrl: string, localHost: string, localPort: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const url = new URL(wsUrl.replace('ws://', 'http://').replace('wss://', 'https://'));
+    const baseUrl = `${url.protocol}//${url.host}`;
+    const namespace = url.pathname || '/temp-tunnel';
+    
+    const socket = io(`${baseUrl}${namespace}`, {
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+    });
+
+    // Track active TCP connections
+    const tcpConnections = new Map<string, net.Socket>();
+    let connectionCount = 0;
+
+    socket.on('connect', () => {
+      socket.emit('register', { tunnelId }, (response: { success: boolean; error?: string }) => {
+        if (!response.success) {
+          console.log(`  ${c.red}Failed to register: ${response.error}${c.reset}`);
+          socket.disconnect();
+          resolve();
+        }
+      });
+    });
+
+    socket.on('disconnect', (reason) => {
+      // Close all TCP connections
+      for (const [, conn] of tcpConnections) {
+        conn.end();
+      }
+      tcpConnections.clear();
+      
+      if (reason === 'io server disconnect') {
+        console.log(`  ${c.yellow}Tunnel expired or closed by server${c.reset}`);
+      }
+    });
+
+    socket.on('tunnel_expired', () => {
+      console.log();
+      console.log(`  ${c.yellow}Tunnel expired${c.reset}`);
+      console.log();
+      socket.disconnect();
+      resolve();
+    });
+
+    // Handle TCP dial request from hub
+    socket.on('tcp_dial', (data: { connectionId: string; targetHost: string; targetPort: number }) => {
+      connectionCount++;
+      const timestamp = new Date().toLocaleTimeString();
+      console.log(`  ${c.gray}[${timestamp}]${c.reset} ${c.cyan}TCP${c.reset} connection ${data.connectionId.slice(0, 8)}`);
+
+      // Connect to local service
+      const localSocket = net.createConnection({
+        host: data.targetHost,
+        port: data.targetPort,
+      });
+
+      tcpConnections.set(data.connectionId, localSocket);
+
+      localSocket.on('connect', () => {
+        socket.emit('tcp_dial_success', { connectionId: data.connectionId });
+      });
+
+      localSocket.on('data', (chunk: Buffer) => {
+        socket.emit('tcp_data', {
+          connectionId: data.connectionId,
+          data: chunk.toString('base64'),
+        });
+      });
+
+      localSocket.on('close', () => {
+        socket.emit('tcp_close', { connectionId: data.connectionId });
+        tcpConnections.delete(data.connectionId);
+      });
+
+      localSocket.on('error', (err) => {
+        console.log(`  ${c.red}TCP error: ${err.message}${c.reset}`);
+        socket.emit('tcp_close', { connectionId: data.connectionId });
+        tcpConnections.delete(data.connectionId);
+      });
+    });
+
+    // Handle TCP data from hub (from remote client)
+    socket.on('tcp_data', (data: { connectionId: string; data: string }) => {
+      const localSocket = tcpConnections.get(data.connectionId);
+      if (localSocket) {
+        const buffer = Buffer.from(data.data, 'base64');
+        localSocket.write(buffer);
+      }
+    });
+
+    // Handle TCP close from hub
+    socket.on('tcp_close', (data: { connectionId: string }) => {
+      const localSocket = tcpConnections.get(data.connectionId);
+      if (localSocket) {
+        localSocket.end();
+        tcpConnections.delete(data.connectionId);
+      }
+    });
+
+    // Handle shutdown
+    process.on('SIGINT', () => {
+      console.log();
+      console.log(`  ${c.yellow}Tunnel closed${c.reset}`);
+      console.log(`  ${c.gray}Handled ${connectionCount} connections${c.reset}`);
+      console.log();
+      
+      // Close all connections
+      for (const [, conn] of tcpConnections) {
+        conn.end();
+      }
+      
+      socket.disconnect();
+      resolve();
+    });
+  });
+}
+
 function parseTunnelTarget(target: string): { host: string; port: number } {
   // Handle just port number
   if (/^\d+$/.test(target)) {
@@ -642,10 +784,12 @@ if (args[0] === 'test' || args[0] === 'check') {
     console.error(`${c.red}Error: Port required${c.reset}`);
     console.error(`Usage: npx private-connect tunnel <port>`);
     console.error(`       npx private-connect tunnel localhost:3000`);
+    console.error(`       npx private-connect tunnel 4096 --tcp`);
     process.exit(1);
   }
   const { host, port } = parseTunnelTarget(args[1]);
-  createTemporaryTunnel({ host, port }).catch(console.error);
+  const tcp = args.includes('--tcp') || args.includes('-t');
+  createTemporaryTunnel({ host, port, tcp }).catch(console.error);
 } else {
   // Default to test if just a target is provided
   runTest(args[0]).catch(console.error);

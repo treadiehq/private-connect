@@ -45,7 +45,7 @@ export class TemporaryTunnelGateway implements OnGatewayConnection, OnGatewayDis
    * CLI registers its tunnel connection
    */
   @SubscribeMessage('register')
-  handleRegister(
+  async handleRegister(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { tunnelId: string },
   ) {
@@ -54,6 +54,19 @@ export class TemporaryTunnelGateway implements OnGatewayConnection, OnGatewayDis
     if (success) {
       this.socketToTunnel.set(client.id, data.tunnelId);
       this.logger.log(`Tunnel registered: ${data.tunnelId}`);
+      
+      // Start TCP server if this is a TCP tunnel
+      const tunnel = this.tempTunnelService.getTunnel(data.tunnelId);
+      if (tunnel?.type === 'tcp') {
+        try {
+          await this.tempTunnelService.startTcpServer(data.tunnelId);
+          return { success: true, tcpServerStarted: true };
+        } catch (err: any) {
+          this.logger.error(`Failed to start TCP server: ${err.message}`);
+          return { success: true, tcpServerStarted: false, error: err.message };
+        }
+      }
+      
       return { success: true };
     }
     
@@ -98,5 +111,45 @@ export class TemporaryTunnelGateway implements OnGatewayConnection, OnGatewayDis
   @SubscribeMessage('heartbeat')
   handleHeartbeat(@ConnectedSocket() client: Socket) {
     return { success: true, timestamp: Date.now() };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // TCP Tunnel Events
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * CLI confirms TCP dial success
+   */
+  @SubscribeMessage('tcp_dial_success')
+  handleTcpDialSuccess(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { connectionId: string },
+  ) {
+    this.tempTunnelService.handleTcpDialSuccess(data.connectionId);
+    return { success: true };
+  }
+
+  /**
+   * CLI sends TCP data back (response from local service)
+   */
+  @SubscribeMessage('tcp_data')
+  handleTcpData(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { connectionId: string; data: string },
+  ) {
+    this.tempTunnelService.handleTcpData(data.connectionId, data.data);
+    return { success: true };
+  }
+
+  /**
+   * CLI signals TCP connection closed
+   */
+  @SubscribeMessage('tcp_close')
+  handleTcpClose(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { connectionId: string },
+  ) {
+    this.tempTunnelService.handleTcpClose(data.connectionId);
+    return { success: true };
   }
 }

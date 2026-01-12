@@ -10,6 +10,7 @@ interface CreateTunnelDto {
   localHost: string;
   localPort: number;
   ttlMinutes?: number;
+  type?: 'http' | 'tcp';
 }
 
 @Controller()
@@ -18,11 +19,13 @@ export class TemporaryTunnelController {
 
   /**
    * Create a temporary tunnel - no auth required
+   * Supports both HTTP and TCP tunnels
    */
   @Post('v1/tunnels/temporary')
   async createTunnel(@Body() body: CreateTunnelDto) {
     const tunnelId = body.tunnelId || randomBytes(6).toString('hex');
     const ttlMinutes = Math.min(body.ttlMinutes || 120, 120); // Max 2 hours
+    const tunnelType = body.type || 'http';
     
     // Validate
     if (!body.localHost || !body.localPort) {
@@ -38,6 +41,34 @@ export class TemporaryTunnelController {
       throw new HttpException('Tunnel ID already exists', HttpStatus.CONFLICT);
     }
     
+    if (tunnelType === 'tcp') {
+      // Create TCP tunnel with dynamic port
+      const tunnel = await this.tempTunnelService.createTcpTunnel(
+        tunnelId,
+        body.localHost,
+        body.localPort,
+        ttlMinutes,
+      );
+      
+      // Get the hub host for TCP connection
+      const hubHost = new URL(HUB_URL).hostname;
+      
+      return {
+        success: true,
+        tunnel: {
+          tunnelId: tunnel.tunnelId,
+          type: 'tcp',
+          tcpHost: hubHost,
+          tcpPort: tunnel.tcpPort,
+          publicUrl: `tcp://${hubHost}:${tunnel.tcpPort}`,
+          wsUrl: `${HUB_URL.replace('http', 'ws')}/temp-tunnel`,
+          expiresAt: tunnel.expiresAt.toISOString(),
+          ttlMinutes,
+        },
+      };
+    }
+    
+    // Create HTTP tunnel
     const tunnel = this.tempTunnelService.createTunnel(
       tunnelId,
       body.localHost,
@@ -49,6 +80,7 @@ export class TemporaryTunnelController {
       success: true,
       tunnel: {
         tunnelId: tunnel.tunnelId,
+        type: 'http',
         publicUrl: `${HUB_URL}/t/${tunnel.tunnelId}`,
         wsUrl: `${HUB_URL.replace('http', 'ws')}/temp-tunnel`,
         expiresAt: tunnel.expiresAt.toISOString(),
