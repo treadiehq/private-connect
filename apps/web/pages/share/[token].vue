@@ -202,7 +202,7 @@
               <iframe 
                 :srcdoc="httpResponse.body" 
                 class="w-full h-96 bg-white rounded-lg"
-                sandbox="allow-same-origin"
+                sandbox=""
               ></iframe>
             </div>
             <pre v-else class="p-4 text-sm text-gray-300 font-mono overflow-x-auto">{{ httpResponse.body }}</pre>

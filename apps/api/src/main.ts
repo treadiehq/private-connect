@@ -66,6 +66,24 @@ async function bootstrap() {
   // Cookie parser for session handling
   app.use(cookieParser());
   
+  // Security headers including CSP to prevent XSS attacks
+  app.use((req: any, res: any, next: any) => {
+    // Content Security Policy - strict policy for API responses
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'none'; frame-ancestors 'none'; form-action 'none'"
+    );
+    // Prevent MIME type sniffing
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    // Prevent clickjacking
+    res.setHeader('X-Frame-Options', 'DENY');
+    // Enable XSS filter in older browsers
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    // Control referrer information
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+  });
+  
   // Enable CORS for web UI
   const allowedOrigins = [
     'http://localhost:3000',
