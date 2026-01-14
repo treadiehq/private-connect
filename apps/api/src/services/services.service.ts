@@ -331,4 +331,31 @@ export class ServicesService {
       },
     });
   }
+
+  async delete(serviceId: string, workspaceId: string) {
+    // Verify service belongs to workspace
+    const service = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+    });
+
+    if (!service) {
+      throw new HttpException('Service not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (service.workspaceId !== workspaceId) {
+      throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
+    }
+
+    // Release tunnel port if allocated
+    if (service.tunnelPort) {
+      this.releasePort(service.tunnelPort);
+    }
+
+    // Delete service (cascade will handle diagnostics, sessions, shares)
+    await this.prisma.service.delete({
+      where: { id: serviceId },
+    });
+
+    return { success: true };
+  }
 }

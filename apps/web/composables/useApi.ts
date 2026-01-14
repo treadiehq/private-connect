@@ -200,6 +200,29 @@ export function useApi() {
     return response.json();
   };
 
+  const deleteService = async (serviceId: string) => {
+    const response = await fetch(`${baseUrl}/v1/services/${serviceId}`, {
+      method: 'DELETE',
+      headers: headers(),
+    });
+    if (!response.ok) throw new Error('Failed to delete service');
+    return response.json();
+  };
+
+  const checkMcpStatus = async (): Promise<boolean> => {
+    try {
+      const response = await fetch(`${baseUrl}/v1/agents/by-capability/mcp-server`, {
+        headers: headers(),
+      });
+      if (!response.ok) return false;
+      const data = await response.json();
+      // Check if any agents with mcp-server capability are online
+      return data.agents && data.agents.some((agent: Agent) => agent.isOnline);
+    } catch {
+      return false;
+    }
+  };
+
   return {
     getApiKey,
     setApiKey,
@@ -221,5 +244,9 @@ export function useApi() {
     fetchServiceShares,
     revokeShare,
     fetchShareAccessLogs,
+    // Service management
+    deleteService,
+    // MCP status
+    checkMcpStatus,
   };
 }

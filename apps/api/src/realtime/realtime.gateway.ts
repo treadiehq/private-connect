@@ -86,6 +86,18 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   }
 
   /**
+   * Broadcast service deletion to clients in the specified workspace only
+   */
+  broadcastServiceDelete(serviceId: string, workspaceId: string) {
+    if (!workspaceId) {
+      this.logger.warn('broadcastServiceDelete called without workspaceId');
+      return;
+    }
+    const room = `workspace:${workspaceId}`;
+    this.server?.to(room).emit('service:delete', { serviceId });
+  }
+
+  /**
    * Broadcast diagnostic result to clients in the specified workspace only
    */
   broadcastDiagnosticResult(diagnostic: any, workspaceId: string) {

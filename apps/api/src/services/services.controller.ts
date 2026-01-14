@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, Query, Headers, HttpException, HttpStatus, Inject, forwardRef, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Query, Headers, HttpException, HttpStatus, Inject, forwardRef, UseGuards, Req, Delete } from '@nestjs/common';
 import { ServicesService } from './services.service';
 import { DiagnosticsService } from './diagnostics.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
@@ -354,5 +354,21 @@ export class ServicesController {
       await this.sessionsService.endSession(session.id, 'failure');
       throw error;
     }
+  }
+
+  @Delete(':id')
+  @UseGuards(ApiKeyGuard)
+  async delete(
+    @Param('id') id: string,
+    @Req() req: any,
+  ) {
+    const workspace = req.workspace;
+    
+    await this.servicesService.delete(id, workspace.id);
+    
+    // Notify UI that service was deleted
+    this.realtimeGateway.broadcastServiceDelete(id, workspace.id);
+    
+    return { success: true };
   }
 }
