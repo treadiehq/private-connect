@@ -175,7 +175,7 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
         
         // Auto-run diagnostics to verify the tunnel works
         console.log(chalk.gray('\n   Running initial diagnostics...'));
-        await runInitialDiagnostics(service.id, options.name, config.hubUrl);
+        await runInitialDiagnostics(service.id, options.name, config.hubUrl, config.apiKey);
         
         console.log(chalk.gray('\n   Press Ctrl+C to stop exposing\n'));
       } else {
@@ -319,13 +319,16 @@ async function registerService(
   }
 }
 
-async function runInitialDiagnostics(serviceId: string, serviceName: string, hubUrl: string) {
+async function runInitialDiagnostics(serviceId: string, serviceName: string, hubUrl: string, apiKey: string) {
   try {
     // Small delay to ensure tunnel is fully ready
     await new Promise(resolve => setTimeout(resolve, 500));
     
     const response = await fetch(`${hubUrl}/v1/services/${serviceId}/check`, {
       method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+      },
     });
     
     if (!response.ok) {

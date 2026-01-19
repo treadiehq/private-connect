@@ -129,10 +129,10 @@
             @click.self="showSubdomainModal = false"
           >
             <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
-            <div class="relative bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+            <div class="relative bg-black border border-gray-500/20 rounded-2xl w-full max-w-md p-6 shadow-2xl">
               <h3 class="text-lg font-semibold text-white mb-2">Custom Public URL</h3>
               <p class="text-sm text-gray-400 mb-4">
-                Set a vanity subdomain for this service. Anyone with the URL can access it.
+                Set a custom subdomain for this service. Anyone with the URL can access it.
               </p>
               
               <!-- Subdomain input -->
