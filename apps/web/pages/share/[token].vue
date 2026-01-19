@@ -61,7 +61,7 @@
             Expires {{ formatExpiry(shareInfo.expiresAt) }}
           </span>
           <span class="text-xs text-gray-600">No installation required</span>
-          <a href="/" class="text-xs text-blue-300 hover:text-blue-200 transition-colors hidden sm:block">
+          <a href="/" class="text-xs text-blue-300 hover:text-blue-400 transition-colors hidden sm:block">
             Powered by Private Connect
           </a>
         </div>
@@ -104,7 +104,7 @@
             Expires {{ formatExpiry(shareInfo.expiresAt) }}
           </span>
           <span class="text-xs text-gray-600">Web Terminal Preview</span>
-          <a href="/" class="text-xs text-blue-300 hover:text-blue-200 transition-colors hidden sm:block">
+          <a href="/" class="text-xs text-blue-300 hover:text-blue-400 transition-colors hidden sm:block">
             Powered by Private Connect
           </a>
         </div>
@@ -151,7 +151,7 @@
             </svg>
             <span>Open in new tab</span>
           </button>
-          <a href="/" class="text-xs text-blue-300 hover:text-blue-200 transition-colors hidden sm:block">
+          <a href="/" class="text-xs text-blue-300 hover:text-blue-400 transition-colors hidden sm:block">
             Powered by Private Connect
           </a>
         </div>
@@ -195,7 +195,7 @@
           <div class="flex items-center gap-3 mb-4">
             <span 
               class="text-xs font-medium px-2.5 py-1 rounded-full border"
-              :class="httpResponse.status < 400 ? 'bg-emerald-300/10 text-emerald-300 border-emerald-300/20' : 'bg-red-400/10 text-red-400 border-red-400/20'"
+              :class="httpResponse.status < 400 ? 'bg-emerald-300/10 text-emerald-300 border-emerald-300/10' : 'bg-red-400/10 text-red-400 border-red-400/10'"
             >
               {{ httpResponse.status }} {{ httpResponse.statusText }}
             </span>
@@ -249,8 +249,8 @@
         <div class="max-w-lg w-full">
           <div class="bg-gray-500/5 rounded-xl border border-gray-500/10 p-8 text-center">
             <!-- Shared By Badge -->
-            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-300/10 border border-emerald-300/20 mb-6">
-              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-300/10 border border-emerald-300/10 mb-6">
+              <span class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
               <span class="text-xs text-emerald-300">Shared by {{ shareInfo.workspaceName }}</span>
             </div>
             

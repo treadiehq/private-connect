@@ -543,42 +543,8 @@
       </div>
 
       <div class="grid md:grid-cols-3 gap-6">
-        <!-- Left: Agent Connectivity -->
-        <div class="bg-gray-500/10 border border-gray-500/10 rounded-xl p-6">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 rounded-lg bg-emerald-300/10 flex items-center justify-center">
-              <svg class="w-5 h-5 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-              </svg>
-            </div>
-            <div>
-              <h3 class="font-semibold text-white">MCP Integration</h3>
-              <p class="text-gray-500 text-sm">For Cursor, Claude Desktop</p>
-            </div>
-          </div>
-          
-          <div class="bg-black/40 rounded-lg p-4 mb-4">
-            <div class="font-mono text-xs space-y-1">
-              <div><span class="text-gray-500">$</span> <span class="text-gray-200">connect mcp setup</span></div>
-              <div class="text-emerald-300">✓ Added to Cursor config</div>
-              <div class="text-gray-500 mt-1"># AI can now access services</div>
-            </div>
-          </div>
-          
-          <div class="space-y-2 text-sm">
-            <div class="flex items-center gap-2">
-              <span class="text-emerald-300">✓</span>
-              <span class="text-gray-400">list_services, reach_service</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-emerald-300">✓</span>
-              <span class="text-gray-400">Tunnel from sandboxed agents</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Middle: Permission Broker (NEW) -->
-        <div class="bg-gray-500/10 border border-gray-500/10 rounded-xl p-6 ring-1 ring-amber-300/20">
+        <!-- Left: Permission Broker -->
+        <div class="bg-gray-500/10 border border-gray-500/10 rounded-xl p-6 ring-1">
           <div class="flex items-center gap-3 mb-4">
             <div class="w-10 h-10 rounded-lg bg-amber-300/10 flex items-center justify-center">
               <svg class="w-5 h-5 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -615,7 +581,7 @@
           </div>
         </div>
 
-        <!-- Right: Audit & SDK -->
+        <!-- Middle: Audit Trail -->
         <div class="bg-gray-500/10 border border-gray-500/10 rounded-xl p-6">
           <div class="flex items-center gap-3 mb-4">
             <div class="w-10 h-10 rounded-lg bg-blue-300/10 flex items-center justify-center">
@@ -624,7 +590,7 @@
               </svg>
             </div>
             <div>
-              <h3 class="font-semibold text-white">Audit Everything</h3>
+              <h3 class="font-semibold text-white">Audit Trail</h3>
               <p class="text-gray-500 text-sm">See what AI actually did</p>
             </div>
           </div>
@@ -649,6 +615,41 @@
             </div>
           </div>
         </div>
+
+        <!-- Right: Agent Orchestration -->
+        <div class="bg-gray-500/10 border border-gray-500/10 rounded-xl p-6">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-purple-300/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-white">Agent Orchestration</h3>
+              <p class="text-gray-500 text-sm">Agents talk to agents</p>
+            </div>
+          </div>
+          
+          <div class="bg-black/40 rounded-lg p-4 mb-4">
+            <div class="font-mono text-xs space-y-1 text-gray-300">
+              <div><span class="text-purple-300">await</span> pc.agents.<span class="text-blue-300">list</span>();</div>
+              <div><span class="text-purple-300">await</span> pc.agents.<span class="text-blue-300">sendMessage</span>(</div>
+              <div class="pl-2">targetId, { action: <span class="text-amber-300">'deploy'</span> }</div>
+              <div>);</div>
+            </div>
+          </div>
+          
+          <div class="space-y-2 text-sm">
+            <div class="flex items-center gap-2">
+              <span class="text-purple-300">✓</span>
+              <span class="text-gray-400">Agents discover each other</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-purple-300">✓</span>
+              <span class="text-gray-400">Inter-agent messaging</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Link to full docs -->
@@ -656,8 +657,8 @@
         <a href="https://github.com/treadiehq/private-connect/blob/main/docs/broker.md" target="_blank" class="text-sm text-gray-500 hover:text-white transition-colors">
           Permission Broker docs →
         </a>
-        <a href="https://github.com/treadiehq/private-connect/blob/main/docs/mcp.md" target="_blank" class="text-sm text-gray-500 hover:text-white transition-colors">
-          MCP integration →
+        <a href="https://github.com/treadiehq/private-connect/blob/main/docs/AI.md" target="_blank" class="text-sm text-gray-500 hover:text-white transition-colors">
+          AI orchestration docs →
         </a>
       </div>
     </section>
