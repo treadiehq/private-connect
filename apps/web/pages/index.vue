@@ -12,7 +12,7 @@
           <span>No VPN. No firewall rules. No waiting.</span>
         </div>
         
-        <h1 class="mx-auto w-full text-balance text-center font-semibold tracking-tight text-white text-3xl !leading-[1.2] sm:text-4xl md:text-5xl lg:text-6xl">
+        <h1 class="mx-auto w-full text-balance text-center font-semibold tracking-tight text-white text-3xl leading-[1.2]! sm:text-4xl md:text-5xl lg:text-6xl">
           Access private services <br/>
           <span class="text-blue-300">without the complexity</span>
         </h1>

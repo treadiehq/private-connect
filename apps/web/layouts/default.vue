@@ -7,7 +7,7 @@
     <!-- <div class="fixed inset-0 bg-gradient-to-br from-blue-950/20 via-black to-purple-950/10 pointer-events-none"></div> -->
     
     <!-- Header -->
-    <header class="border-b border-white/[0.05] bg-black/80 backdrop-blur-xl sticky top-0 z-50">
+    <header class="border-b border-gray-500/10 bg-black/80 backdrop-blur-xl sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-6 py-2.5">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-4">
@@ -34,7 +34,7 @@
                 :to="item.path" 
                 :class="[
                   'relative px-3 py-1 text-xs text-center border border-transparent rounded-full font-medium transition-colors duration-200',
-                  isActive(item.path) ? 'text-white bg-gray-500/20 !border-gray-500/10' : 'text-gray-400 hover:text-white hover:bg-gray-500/15 border-transparent'
+                  isActive(item.path) ? 'text-white bg-gray-500/20 border-gray-500/10!' : 'text-gray-400 hover:text-white hover:bg-gray-500/15 border-transparent'
                 ]"
                 @mouseenter="handlePrefetch(item.path)"
               >
@@ -106,7 +106,7 @@ const isActive = (path: string) => {
 };
 
 const activeIndex = computed(() => {
-  const idx = navItems.findIndex(item => isActive(item.path));
+  const idx = navItems.value.findIndex(item => isActive(item.path));
   return idx >= 0 ? idx : 0;
 });
 

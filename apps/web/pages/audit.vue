@@ -193,7 +193,7 @@
             <!-- Event Type Icon -->
             <div
               :class="getEventIconClass(event.type)"
-              class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"
+              class="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"
             >
               <component :is="getEventIcon(event.type)" class="w-5 h-5" />
             </div>
@@ -236,7 +236,7 @@
             </div>
 
             <!-- Timestamp -->
-            <div class="flex-shrink-0 text-right">
+            <div class="shrink-0 text-right">
               <div class="text-sm text-gray-400">{{ formatTime(event.timestamp) }}</div>
               <div class="text-xs text-gray-500">{{ formatDate(event.timestamp) }}</div>
             </div>
