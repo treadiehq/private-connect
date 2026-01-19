@@ -544,7 +544,7 @@
 
       <div class="grid md:grid-cols-3 gap-6">
         <!-- Left: Permission Broker -->
-        <div class="bg-gray-500/10 border border-gray-500/10 rounded-xl p-6 ring-1">
+        <div class="bg-gray-500/10 border border-gray-500/10 rounded-xl p-6">
           <div class="flex items-center gap-3 mb-4">
             <div class="w-10 h-10 rounded-lg bg-amber-300/10 flex items-center justify-center">
               <svg class="w-5 h-5 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -559,7 +559,7 @@
           
           <div class="bg-black/40 rounded-lg p-4 mb-4">
             <div class="font-mono text-xs space-y-1">
-              <div><span class="text-gray-500">$</span> <span class="text-gray-200">connect broker aider</span></div>
+              <div><span class="text-gray-500">$</span> <span class="text-gray-200">connect broker opencode</span></div>
               <div><span class="text-gray-500">$</span> <span class="text-gray-200">connect broker claude</span></div>
               <div class="text-amber-300 mt-1">⚡ Policy enforced</div>
             </div>
