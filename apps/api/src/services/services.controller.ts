@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, Query, Headers, HttpException, HttpStatus, Inject, forwardRef, UseGuards, Req, Delete } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Query, Headers, HttpException, HttpStatus, Inject, forwardRef, UseGuards, Req, Delete, Patch } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiSecurity, ApiQuery } from '@nestjs/swagger';
 import { ServicesService } from './services.service';
 import { DiagnosticsService } from './diagnostics.service';
@@ -420,6 +420,97 @@ export class ServicesController {
       await this.sessionsService.endSession(session.id, 'failure');
       throw error;
     }
+  }
+
+  @Patch(':id/subdomain')
+  @UseGuards(ApiKeyGuard)
+  @ApiSecurity('api-key')
+  @ApiOperation({ summary: 'Set custom subdomain', description: 'Sets a custom vanity subdomain for public access. Set to null to clear.' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        subdomain: { 
+          type: 'string', 
+          nullable: true,
+          example: 'my-staging-api',
+          description: 'Custom subdomain (3-32 chars, lowercase alphanumeric and hyphens). Set to null to clear.',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Subdomain updated' })
+  @ApiResponse({ status: 400, description: 'Invalid subdomain or already taken' })
+  @ApiResponse({ status: 404, description: 'Service not found' })
+  async setSubdomain(
+    @Param('id') id: string,
+    @Body() body: { subdomain?: string | null },
+    @Req() req: any,
+  ) {
+    const workspace = req.workspace;
+    const subdomain = body.subdomain?.toLowerCase().trim() || null;
+    
+    const result = await this.servicesService.setCustomSubdomain(id, workspace.id, subdomain);
+    
+    if (!result.success) {
+      if (result.error === 'Service not found') {
+        throw new HttpException(result.error, HttpStatus.NOT_FOUND);
+      }
+      if (result.error === 'Forbidden') {
+        throw new HttpException(result.error, HttpStatus.FORBIDDEN);
+      }
+      throw new HttpException(result.error || 'Invalid subdomain', HttpStatus.BAD_REQUEST);
+    }
+    
+    // Notify UI
+    this.realtimeGateway.broadcastServiceUpdate(result.service);
+    
+    return { 
+      success: true, 
+      service: {
+        id: result.service.id,
+        publicSubdomain: result.service.publicSubdomain,
+        isPublic: result.service.isPublic,
+        publicUrl: result.service.publicSubdomain 
+          ? this.servicesService.getPublicUrl(result.service.publicSubdomain)
+          : null,
+      },
+    };
+  }
+
+  @Get(':id/subdomain/check')
+  @UseGuards(ApiKeyGuard)
+  @ApiSecurity('api-key')
+  @ApiOperation({ summary: 'Check subdomain availability', description: 'Checks if a subdomain is available and valid.' })
+  @ApiQuery({ name: 'subdomain', required: true, description: 'Subdomain to check' })
+  @ApiResponse({ status: 200, description: 'Availability check result' })
+  async checkSubdomain(
+    @Param('id') id: string,
+    @Query('subdomain') subdomain: string,
+    @Req() req: any,
+  ) {
+    const workspace = req.workspace;
+    const normalizedSubdomain = subdomain?.toLowerCase().trim();
+    
+    if (!normalizedSubdomain) {
+      return { available: false, valid: false, error: 'Subdomain is required' };
+    }
+    
+    // Validate format
+    const validation = this.servicesService.validateSubdomain(normalizedSubdomain);
+    if (!validation.valid) {
+      return { available: false, valid: false, error: validation.error };
+    }
+    
+    // Check availability
+    const available = await this.servicesService.isSubdomainAvailable(normalizedSubdomain, id);
+    
+    return { 
+      available, 
+      valid: true,
+      subdomain: normalizedSubdomain,
+      publicUrl: available ? this.servicesService.getPublicUrl(normalizedSubdomain) : null,
+    };
   }
 
   @Delete(':id')

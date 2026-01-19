@@ -120,6 +120,87 @@
         @created="handleShareCreated"
       />
 
+      <!-- Custom Subdomain Modal -->
+      <Teleport to="body">
+        <Transition name="modal">
+          <div 
+            v-if="showSubdomainModal" 
+            class="fixed inset-0 z-50 flex items-center justify-center p-4"
+            @click.self="showSubdomainModal = false"
+          >
+            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+            <div class="relative bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+              <h3 class="text-lg font-semibold text-white mb-2">Custom Public URL</h3>
+              <p class="text-sm text-gray-400 mb-4">
+                Set a vanity subdomain for this service. Anyone with the URL can access it.
+              </p>
+              
+              <!-- Subdomain input -->
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-300 mb-2">Subdomain</label>
+                <div class="flex items-center gap-2">
+                  <span class="text-gray-500 text-sm">privateconnect.co/w/</span>
+                  <input
+                    v-model="subdomainInput"
+                    type="text"
+                    placeholder="my-staging-api"
+                    class="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    :class="{ 
+                      'border-red-500': subdomainError,
+                      'border-green-500': subdomainAvailable && subdomainInput
+                    }"
+                    @input="checkSubdomainDebounced"
+                  />
+                </div>
+                
+                <!-- Status message -->
+                <div class="mt-2 text-sm">
+                  <span v-if="checkingSubdomain" class="text-gray-400">Checking availability...</span>
+                  <span v-else-if="subdomainError" class="text-red-400">{{ subdomainError }}</span>
+                  <span v-else-if="subdomainAvailable && subdomainInput" class="text-green-400">✓ Available</span>
+                  <span v-else-if="!subdomainInput" class="text-gray-500">3-32 chars, lowercase, hyphens allowed</span>
+                </div>
+              </div>
+              
+              <!-- Preview -->
+              <div v-if="subdomainInput && subdomainAvailable" class="mb-4 p-3 bg-gray-800 rounded-lg">
+                <div class="text-xs text-gray-500 mb-1">Public URL</div>
+                <div class="text-sm text-cyan-300 font-mono">https://privateconnect.co/w/{{ subdomainInput }}</div>
+              </div>
+              
+              <!-- Actions -->
+              <div class="flex items-center justify-between">
+                <button
+                  v-if="service.publicSubdomain"
+                  @click="clearSubdomain"
+                  :disabled="savingSubdomain"
+                  class="text-sm text-red-400 hover:text-red-300 disabled:opacity-50"
+                >
+                  Remove public URL
+                </button>
+                <span v-else></span>
+                
+                <div class="flex gap-3">
+                  <button
+                    @click="showSubdomainModal = false"
+                    class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    @click="saveSubdomain"
+                    :disabled="!subdomainInput || !subdomainAvailable || savingSubdomain"
+                    class="px-4 py-2 text-sm bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+                  >
+                    {{ savingSubdomain ? 'Saving...' : 'Save' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
+
       <!-- Connection Flow Visualization -->
       <ConnectionFlow
         :agent-label="service.agent?.label || 'Agent'"
@@ -170,18 +251,24 @@
                 {{ service.isExternal ? 'Direct' : 'Tunnel' }}
               </span>
             </div>
-            <div v-if="service.isPublic && service.publicSubdomain" class="flex items-center px-5 py-3">
+            <!-- Public URL row -->
+            <div class="flex items-center px-5 py-3">
               <span class="flex-1 text-sm text-gray-400">Public URL</span>
-              <a 
-                :href="`https://privateconnect.co/w/${service.publicSubdomain}`" 
-                target="_blank"
-                class="text-sm text-cyan-300 hover:text-cyan-200 text-right font-mono truncate transition-colors flex items-center gap-1"
+              <button
+                @click="showSubdomainModal = true"
+                class="text-sm text-right font-mono truncate transition-colors flex items-center gap-2"
+                :class="service.publicSubdomain ? 'text-cyan-300 hover:text-cyan-200' : 'text-gray-500 hover:text-gray-400'"
               >
-                privateconnect.co/w/{{ service.publicSubdomain }}
+                <template v-if="service.publicSubdomain">
+                  privateconnect.co/w/{{ service.publicSubdomain }}
+                </template>
+                <template v-else>
+                  Set custom URL
+                </template>
                 <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                 </svg>
-              </a>
+              </button>
             </div>
             <div v-if="service.agentId" class="flex items-center px-5 py-3">
               <span class="flex-1 text-sm text-gray-400">Agent</span>
@@ -388,6 +475,15 @@ const checking = ref(false);
 const showAgentDropdown = ref(false);
 const showShareModal = ref(false);
 
+// Subdomain modal state
+const showSubdomainModal = ref(false);
+const subdomainInput = ref('');
+const subdomainError = ref('');
+const subdomainAvailable = ref(false);
+const checkingSubdomain = ref(false);
+const savingSubdomain = ref(false);
+let checkDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
 // Dynamic page title
 const pageTitle = computed(() => 
   service.value ? `${service.value.name} - Private Connect` : 'Service - Private Connect'
@@ -512,6 +608,98 @@ const handleReachCheck = async (agentId: string) => {
     checking.value = false;
   }
 };
+
+// Subdomain functions
+watch(showSubdomainModal, (open) => {
+  if (open) {
+    // Pre-fill with existing subdomain
+    subdomainInput.value = service.value?.publicSubdomain || '';
+    subdomainError.value = '';
+    subdomainAvailable.value = !!service.value?.publicSubdomain;
+  }
+});
+
+const checkSubdomainDebounced = () => {
+  if (checkDebounceTimer) clearTimeout(checkDebounceTimer);
+  subdomainError.value = '';
+  subdomainAvailable.value = false;
+  
+  const value = subdomainInput.value.toLowerCase().trim();
+  if (!value) return;
+  
+  checkingSubdomain.value = true;
+  checkDebounceTimer = setTimeout(async () => {
+    try {
+      const { $api } = useNuxtApp();
+      const response = await $api(`/v1/services/${route.params.id}/subdomain/check?subdomain=${encodeURIComponent(value)}`);
+      
+      if (!response.valid) {
+        subdomainError.value = response.error || 'Invalid subdomain';
+        subdomainAvailable.value = false;
+      } else if (!response.available) {
+        subdomainError.value = 'This subdomain is already taken';
+        subdomainAvailable.value = false;
+      } else {
+        subdomainAvailable.value = true;
+      }
+    } catch (err) {
+      subdomainError.value = 'Failed to check availability';
+    } finally {
+      checkingSubdomain.value = false;
+    }
+  }, 300);
+};
+
+const saveSubdomain = async () => {
+  if (!subdomainInput.value || !subdomainAvailable.value) return;
+  
+  savingSubdomain.value = true;
+  try {
+    const { $api } = useNuxtApp();
+    const response = await $api(`/v1/services/${route.params.id}/subdomain`, {
+      method: 'PATCH',
+      body: { subdomain: subdomainInput.value.toLowerCase().trim() },
+    });
+    
+    if (response.success && response.service) {
+      // Update local service
+      if (service.value) {
+        service.value.publicSubdomain = response.service.publicSubdomain;
+        service.value.isPublic = response.service.isPublic;
+      }
+      success('Custom URL saved!');
+      showSubdomainModal.value = false;
+    }
+  } catch (err: any) {
+    showError(err?.data?.message || 'Failed to save subdomain');
+  } finally {
+    savingSubdomain.value = false;
+  }
+};
+
+const clearSubdomain = async () => {
+  savingSubdomain.value = true;
+  try {
+    const { $api } = useNuxtApp();
+    const response = await $api(`/v1/services/${route.params.id}/subdomain`, {
+      method: 'PATCH',
+      body: { subdomain: null },
+    });
+    
+    if (response.success) {
+      if (service.value) {
+        service.value.publicSubdomain = null;
+        service.value.isPublic = false;
+      }
+      success('Public URL removed');
+      showSubdomainModal.value = false;
+    }
+  } catch (err: any) {
+    showError(err?.data?.message || 'Failed to remove subdomain');
+  } finally {
+    savingSubdomain.value = false;
+  }
+};
 </script>
 
 <style scoped>
@@ -543,5 +731,26 @@ const handleReachCheck = async (agentId: string) => {
     opacity: 0;
     transform: translateY(-8px) scale(0.95);
   }
+}
+
+/* Modal transitions */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-active > div:last-child,
+.modal-leave-active > div:last-child {
+  transition: transform 0.2s ease;
+}
+
+.modal-enter-from > div:last-child,
+.modal-leave-to > div:last-child {
+  transform: scale(0.95);
 }
 </style>

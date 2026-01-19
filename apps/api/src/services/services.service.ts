@@ -59,6 +59,112 @@ export class ServicesService {
     return `${PUBLIC_URL_BASE}/w/${subdomain}`;
   }
 
+  // Reserved subdomains that can't be used
+  private readonly RESERVED_SUBDOMAINS = new Set([
+    'www', 'api', 'app', 'admin', 'dashboard', 'hub', 'docs', 'blog',
+    'help', 'support', 'status', 'mail', 'ftp', 'ssh', 'git', 'cdn',
+    'static', 'assets', 'media', 'images', 'files', 'download', 'upload',
+    'auth', 'login', 'logout', 'signup', 'register', 'account', 'settings',
+    'billing', 'pricing', 'about', 'contact', 'terms', 'privacy', 'legal',
+  ]);
+
+  validateSubdomain(subdomain: string): { valid: boolean; error?: string } {
+    // Length check: 3-32 characters
+    if (subdomain.length < 3) {
+      return { valid: false, error: 'Subdomain must be at least 3 characters' };
+    }
+    if (subdomain.length > 32) {
+      return { valid: false, error: 'Subdomain must be 32 characters or less' };
+    }
+
+    // Only lowercase alphanumeric and hyphens
+    if (!/^[a-z0-9-]+$/.test(subdomain)) {
+      return { valid: false, error: 'Subdomain can only contain lowercase letters, numbers, and hyphens' };
+    }
+
+    // Can't start or end with hyphen
+    if (subdomain.startsWith('-') || subdomain.endsWith('-')) {
+      return { valid: false, error: 'Subdomain cannot start or end with a hyphen' };
+    }
+
+    // No consecutive hyphens
+    if (subdomain.includes('--')) {
+      return { valid: false, error: 'Subdomain cannot contain consecutive hyphens' };
+    }
+
+    // Check reserved
+    if (this.RESERVED_SUBDOMAINS.has(subdomain)) {
+      return { valid: false, error: 'This subdomain is reserved' };
+    }
+
+    return { valid: true };
+  }
+
+  async isSubdomainAvailable(subdomain: string, excludeServiceId?: string): Promise<boolean> {
+    const existing = await this.prisma.service.findUnique({
+      where: { publicSubdomain: subdomain },
+    });
+    
+    // Available if no existing, or if it's the same service
+    return !existing || existing.id === excludeServiceId;
+  }
+
+  async setCustomSubdomain(
+    serviceId: string,
+    workspaceId: string,
+    subdomain: string | null,
+  ): Promise<{ success: boolean; error?: string; service?: any }> {
+    // Verify service belongs to workspace
+    const service = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+    });
+
+    if (!service) {
+      return { success: false, error: 'Service not found' };
+    }
+
+    if (service.workspaceId !== workspaceId) {
+      return { success: false, error: 'Forbidden' };
+    }
+
+    // If clearing subdomain
+    if (!subdomain) {
+      const updated = await this.prisma.service.update({
+        where: { id: serviceId },
+        data: { 
+          publicSubdomain: null,
+          isPublic: false,
+        },
+        include: { agent: true },
+      });
+      return { success: true, service: updated };
+    }
+
+    // Validate subdomain
+    const validation = this.validateSubdomain(subdomain);
+    if (!validation.valid) {
+      return { success: false, error: validation.error };
+    }
+
+    // Check availability
+    const available = await this.isSubdomainAvailable(subdomain, serviceId);
+    if (!available) {
+      return { success: false, error: 'This subdomain is already taken' };
+    }
+
+    // Update service
+    const updated = await this.prisma.service.update({
+      where: { id: serviceId },
+      data: {
+        publicSubdomain: subdomain,
+        isPublic: true,
+      },
+      include: { agent: true },
+    });
+
+    return { success: true, service: updated };
+  }
+
   async findBySubdomain(subdomain: string) {
     return this.prisma.service.findUnique({
       where: { publicSubdomain: subdomain },
