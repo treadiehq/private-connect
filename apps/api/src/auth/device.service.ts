@@ -151,12 +151,13 @@ export class DeviceService {
     const apiKey = `pc_${randomBytes(24).toString('hex')}`;
     const keyPrefix = apiKey.substring(0, 11);
     const keyName = targetDevice.agentName || targetDevice.label || 'CLI Agent';
+    const uniqueSuffix = randomBytes(3).toString('hex'); // Ensure unique name
 
     // Create API key record
     await this.prisma.apiKey.create({
       data: {
         workspaceId,
-        name: `${keyName} (device auth)`,
+        name: `${keyName} (${uniqueSuffix})`,
         key: apiKey,
         keyPrefix,
       },
