@@ -1,6 +1,6 @@
 # Private Connect
 
-The fastest way to securely expose and access private services.
+Access private services anywhere. No VPN. No installs.
 
 ## Quick Start
 
