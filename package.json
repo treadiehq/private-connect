@@ -1,6 +1,6 @@
 {
   "name": "private-connect",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "Private Connect - Secure tunneling for internal services",
   "packageManager": "pnpm@9.15.1",

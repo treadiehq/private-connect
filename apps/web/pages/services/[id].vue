@@ -144,10 +144,10 @@
                     v-model="subdomainInput"
                     type="text"
                     placeholder="my-staging-api"
-                    class="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    class="flex-1 bg-gray-500/10 border border-gray-500/10 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent"
                     :class="{ 
-                      'border-red-500': subdomainError,
-                      'border-green-500': subdomainAvailable && subdomainInput
+                      'border-red-400': subdomainError,
+                      'border-green-300': subdomainAvailable && subdomainInput
                     }"
                     @input="checkSubdomainDebounced"
                   />
@@ -157,13 +157,13 @@
                 <div class="mt-2 text-sm">
                   <span v-if="checkingSubdomain" class="text-gray-400">Checking availability...</span>
                   <span v-else-if="subdomainError" class="text-red-400">{{ subdomainError }}</span>
-                  <span v-else-if="subdomainAvailable && subdomainInput" class="text-green-400">✓ Available</span>
+                  <span v-else-if="subdomainAvailable && subdomainInput" class="text-green-300">✓ Available</span>
                   <span v-else-if="!subdomainInput" class="text-gray-500">3-32 chars, lowercase, hyphens allowed</span>
                 </div>
               </div>
               
               <!-- Preview -->
-              <div v-if="subdomainInput && subdomainAvailable" class="mb-4 p-3 bg-gray-800 rounded-lg">
+              <div v-if="subdomainInput && subdomainAvailable" class="mb-4 p-3 bg-gray-500/10 border border-gray-500/10 rounded-lg">
                 <div class="text-xs text-gray-500 mb-1">Public URL</div>
                 <div class="text-sm text-cyan-300 font-mono">https://privateconnect.co/w/{{ subdomainInput }}</div>
               </div>
@@ -190,7 +190,7 @@
                   <button
                     @click="saveSubdomain"
                     :disabled="!subdomainInput || !subdomainAvailable || savingSubdomain"
-                    class="px-4 py-2 text-sm bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+                    class="px-4 py-2 text-sm bg-blue-300 hover:bg-blue-400 disabled:opacity-50 disabled:cursor-not-allowed text-black rounded-lg font-medium transition-colors"
                   >
                     {{ savingSubdomain ? 'Saving...' : 'Save' }}
                   </button>
@@ -215,8 +215,8 @@
       <!-- Service Info Cards -->
       <div class="grid lg:grid-cols-2 gap-4">
         <!-- Connection Details Card -->
-        <div class="bg-white/[0.02] border border-white/[0.06] rounded-xl overflow-hidden">
-          <div class="flex items-center justify-between px-5 py-4 border-b border-white/[0.04]">
+        <div class="bg-gray-500/10 border border-gray-500/10 rounded-xl overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-gray-500/10">
             <div class="flex items-center gap-3">
               <div class="w-8 h-8 rounded-lg bg-gray-500/10 flex items-center justify-center">
                 <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -226,8 +226,8 @@
               <span class="text-base font-semibold text-white">Connection Details</span>
             </div>
           </div>
-          <div class="divide-y divide-white/[0.04]">
-            <div class="flex items-center px-5 py-2 bg-white/[0.02]">
+          <div class="divide-y divide-gray-500/10">
+            <div class="flex items-center px-5 py-2 bg-gray-500/10">
               <span class="flex-1 text-xs font-medium text-gray-500 uppercase tracking-wider">Property</span>
               <span class="w-40 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Value</span>
             </div>
@@ -257,7 +257,7 @@
               <button
                 @click="showSubdomainModal = true"
                 class="text-sm text-right font-mono truncate transition-colors flex items-center gap-2"
-                :class="service.publicSubdomain ? 'text-cyan-300 hover:text-cyan-200' : 'text-gray-500 hover:text-gray-400'"
+                :class="service.publicSubdomain ? 'text-cyan-300 hover:text-cyan-400' : 'text-gray-500 hover:text-gray-400'"
               >
                 <template v-if="service.publicSubdomain">
                   privateconnect.co/w/{{ service.publicSubdomain }}
@@ -280,8 +280,8 @@
         </div>
 
         <!-- Status Card -->
-        <div class="bg-white/[0.02] border border-white/[0.06] rounded-xl overflow-hidden">
-          <div class="flex items-center justify-between px-5 py-4 border-b border-white/[0.04]">
+        <div class="bg-gray-500/10 border border-gray-500/10 rounded-xl overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-gray-500/10">
             <div class="flex items-center gap-3">
               <div class="w-8 h-8 rounded-lg bg-gray-500/10 flex items-center justify-center">
                 <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -291,16 +291,16 @@
               <span class="text-base font-semibold text-white">Status</span>
             </div>
           </div>
-          <div class="divide-y divide-white/[0.04]">
-            <div class="flex items-center px-5 py-2 bg-white/[0.02]">
+          <div class="divide-y divide-gray-500/10">
+            <div class="flex items-center px-5 py-2 bg-gray-500/10">
               <span class="flex-1 text-xs font-medium text-gray-500 uppercase tracking-wider">Metric</span>
               <span class="w-32 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Status</span>
             </div>
             <div v-if="service.agentId" class="flex items-center px-5 py-3">
               <span class="flex-1 text-sm text-gray-400">Agent Status</span>
               <span class="w-32 text-right flex items-center justify-end gap-2">
-                <span :class="service.agent?.isOnline ? 'w-2 h-2 rounded-full bg-emerald-400' : 'w-2 h-2 rounded-full bg-gray-500'"></span>
-                <span :class="service.agent?.isOnline ? 'text-sm text-emerald-400' : 'text-sm text-gray-400'">
+                <span :class="service.agent?.isOnline ? 'w-2 h-2 rounded-full bg-emerald-300' : 'w-2 h-2 rounded-full bg-gray-500'"></span>
+                <span :class="service.agent?.isOnline ? 'text-sm text-emerald-300' : 'text-sm text-gray-400'">
                   {{ service.agent?.isOnline ? 'Online' : 'Offline' }}
                 </span>
               </span>
@@ -308,8 +308,8 @@
             <div class="flex items-center px-5 py-3">
               <span class="flex-1 text-sm text-gray-400">Service Health</span>
               <span class="w-32 text-right flex items-center justify-end gap-2">
-                <span :class="service.status === 'OK' ? 'w-2 h-2 rounded-full bg-emerald-400' : service.status === 'FAIL' ? 'w-2 h-2 rounded-full bg-red-400' : 'w-2 h-2 rounded-full bg-gray-500'"></span>
-                <span :class="service.status === 'OK' ? 'text-sm text-emerald-400' : service.status === 'FAIL' ? 'text-sm text-red-400' : 'text-sm text-gray-400'">
+                <span :class="service.status === 'OK' ? 'w-2 h-2 rounded-full bg-emerald-300' : service.status === 'FAIL' ? 'w-2 h-2 rounded-full bg-red-400' : 'w-2 h-2 rounded-full bg-gray-500'"></span>
+                <span :class="service.status === 'OK' ? 'text-sm text-emerald-300' : service.status === 'FAIL' ? 'text-sm text-red-400' : 'text-sm text-gray-400'">
                   {{ service.status === 'OK' ? 'Healthy' : service.status === 'FAIL' ? 'Unhealthy' : 'Unknown' }}
                 </span>
               </span>
@@ -399,7 +399,7 @@
           </div>
         </div>
 
-        <div class="bg-white/[0.02] rounded-lg p-4 font-mono text-sm flex items-center justify-between">
+        <div class="bg-gray-500/10 rounded-lg p-4 font-mono text-sm flex items-center justify-between">
           <span :class="latestDiagnostic.message === 'OK' ? 'text-emerald-300' : 'text-red-400'">
             {{ latestDiagnostic.message }}
           </span>
