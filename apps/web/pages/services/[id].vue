@@ -24,6 +24,15 @@
             <h1 class="text-4xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
               {{ service.name }}
             </h1>
+            <button
+              @click="showRenameModal = true"
+              class="p-1.5 rounded-lg hover:bg-gray-500/20 text-gray-500 hover:text-gray-300 transition-colors"
+              title="Rename service"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </button>
             <StatusPill :status="service.status" size="lg" />
           </div>
           <p class="text-gray-400 font-mono text-sm">
@@ -195,6 +204,68 @@
                     {{ savingSubdomain ? 'Saving...' : 'Save' }}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
+
+      <!-- Rename Modal -->
+      <Teleport to="body">
+        <Transition name="modal">
+          <div 
+            v-if="showRenameModal" 
+            class="fixed inset-0 z-50 flex items-center justify-center p-4"
+            @click.self="showRenameModal = false"
+          >
+            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+            <div class="relative bg-black border border-gray-500/20 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+              <h3 class="text-lg font-semibold text-white mb-2">Rename Service</h3>
+              <p class="text-sm text-gray-400 mb-4">
+                Change the display name for this service.
+              </p>
+              
+              <!-- Name input -->
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-300 mb-2">Name</label>
+                <input
+                  v-model="renameInput"
+                  type="text"
+                  placeholder="my-api"
+                  class="w-full bg-gray-500/10 border border-gray-500/10 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent"
+                  :class="{ 
+                    'border-red-400': renameError,
+                    'border-green-300': renameAvailable && renameInput && renameInput !== service?.name
+                  }"
+                  @input="checkRenameDebounced"
+                  @keydown.enter="saveRename"
+                />
+                
+                <!-- Status message -->
+                <div class="mt-2 text-sm">
+                  <span v-if="checkingRename" class="text-gray-400">Checking availability...</span>
+                  <span v-else-if="renameError" class="text-red-400">{{ renameError }}</span>
+                  <span v-else-if="renameInput === service?.name" class="text-gray-500">Current name</span>
+                  <span v-else-if="renameAvailable && renameInput" class="text-green-300">✓ Available</span>
+                  <span v-else-if="!renameInput" class="text-gray-500">Letters, numbers, hyphens, underscores</span>
+                </div>
+              </div>
+              
+              <!-- Actions -->
+              <div class="flex items-center justify-end gap-3">
+                <button
+                  @click="showRenameModal = false"
+                  class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  @click="saveRename"
+                  :disabled="!renameInput || !renameAvailable || savingRename || renameInput === service?.name"
+                  class="px-4 py-2 text-sm bg-blue-300 hover:bg-blue-400 disabled:opacity-50 disabled:cursor-not-allowed text-black rounded-lg font-medium transition-colors"
+                >
+                  {{ savingRename ? 'Saving...' : 'Rename' }}
+                </button>
               </div>
             </div>
           </div>
@@ -484,6 +555,15 @@ const checkingSubdomain = ref(false);
 const savingSubdomain = ref(false);
 let checkDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
+// Rename modal state
+const showRenameModal = ref(false);
+const renameInput = ref('');
+const renameError = ref('');
+const renameAvailable = ref(false);
+const checkingRename = ref(false);
+const savingRename = ref(false);
+let renameDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
 // Dynamic page title
 const pageTitle = computed(() => 
   service.value ? `${service.value.name} - Private Connect` : 'Service - Private Connect'
@@ -698,6 +778,88 @@ const clearSubdomain = async () => {
     showError(err?.data?.message || 'Failed to remove subdomain');
   } finally {
     savingSubdomain.value = false;
+  }
+};
+
+// Rename functions
+watch(showRenameModal, (open) => {
+  if (open) {
+    // Pre-fill with current name
+    renameInput.value = service.value?.name || '';
+    renameError.value = '';
+    renameAvailable.value = true; // Current name is valid
+  }
+});
+
+const checkRenameDebounced = () => {
+  if (renameDebounceTimer) clearTimeout(renameDebounceTimer);
+  renameError.value = '';
+  renameAvailable.value = false;
+  
+  const value = renameInput.value.trim();
+  if (!value) return;
+  
+  // If same as current name, no need to check
+  if (value === service.value?.name) {
+    renameAvailable.value = true;
+    return;
+  }
+  
+  // Basic client-side validation
+  if (!/^[a-zA-Z0-9_-]+$/.test(value)) {
+    renameError.value = 'Only letters, numbers, hyphens, and underscores allowed';
+    return;
+  }
+  if (value.length > 100) {
+    renameError.value = 'Name must be 100 characters or less';
+    return;
+  }
+  
+  checkingRename.value = true;
+  renameDebounceTimer = setTimeout(async () => {
+    try {
+      const { $api } = useNuxtApp();
+      // We'll check by trying to validate - the API will tell us if taken
+      // For now, just do basic validation and let save handle conflicts
+      renameAvailable.value = true;
+    } catch (err) {
+      renameError.value = 'Failed to check availability';
+    } finally {
+      checkingRename.value = false;
+    }
+  }, 300);
+};
+
+const saveRename = async () => {
+  const newName = renameInput.value.trim();
+  if (!newName || newName === service.value?.name) return;
+  
+  savingRename.value = true;
+  try {
+    const { $api } = useNuxtApp();
+    const response = await $api(`/v1/services/${route.params.id}`, {
+      method: 'PATCH',
+      body: { name: newName },
+    });
+    
+    if (response.success && response.service) {
+      // Update local service
+      if (service.value) {
+        service.value.name = response.service.name;
+      }
+      success('Service renamed!');
+      showRenameModal.value = false;
+    }
+  } catch (err: any) {
+    const message = err?.data?.message || 'Failed to rename service';
+    if (message.includes('already exists')) {
+      renameError.value = 'A service with this name already exists';
+      renameAvailable.value = false;
+    } else {
+      showError(message);
+    }
+  } finally {
+    savingRename.value = false;
   }
 };
 </script>

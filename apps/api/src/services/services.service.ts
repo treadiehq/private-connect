@@ -59,6 +59,80 @@ export class ServicesService {
     return `${PUBLIC_URL_BASE}/w/${subdomain}`;
   }
 
+  // Validate service name
+  validateName(name: string): { valid: boolean; error?: string } {
+    if (!name || name.trim().length === 0) {
+      return { valid: false, error: 'Name is required' };
+    }
+    if (name.length < 1) {
+      return { valid: false, error: 'Name must be at least 1 character' };
+    }
+    if (name.length > 100) {
+      return { valid: false, error: 'Name must be 100 characters or less' };
+    }
+    // Only allow URL-safe characters
+    if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+      return { valid: false, error: 'Name can only contain letters, numbers, hyphens, and underscores' };
+    }
+    return { valid: true };
+  }
+
+  // Check if a name is available in the workspace
+  async isNameAvailable(workspaceId: string, name: string, excludeServiceId?: string): Promise<boolean> {
+    const existing = await this.prisma.service.findFirst({
+      where: {
+        workspaceId,
+        name: name.toLowerCase(),
+        id: excludeServiceId ? { not: excludeServiceId } : undefined,
+      },
+    });
+    return !existing;
+  }
+
+  // Rename a service
+  async rename(
+    serviceId: string,
+    workspaceId: string,
+    newName: string,
+  ): Promise<{ success: boolean; error?: string; service?: any }> {
+    // Find the service
+    const service = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      include: { agent: true },
+    });
+
+    if (!service) {
+      return { success: false, error: 'Service not found' };
+    }
+
+    if (service.workspaceId !== workspaceId) {
+      return { success: false, error: 'Forbidden' };
+    }
+
+    // Validate the new name
+    const validation = this.validateName(newName);
+    if (!validation.valid) {
+      return { success: false, error: validation.error };
+    }
+
+    const normalizedName = newName.toLowerCase();
+
+    // Check if name is already taken (by another service)
+    const isAvailable = await this.isNameAvailable(workspaceId, normalizedName, serviceId);
+    if (!isAvailable) {
+      return { success: false, error: 'A service with this name already exists' };
+    }
+
+    // Update the service
+    const updated = await this.prisma.service.update({
+      where: { id: serviceId },
+      data: { name: normalizedName },
+      include: { agent: true },
+    });
+
+    return { success: true, service: updated };
+  }
+
   // Reserved subdomains that can't be used
   private readonly RESERVED_SUBDOMAINS = new Set([
     'www', 'api', 'app', 'admin', 'dashboard', 'hub', 'docs', 'blog',

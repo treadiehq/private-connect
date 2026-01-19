@@ -422,6 +422,61 @@ export class ServicesController {
     }
   }
 
+  @Patch(':id')
+  @UseGuards(ApiKeyGuard)
+  @ApiSecurity('api-key')
+  @ApiOperation({ summary: 'Update service', description: 'Updates service properties like name.' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        name: { 
+          type: 'string', 
+          example: 'my-api',
+          description: 'New service name (1-100 chars, alphanumeric, hyphens, underscores)',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Service updated' })
+  @ApiResponse({ status: 400, description: 'Invalid name or already taken' })
+  @ApiResponse({ status: 404, description: 'Service not found' })
+  async update(
+    @Param('id') id: string,
+    @Body() body: { name?: string },
+    @Req() req: any,
+  ) {
+    const workspace = req.workspace;
+    
+    // Currently only supports renaming
+    if (body.name !== undefined) {
+      const result = await this.servicesService.rename(id, workspace.id, body.name);
+      
+      if (!result.success) {
+        if (result.error === 'Service not found') {
+          throw new HttpException(result.error, HttpStatus.NOT_FOUND);
+        }
+        if (result.error === 'Forbidden') {
+          throw new HttpException(result.error, HttpStatus.FORBIDDEN);
+        }
+        throw new HttpException(result.error || 'Invalid name', HttpStatus.BAD_REQUEST);
+      }
+      
+      // Notify UI
+      this.realtimeGateway.broadcastServiceUpdate(result.service);
+      
+      return { 
+        success: true, 
+        service: {
+          id: result.service.id,
+          name: result.service.name,
+        },
+      };
+    }
+    
+    throw new HttpException('No valid fields to update', HttpStatus.BAD_REQUEST);
+  }
+
   @Patch(':id/subdomain')
   @UseGuards(ApiKeyGuard)
   @ApiSecurity('api-key')
