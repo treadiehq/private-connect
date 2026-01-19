@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://privateconnect.co/sitemap.xml
+
+# Disallow admin/internal paths
+Disallow: /dashboard
+Disallow: /api/
+Disallow: /_nuxt/
+
+# Allow important pages
+Allow: /
+Allow: /docs
+Allow: /install

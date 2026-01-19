@@ -1,6 +1,8 @@
 # Private Connect
 
-Access private services anywhere. No VPN. No installs.
+**Access private services by name from anywhere. No VPN setup, no firewall rules, no port forwarding.**
+
+Private Connect is an open-source alternative Tailscale for service-level connectivity. Access your databases, APIs, and internal services with a simple command like `connect prod-db`, no VPN configuration or SSH tunnels required.
 
 ## Quick Start
 
@@ -48,6 +50,14 @@ Everything is automatic: auto-naming, background daemon, local DNS.
 ```
 
 Run an agent on each machine. Expose services from one, access from another.
+
+**Key Features:**
+- **Zero Configuration** - No VPN setup, no firewall rules, no port forwarding
+- **Secure** - End-to-end encrypted tunnels with audit logging
+- **Team Collaboration** - Share services instantly with `connect share` or clone teammate setups
+- **Works Everywhere** - Works on top of Tailscale, VPN, or plain internet
+- **Open Source** - Self-hostable hub, inspect and modify the code
+- **Service-Level** - Access services by name, not IP addresses or random URLs
 
 ## Install
 
