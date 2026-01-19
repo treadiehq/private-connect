@@ -50,8 +50,17 @@
           </nav>
           
           <div class="flex items-center gap-4">
-            <!-- Live indicator -->
-            <!-- <LiveIndicator :connected="isSocketConnected" /> -->
+            <!-- API Docs link -->
+            <a 
+              href="https://api.privateconnect.co/docs" 
+              target="_blank"
+              class="text-xs text-gray-500 hover:text-blue-300 transition-colors flex items-center gap-1"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+              </svg>
+              API
+            </a>
             
             <!-- Workspace Header -->
             <WorkspaceHeader />

@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Body, Query, Req, HttpException, HttpStatus, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { DeviceService } from './device.service';
 import { AuthGuard } from './auth.guard';
 import { z } from 'zod';
@@ -12,15 +13,23 @@ const VerifyDeviceCodeSchema = z.object({
   userCode: z.string().min(1),
 });
 
+@ApiTags('Auth')
 @Controller('v1/device')
 export class DeviceController {
   constructor(private deviceService: DeviceService) {}
 
-  /**
-   * Step 1: CLI calls this to get a device code
-   * POST /v1/device/code
-   */
   @Post('code')
+  @ApiOperation({ summary: 'Create device code', description: 'Creates a device code for CLI authentication flow.' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        label: { type: 'string', example: 'prod-server' },
+        agentName: { type: 'string', example: 'web-server-1' },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Device code created' })
   async createDeviceCode(@Body() body: unknown) {
     const parsed = CreateDeviceCodeSchema.safeParse(body);
     if (!parsed.success) {
@@ -33,11 +42,11 @@ export class DeviceController {
     return result;
   }
 
-  /**
-   * Step 2: CLI polls this to check if user has authorized
-   * GET /v1/device/token?device_code=xxx
-   */
   @Get('token')
+  @ApiOperation({ summary: 'Check device code', description: 'CLI polls this to check if user has authorized the device.' })
+  @ApiQuery({ name: 'device_code', required: true, description: 'The device code to check' })
+  @ApiResponse({ status: 200, description: 'Authorization status' })
+  @ApiResponse({ status: 400, description: 'Expired or invalid code' })
   async checkDeviceCode(@Query('device_code') deviceCode: string) {
     if (!deviceCode) {
       throw new HttpException('device_code required', HttpStatus.BAD_REQUEST);
@@ -70,15 +79,22 @@ export class DeviceController {
     };
   }
 
-  /**
-   * Step 3: Web UI calls this after user logs in to verify the device
-   * POST /v1/device/verify
-   * 
-   * This endpoint requires authentication via session cookie.
-   * User and workspace are extracted from the authenticated session.
-   */
   @Post('verify')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({ summary: 'Verify device code', description: 'Web UI calls this to authorize a device after user logs in.' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['userCode'],
+      properties: {
+        userCode: { type: 'string', example: 'ABCD-1234' },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Device authorized' })
+  @ApiResponse({ status: 400, description: 'Invalid code' })
+  @ApiResponse({ status: 401, description: 'Not authenticated' })
   async verifyDeviceCode(
     @Body() body: unknown,
     @Req() request: any,

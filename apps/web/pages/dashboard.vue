@@ -95,11 +95,84 @@
         </div>
       </div>
     </div>
+
+    <!-- Recent Activity Section -->
+    <div class="mt-8 bg-gray-500/5 border border-gray-500/10 rounded-xl overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-500/10">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-blue-300/10 flex items-center justify-center">
+            <svg class="w-4 h-4 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 class="text-sm font-semibold text-white">Recent Activity</h2>
+        </div>
+        <NuxtLink 
+          to="/audit"
+          class="text-xs text-blue-300 hover:text-blue-400 transition-colors"
+        >
+          View all
+        </NuxtLink>
+      </div>
+      
+      <div v-if="auditLoading" class="p-6 text-center">
+        <div class="animate-spin w-6 h-6 border-2 border-gray-400 border-t-transparent rounded-full mx-auto"></div>
+      </div>
+
+      <div v-else-if="recentActivity.length === 0" class="p-6 text-center text-gray-500 text-sm">
+        No recent activity
+      </div>
+
+      <div v-else class="divide-y divide-gray-500/10">
+        <div
+          v-for="event in recentActivity"
+          :key="event.id"
+          class="px-5 py-3 hover:bg-gray-500/5 transition-colors"
+        >
+          <div class="flex items-center gap-3">
+            <div
+              :class="getEventIconClass(event.type)"
+              class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+            >
+              <svg v-if="event.type === 'agent'" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <svg v-else-if="event.type === 'share'" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm text-white truncate">{{ formatEventName(event.event) }}</div>
+              <div class="text-xs text-gray-500 truncate">
+                {{ event.agentLabel || event.serviceName || 'System' }}
+              </div>
+            </div>
+            <div class="text-xs text-gray-500 flex-shrink-0">
+              {{ formatTimeAgo(event.timestamp) }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { Agent, Service } from '~/types';
+
+interface AuditEvent {
+  id: string;
+  type: 'agent' | 'share' | 'session' | 'diagnostic';
+  event: string;
+  timestamp: string;
+  agentId?: string;
+  agentLabel?: string;
+  serviceId?: string;
+  serviceName?: string;
+}
 
 useHead({ title: 'Overview - Private Connect' })
 
@@ -108,12 +181,14 @@ definePageMeta({
 });
 
 const router = useRouter();
-const { fetchServices, fetchAgents } = useApi();
+const { fetchServices, fetchAgents, fetchAuditLog } = useApi();
 const { connect } = useSocket();
 
 const agents = ref<Agent[]>([]);
 const services = ref<Service[]>([]);
 const loading = ref(true);
+const auditLoading = ref(true);
+const recentActivity = ref<AuditEvent[]>([]);
 
 // Computed stats
 const onlineAgents = computed(() => agents.value.filter(a => a.isOnline).length);
@@ -142,6 +217,40 @@ const handleServiceClick = (service: Service) => {
   router.push(`/services/${service.id}`);
 };
 
+// Audit event helpers
+const getEventIconClass = (type: string) => {
+  switch (type) {
+    case 'agent':
+      return 'bg-blue-300/10 text-blue-400';
+    case 'share':
+      return 'bg-emerald-300/10 text-emerald-400';
+    case 'session':
+      return 'bg-amber-300/10 text-amber-400';
+    case 'diagnostic':
+      return 'bg-purple-300/10 text-purple-400';
+    default:
+      return 'bg-gray-500/10 text-gray-400';
+  }
+};
+
+const formatEventName = (event: string) => {
+  return event.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+};
+
+const formatTimeAgo = (timestamp: string) => {
+  const now = new Date();
+  const date = new Date(timestamp);
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${diffDays}d ago`;
+};
+
 // Fetch data
 onMounted(async () => {
   try {
@@ -155,6 +264,16 @@ onMounted(async () => {
     console.error('Failed to fetch data:', error);
   } finally {
     loading.value = false;
+  }
+
+  // Fetch recent audit events
+  try {
+    const auditData = await fetchAuditLog({ limit: 10 });
+    recentActivity.value = auditData.events;
+  } catch (error) {
+    console.error('Failed to fetch audit data:', error);
+  } finally {
+    auditLoading.value = false;
   }
 
   // Connect to realtime updates

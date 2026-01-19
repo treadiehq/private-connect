@@ -1,4 +1,5 @@
 import { Controller, Post, Body, Get, Param, Query, Headers, HttpException, HttpStatus, Inject, forwardRef, UseGuards, Req, Delete } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiSecurity, ApiQuery } from '@nestjs/swagger';
 import { ServicesService } from './services.service';
 import { DiagnosticsService } from './diagnostics.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
@@ -29,6 +30,7 @@ const ExternalServiceSchema = z.object({
   protocol: z.enum(['auto', 'tcp', 'http', 'https']).optional().default('auto'),
 });
 
+@ApiTags('Services')
 @Controller('v1/services')
 export class ServicesController {
   constructor(
@@ -42,6 +44,24 @@ export class ServicesController {
 
   @Post('register')
   @UseGuards(ApiKeyGuard)
+  @ApiSecurity('api-key')
+  @ApiOperation({ summary: 'Register service', description: 'Registers a new service exposed by an agent.' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['agentId', 'name', 'targetHost', 'targetPort'],
+      properties: {
+        agentId: { type: 'string', format: 'uuid' },
+        name: { type: 'string', example: 'prod-db' },
+        targetHost: { type: 'string', example: 'localhost' },
+        targetPort: { type: 'number', example: 5432 },
+        protocol: { type: 'string', enum: ['auto', 'tcp', 'http', 'https'] },
+        isPublic: { type: 'boolean' },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Service registered' })
+  @ApiResponse({ status: 400, description: 'Invalid request' })
   async register(
     @Body() body: unknown,
     @Req() req: any,
@@ -91,6 +111,21 @@ export class ServicesController {
 
   @Post('external')
   @UseGuards(ApiKeyGuard)
+  @ApiSecurity('api-key')
+  @ApiOperation({ summary: 'Create external service', description: 'Creates an external service target (not exposed by an agent).' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['name', 'targetHost', 'targetPort'],
+      properties: {
+        name: { type: 'string', example: 'external-api' },
+        targetHost: { type: 'string', example: 'api.example.com' },
+        targetPort: { type: 'number', example: 443 },
+        protocol: { type: 'string', enum: ['auto', 'tcp', 'http', 'https'] },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'External service created' })
   async createExternal(
     @Body() body: unknown,
     @Req() req: any,
@@ -165,6 +200,9 @@ export class ServicesController {
 
   @Get()
   @UseGuards(ApiKeyGuard)
+  @ApiSecurity('api-key')
+  @ApiOperation({ summary: 'List services', description: 'Returns all services in the workspace.' })
+  @ApiResponse({ status: 200, description: 'List of services' })
   async findAll(@Req() req: any) {
     const workspace = req.workspace;
     return this.servicesService.findAll(workspace.id);
@@ -172,6 +210,10 @@ export class ServicesController {
 
   @Get(':id')
   @UseGuards(ApiKeyGuard)
+  @ApiSecurity('api-key')
+  @ApiOperation({ summary: 'Get service', description: 'Returns details for a specific service.' })
+  @ApiResponse({ status: 200, description: 'Service details' })
+  @ApiResponse({ status: 404, description: 'Service not found' })
   async findOne(
     @Param('id') id: string,
     @Req() req: any,
@@ -192,6 +234,11 @@ export class ServicesController {
 
   @Get(':id/diagnostics')
   @UseGuards(ApiKeyGuard)
+  @ApiSecurity('api-key')
+  @ApiOperation({ summary: 'Get service diagnostics', description: 'Returns diagnostic history for a service.' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Limit number of results (default: 50)' })
+  @ApiResponse({ status: 200, description: 'Diagnostic history' })
+  @ApiResponse({ status: 404, description: 'Service not found' })
   async getDiagnostics(
     @Param('id') id: string,
     @Query('limit') limit: string = '50',
@@ -217,6 +264,10 @@ export class ServicesController {
 
   @Post(':id/check')
   @UseGuards(ApiKeyGuard)
+  @ApiSecurity('api-key')
+  @ApiOperation({ summary: 'Run service check', description: 'Runs a diagnostic check on the service.' })
+  @ApiResponse({ status: 200, description: 'Check completed' })
+  @ApiResponse({ status: 404, description: 'Service not found' })
   async runCheck(
     @Param('id') id: string,
     @Req() req: any,
@@ -274,6 +325,21 @@ export class ServicesController {
 
   @Post(':id/reach')
   @UseGuards(ApiKeyGuard)
+  @ApiSecurity('api-key')
+  @ApiOperation({ summary: 'Reach check', description: 'Tests connectivity to a service from a specific agent.' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['sourceAgentId'],
+      properties: {
+        sourceAgentId: { type: 'string', format: 'uuid' },
+        mode: { type: 'string', enum: ['tcp', 'tls', 'http'] },
+        timeoutMs: { type: 'number', minimum: 1000, maximum: 30000 },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Reach check completed' })
+  @ApiResponse({ status: 404, description: 'Service or agent not found' })
   async runReachCheck(
     @Param('id') id: string,
     @Body() body: unknown,
@@ -358,6 +424,10 @@ export class ServicesController {
 
   @Delete(':id')
   @UseGuards(ApiKeyGuard)
+  @ApiSecurity('api-key')
+  @ApiOperation({ summary: 'Delete service', description: 'Deletes a service from the workspace.' })
+  @ApiResponse({ status: 200, description: 'Service deleted' })
+  @ApiResponse({ status: 404, description: 'Service not found' })
   async delete(
     @Param('id') id: string,
     @Req() req: any,

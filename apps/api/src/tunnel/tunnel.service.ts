@@ -2,6 +2,7 @@ import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import * as net from 'net';
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../prisma/prisma.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { SecureLogger } from '../common/security';
 
 interface AgentConnection {
@@ -54,7 +55,10 @@ export class TunnelService {
   private pendingConnections = new Map<string, PendingConnection>();
   private agentBridges = new Map<string, AgentBridge>();
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private webhooksService: WebhooksService,
+  ) {}
 
   registerAgent(agentId: string, socket: any) {
     this.logger.log(`Agent registered: ${agentId}`);
@@ -68,10 +72,29 @@ export class TunnelService {
   unregisterAgent(agentId: string) {
     const agent = this.agents.get(agentId);
     if (agent) {
-      // Close all tunnel listeners for this agent
-      agent.services.forEach((listener) => {
+      // Close all tunnel listeners for this agent and emit disconnect webhooks
+      agent.services.forEach(async (listener) => {
         this.logger.log(`Closing tunnel listener on port ${listener.port}`);
         listener.server.close();
+
+        // Emit tunnel.disconnected webhook
+        try {
+          const service = await this.prisma.service.findUnique({
+            where: { id: listener.serviceId },
+            select: { workspaceId: true, name: true },
+          });
+          if (service?.workspaceId) {
+            this.webhooksService.emit(service.workspaceId, 'tunnel.disconnected', {
+              serviceId: listener.serviceId,
+              serviceName: service.name,
+              agentId,
+              tunnelPort: listener.port,
+              disconnectedAt: new Date().toISOString(),
+            }).catch(() => {}); // Fire and forget
+          }
+        } catch (err) {
+          this.logger.error(`Failed to emit tunnel.disconnected webhook: ${err}`);
+        }
       });
 
       // Clean up pending connections for this agent
@@ -173,7 +196,7 @@ export class TunnelService {
         reject(err);
       });
 
-      server.listen(tunnelPort, '127.0.0.1', () => {
+      server.listen(tunnelPort, '127.0.0.1', async () => {
         this.logger.log(`Tunnel listener started for ${serviceName} on port ${tunnelPort}`);
         agent.services.set(serviceId, {
           serviceId,
@@ -183,6 +206,28 @@ export class TunnelService {
           targetHost,
           targetPort,
         });
+
+        // Emit tunnel.connected webhook
+        try {
+          const service = await this.prisma.service.findUnique({
+            where: { id: serviceId },
+            select: { workspaceId: true, name: true, agentId: true },
+          });
+          if (service?.workspaceId) {
+            this.webhooksService.emit(service.workspaceId, 'tunnel.connected', {
+              serviceId,
+              serviceName: service.name,
+              agentId: service.agentId,
+              tunnelPort,
+              targetHost,
+              targetPort,
+              connectedAt: new Date().toISOString(),
+            }).catch(() => {}); // Fire and forget
+          }
+        } catch (err) {
+          this.logger.error(`Failed to emit tunnel.connected webhook: ${err}`);
+        }
+
         resolve();
       });
     });

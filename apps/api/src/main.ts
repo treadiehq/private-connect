@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { PrismaService } from './prisma/prisma.service';
 import cookieParser from 'cookie-parser';
@@ -68,15 +69,28 @@ async function bootstrap() {
   
   // Security headers including CSP to prevent XSS attacks
   app.use((req: any, res: any, next: any) => {
-    // Content Security Policy - strict policy for API responses
-    res.setHeader(
-      'Content-Security-Policy',
-      "default-src 'none'; frame-ancestors 'none'; form-action 'none'"
-    );
+    // Skip strict CSP for Swagger UI routes
+    const isSwaggerRoute = req.url.startsWith('/docs') || req.url === '/openapi.json';
+    
+    if (isSwaggerRoute) {
+      // Relaxed CSP for Swagger UI
+      res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:"
+      );
+    } else {
+      // Strict CSP for API responses
+      res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'none'; frame-ancestors 'none'; form-action 'none'"
+      );
+    }
     // Prevent MIME type sniffing
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    // Prevent clickjacking
-    res.setHeader('X-Frame-Options', 'DENY');
+    // Prevent clickjacking (allow for Swagger UI)
+    if (!isSwaggerRoute) {
+      res.setHeader('X-Frame-Options', 'DENY');
+    }
     // Enable XSS filter in older browsers
     res.setHeader('X-XSS-Protection', '1; mode=block');
     // Control referrer information
@@ -103,8 +117,73 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Health check endpoint with DB status
+  // OpenAPI/Swagger documentation
+  const config = new DocumentBuilder()
+    .setTitle('Private Connect Control API')
+    .setDescription(`
+## Overview
+
+Private Connect Control API provides programmatic access to tunnel management, 
+agent orchestration, and service connectivity.
+
+## Authentication
+
+All endpoints require authentication via API key passed in the \`x-api-key\` header:
+
+\`\`\`
+x-api-key: pc_your_api_key_here
+\`\`\`
+
+## Rate Limiting
+
+- Public endpoints: 100 requests/minute
+- Authenticated endpoints: 1000 requests/minute
+
+## Versioning
+
+All endpoints are prefixed with \`/v1/\`. Future breaking changes will use \`/v2/\`.
+    `)
+    .setVersion('1.0')
+    .addApiKey(
+      { type: 'apiKey', name: 'x-api-key', in: 'header', description: 'Workspace API key' },
+      'api-key'
+    )
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', description: 'Session token from /v1/auth/login' },
+      'bearer'
+    )
+    .addTag('Status', 'Health checks and system status')
+    .addTag('Auth', 'Authentication and session management')
+    .addTag('Agents', 'Agent registration and orchestration')
+    .addTag('Tunnels', 'Tunnel management (expose, connect, share)')
+    .addTag('Services', 'Service registration and diagnostics')
+    .addTag('Shares', 'Service sharing and access control')
+    .addTag('Audit', 'Audit logs and activity tracking')
+    .addTag('API Keys', 'API key management')
+    .addTag('Workspace', 'Workspace settings and usage')
+    .addTag('Admin', 'Admin operations (requires admin privileges)')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  
+  // Serve OpenAPI spec as JSON
   const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.get('/openapi.json', (req: any, res: any) => {
+    res.json(document);
+  });
+  
+  // Serve Swagger UI at /docs
+  SwaggerModule.setup('docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+      docExpansion: 'none',
+      filter: true,
+      showRequestDuration: true,
+    },
+    customSiteTitle: 'Private Connect API Docs',
+  });
+
+  // Health check endpoint with DB status
   expressApp.get('/health', (req: any, res: any) => {
     res.status(200).json({ 
       status: 'ok', 

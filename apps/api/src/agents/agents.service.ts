@@ -2,6 +2,7 @@ import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { createHash, randomBytes } from 'crypto';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { 
   calculateTokenExpiry, 
   isTokenExpired, 
@@ -36,6 +37,7 @@ export class AgentsService {
     private prisma: PrismaService,
     @Inject(forwardRef(() => RealtimeGateway))
     private realtimeGateway: RealtimeGateway,
+    private webhooksService: WebhooksService,
   ) {}
 
   hashToken(token: string): string {
@@ -50,6 +52,10 @@ export class AgentsService {
     const tokenHash = this.hashToken(token);
     const now = new Date();
     const tokenExpiresAt = calculateTokenExpiry();
+    
+    // Check if this is a new agent (for webhook event)
+    const existingAgent = await this.prisma.agent.findUnique({ where: { id: agentId } });
+    const isNewAgent = !existingAgent;
     
     const agent = await this.prisma.agent.upsert({
       where: { id: agentId },
@@ -76,6 +82,16 @@ export class AgentsService {
 
     // Broadcast agent online status to workspace-specific room
     this.realtimeGateway.broadcastAgentStatus(agentId, true, workspaceId);
+
+    // Emit webhook for new agent registration
+    if (isNewAgent) {
+      this.webhooksService.emit(workspaceId, 'agent.registered', {
+        agentId,
+        label: agent.label,
+        name: agent.name,
+        registeredAt: now.toISOString(),
+      }).catch(err => this.logger.error(`Webhook emit failed: ${err.message}`));
+    }
 
     return agent;
   }
@@ -279,6 +295,16 @@ export class AgentsService {
     });
     
     this.realtimeGateway.broadcastAgentStatus(agentId, isOnline, agent.workspaceId);
+
+    // Emit webhook for agent connect/disconnect
+    const eventType = isOnline ? 'agent.connected' : 'agent.disconnected';
+    this.webhooksService.emit(agent.workspaceId, eventType, {
+      agentId,
+      label: agent.label,
+      name: agent.name,
+      timestamp: new Date().toISOString(),
+    }).catch(err => this.logger.error(`Webhook emit failed: ${err.message}`));
+
     return agent;
   }
 

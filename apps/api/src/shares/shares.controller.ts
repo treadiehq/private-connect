@@ -11,7 +11,10 @@ import {
   Req,
   Res,
   All,
+  UseGuards,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { SharesService } from './shares.service';
 import { ServicesService } from '../services/services.service';
@@ -36,6 +39,7 @@ const CreateShareSchema = z.object({
   rateLimitPerMin: z.number().min(1).max(1000).optional(),
 });
 
+@ApiTags('Shares')
 @Controller()
 export class SharesController {
   private readonly logger = new SecureLogger('SharesController');
@@ -46,11 +50,26 @@ export class SharesController {
     private authService: AuthService,
   ) {}
 
-  /**
-   * Create a share for a service
-   * POST /v1/services/:serviceId/shares
-   */
   @Post('v1/services/:serviceId/shares')
+  @ApiBearerAuth('bearer')
+  @ApiOperation({ summary: 'Create share', description: 'Creates a shareable link for a service.' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['name'],
+      properties: {
+        name: { type: 'string', example: 'contractor-access' },
+        description: { type: 'string' },
+        expiresIn: { type: 'string', enum: ['1h', '24h', '7d', '30d', 'never'] },
+        allowedPaths: { type: 'array', items: { type: 'string' } },
+        allowedMethods: { type: 'array', items: { type: 'string', enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] } },
+        rateLimitPerMin: { type: 'number', minimum: 1, maximum: 1000 },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Share created' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Service not found' })
   async createShare(
     @Param('serviceId') serviceId: string,
     @Body() body: unknown,
@@ -119,11 +138,10 @@ export class SharesController {
     };
   }
 
-  /**
-   * List shares for a service
-   * GET /v1/services/:serviceId/shares
-   */
   @Get('v1/services/:serviceId/shares')
+  @ApiBearerAuth('bearer')
+  @ApiOperation({ summary: 'List shares', description: 'Returns all shares for a service.' })
+  @ApiResponse({ status: 200, description: 'List of shares' })
   async listShares(
     @Param('serviceId') serviceId: string,
     @Headers('authorization') authHeader: string,
@@ -164,11 +182,11 @@ export class SharesController {
     };
   }
 
-  /**
-   * Revoke a share
-   * DELETE /v1/shares/:shareId
-   */
   @Delete('v1/shares/:shareId')
+  @ApiBearerAuth('bearer')
+  @ApiOperation({ summary: 'Revoke share', description: 'Revokes a share, making it no longer usable.' })
+  @ApiResponse({ status: 200, description: 'Share revoked' })
+  @ApiResponse({ status: 404, description: 'Share not found' })
   async revokeShare(
     @Param('shareId') shareId: string,
     @Headers('authorization') authHeader: string,
@@ -193,11 +211,11 @@ export class SharesController {
     return { success: true };
   }
 
-  /**
-   * Get access logs for a share
-   * GET /v1/shares/:shareId/logs
-   */
   @Get('v1/shares/:shareId/logs')
+  @ApiBearerAuth('bearer')
+  @ApiOperation({ summary: 'Get access logs', description: 'Returns access logs for a share.' })
+  @ApiResponse({ status: 200, description: 'Access logs' })
+  @ApiResponse({ status: 404, description: 'Share not found' })
   async getAccessLogs(
     @Param('shareId') shareId: string,
     @Headers('authorization') authHeader: string,
@@ -222,11 +240,10 @@ export class SharesController {
     return { logs };
   }
 
-  /**
-   * Get share info for the web UI (zero-install experience)
-   * GET /v1/shared/:token/info
-   */
   @Get('v1/shared/:token/info')
+  @ApiOperation({ summary: 'Get share info', description: 'Returns public info about a share. No authentication required.' })
+  @ApiResponse({ status: 200, description: 'Share info' })
+  @ApiResponse({ status: 404, description: 'Share not found or expired' })
   async getShareInfo(@Param('token') token: string) {
     const validation = await this.sharesService.validateShare(token);
     
@@ -252,11 +269,21 @@ export class SharesController {
     };
   }
 
-  /**
-   * Execute a SQL query through the shared connection
-   * POST /api/shared/:token/query
-   */
   @Post('api/shared/:token/query')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ short: { limit: 30, ttl: 60000 } }) // 30 queries per minute
+  @ApiOperation({ summary: 'Execute query', description: 'Executes a SQL query through the shared database connection.' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['query'],
+      properties: {
+        query: { type: 'string', example: 'SELECT * FROM users LIMIT 10' },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Query result' })
+  @ApiResponse({ status: 403, description: 'Access denied' })
   async executeQuery(
     @Param('token') token: string,
     @Body() body: unknown,
@@ -473,12 +500,14 @@ export class SharesController {
     return parts['M'] || parts['S'] || 'Unknown error';
   }
 
-  /**
-   * Public proxy endpoint for shared access
-   * ALL /shared/:token/*
-   */
   @All('shared/:token')
   @All('shared/:token/*')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ medium: { limit: 100, ttl: 60000 } }) // 100 requests per minute for shared access
+  @ApiOperation({ summary: 'Proxy shared request', description: 'Proxies HTTP requests through a shared service connection.' })
+  @ApiResponse({ status: 200, description: 'Proxied response' })
+  @ApiResponse({ status: 403, description: 'Access denied' })
+  @ApiResponse({ status: 502, description: 'Service unavailable' })
   async proxySharedRequest(
     @Param('token') token: string,
     @Req() req: Request,

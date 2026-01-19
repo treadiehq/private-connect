@@ -28,6 +28,13 @@
 					>
 						Security
 					</a>
+					<a
+						href="https://api.privateconnect.co/docs"
+						target="_blank"
+						class="text-xs font-semibold leading-6 hover:text-blue-300 text-gray-500"
+					>
+						API Docs
+					</a>
 				</div>
 				</div>
 				<div

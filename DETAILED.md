@@ -14,6 +14,8 @@ Complete reference for all features and commands.
 - [Advanced Features](#advanced-features)
 - [Agent Orchestration](#agent-orchestration)
 - [Development](#development)
+- [Monitoring](#monitoring)
+- [Control API](#control-api)
 - [Security](#security)
 
 ---
@@ -448,6 +450,217 @@ Returns connected agents, active services, and runtime metrics:
 connect status        # Quick overview
 connect status --json # Machine-readable
 ```
+
+---
+
+## Control API
+
+Private Connect exposes a full REST API for programmatic control of tunnels, agents, and workspace resources.
+
+### API Documentation
+
+Interactive API documentation is available at:
+- **Swagger UI**: `https://api.privateconnect.co/docs`
+- **OpenAPI Spec**: `https://api.privateconnect.co/openapi.json`
+
+### Authentication
+
+All API endpoints require authentication via API key:
+
+```bash
+curl -H "x-api-key: pc_your_api_key" https://api.privateconnect.co/v1/tunnels
+```
+
+Or via Bearer token (for session-based auth):
+
+```bash
+curl -H "Authorization: Bearer <session_token>" https://api.privateconnect.co/v1/tunnels
+```
+
+### Rate Limiting
+
+| Endpoint Type | Limit |
+|---------------|-------|
+| Public (auth, shares) | 100 requests/minute |
+| Authenticated | 1000 requests/minute |
+
+### Tunnels API
+
+Manage tunnels as first-class resources.
+
+```bash
+# List all tunnels
+GET /v1/tunnels
+
+# Get tunnel details
+GET /v1/tunnels/:id
+
+# Create tunnel
+POST /v1/tunnels
+{
+  "name": "prod-db",
+  "targetHost": "localhost",
+  "targetPort": 5432,
+  "protocol": "tcp",
+  "agentId": "agent-uuid"
+}
+
+# Update tunnel
+PATCH /v1/tunnels/:id
+{
+  "name": "prod-db-renamed"
+}
+
+# Delete tunnel
+DELETE /v1/tunnels/:id
+
+# Create share for tunnel
+POST /v1/tunnels/:id/share
+{
+  "ttl": "24h",
+  "allowedMethods": ["GET", "POST"]
+}
+```
+
+### Audit API
+
+Query audit logs and activity statistics.
+
+```bash
+# Get audit events
+GET /v1/audit?limit=100&type=agent&since=2024-01-01
+
+# Get audit statistics (30-day summary)
+GET /v1/audit/stats
+
+# Get events for specific agent
+GET /v1/audit/agents/:id
+
+# Get events for specific tunnel/service
+GET /v1/audit/tunnels/:id
+```
+
+Response includes events from:
+- Agent activity (connections, heartbeats, token usage)
+- Share access (who accessed shared links)
+- Sessions (reach connections between agents)
+- Diagnostics (health checks)
+
+### Webhooks
+
+Subscribe to events for automation and integrations.
+
+```bash
+# List webhooks
+GET /v1/webhooks
+
+# Create webhook
+POST /v1/webhooks
+{
+  "url": "https://your-server.com/webhook",
+  "events": ["tunnel.created", "tunnel.deleted", "agent.connected"],
+  "description": "Slack notifications"
+}
+
+# Update webhook
+PATCH /v1/webhooks/:id
+{
+  "events": ["tunnel.created"]
+}
+
+# Delete webhook
+DELETE /v1/webhooks/:id
+
+# Rotate webhook secret
+POST /v1/webhooks/:id/rotate-secret
+
+# Test webhook
+POST /v1/webhooks/:id/test
+
+# List available events
+GET /v1/webhooks/events
+```
+
+**Available Events:**
+- `tunnel.created`, `tunnel.updated`, `tunnel.deleted`
+- `share.created`, `share.accessed`, `share.revoked`
+- `agent.connected`, `agent.disconnected`
+
+**Webhook Payload:**
+```json
+{
+  "event": "tunnel.created",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "workspaceId": "ws_xxx",
+  "data": {
+    "tunnelId": "tun_xxx",
+    "name": "prod-db"
+  }
+}
+```
+
+**Signature Verification:**
+
+Webhooks include an HMAC signature in the `x-webhook-signature` header:
+
+```javascript
+const crypto = require('crypto');
+const signature = crypto
+  .createHmac('sha256', webhookSecret)
+  .update(JSON.stringify(payload))
+  .digest('hex');
+
+if (signature === req.headers['x-webhook-signature']) {
+  // Valid webhook
+}
+```
+
+### Widgets
+
+Embed access buttons and status badges in your documentation or internal tools.
+
+```bash
+# Get embeddable JavaScript widget
+GET /v1/widgets/:shareToken/embed.js
+
+# Get HTML button
+GET /v1/widgets/:shareToken/button
+
+# Get widget configuration
+GET /v1/widgets/:shareToken/config
+
+# Get status badge (SVG)
+GET /v1/widgets/:shareToken/badge
+```
+
+**Embed Example:**
+
+```html
+<script src="https://api.privateconnect.co/v1/widgets/abc123/embed.js"></script>
+```
+
+### Agent Commands
+
+Send commands to agents for remote control.
+
+```bash
+POST /v1/agents/:id/command
+{
+  "action": "restart",
+  "params": {}
+}
+```
+
+### Other Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /v1/status` | Hub status and metrics |
+| `GET /v1/agents` | List agents |
+| `GET /v1/services` | List services |
+| `POST /v1/auth/login` | Session login |
+| `GET /v1/workspace` | Workspace info and usage |
+| `GET /v1/api-keys` | Manage API keys |
 
 ---
 

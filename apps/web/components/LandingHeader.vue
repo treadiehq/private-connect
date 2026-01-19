@@ -26,6 +26,7 @@
 					<a href="/#features" class="text-sm font-medium text-gray-400 hover:text-white transition-colors cursor-pointer hover:bg-gray-500/15 rounded-lg px-3 py-1.5">Features</a>
 					<a href="/#how-it-works" class="text-sm font-medium text-gray-400 hover:text-white transition-colors cursor-pointer hover:bg-gray-500/15 rounded-lg px-3 py-1.5">How It Works</a>
 					<a href="/#security" class="text-sm font-medium text-gray-400 hover:text-white transition-colors cursor-pointer hover:bg-gray-500/15 rounded-lg px-3 py-1.5">Security</a>
+					<NuxtLink to="/install" class="text-sm font-medium text-gray-400 hover:text-white transition-colors cursor-pointer hover:bg-gray-500/15 rounded-lg px-3 py-1.5">Install</NuxtLink>
 				</div>
         
         <!-- Navigation -->
@@ -66,6 +67,7 @@
 									<a href="/#features" class="-mx-3 block rounded-lg px-3 py-2 text-sm font-semibold text-white hover:bg-gray-500/10">Features</a>
 									<a href="/#how-it-works" class="-mx-3 block rounded-lg px-3 py-2 text-sm font-semibold text-white hover:bg-gray-500/10">How It Works</a>
 									<a href="/#security" class="-mx-3 block rounded-lg px-3 py-2 text-sm font-semibold text-white hover:bg-gray-500/10">Security</a>
+									<NuxtLink to="/install" class="-mx-3 block rounded-lg px-3 py-2 text-sm font-semibold text-white hover:bg-gray-500/10">Install</NuxtLink>
 									<!-- <a href="/#pricing" class="-mx-3 block rounded-lg px-3 py-2 text-sm font-semibold text-white hover:bg-gray-500/10">Pricing</a> -->
 								</div>
 								<div class="py-6 flex flex-col gap-2">

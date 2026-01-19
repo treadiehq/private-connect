@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import * as crypto from 'crypto';
 
 interface CreateShareOptions {
@@ -15,7 +16,10 @@ interface CreateShareOptions {
 
 @Injectable()
 export class SharesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private webhooksService: WebhooksService,
+  ) {}
 
   /**
    * Generate a secure share token
@@ -30,7 +34,7 @@ export class SharesService {
   async createShare(options: CreateShareOptions) {
     const token = this.generateToken();
 
-    return this.prisma.serviceShare.create({
+    const share = await this.prisma.serviceShare.create({
       data: {
         serviceId: options.serviceId,
         token,
@@ -51,10 +55,26 @@ export class SharesService {
             targetPort: true,
             tunnelPort: true,
             protocol: true,
+            workspaceId: true,
           },
         },
       },
     });
+
+    // Emit webhook for share creation
+    if (share.service?.workspaceId) {
+      this.webhooksService.emit(share.service.workspaceId, 'share.created', {
+        shareId: share.id,
+        shareName: share.name,
+        serviceId: share.serviceId,
+        serviceName: share.service.name,
+        expiresAt: share.expiresAt?.toISOString(),
+        createdBy: share.createdBy,
+        createdAt: share.createdAt.toISOString(),
+      }).catch(() => {}); // Fire and forget
+    }
+
+    return share;
   }
 
   /**
@@ -175,6 +195,27 @@ export class SharesService {
         },
       }),
     ]);
+
+    // Emit webhook for share access (get workspace from share)
+    const share = await this.prisma.serviceShare.findUnique({
+      where: { id: shareId },
+      include: {
+        service: { select: { workspaceId: true, name: true } },
+      },
+    });
+
+    if (share?.service?.workspaceId) {
+      this.webhooksService.emit(share.service.workspaceId, 'share.accessed', {
+        shareId,
+        shareName: share.name,
+        serviceName: share.service.name,
+        ipAddress: data.ipAddress,
+        path: data.path,
+        method: data.method,
+        statusCode: data.statusCode,
+        accessedAt: new Date().toISOString(),
+      }).catch(() => {}); // Fire and forget
+    }
   }
 
   /**
@@ -196,10 +237,25 @@ export class SharesService {
    * Revoke a share
    */
   async revokeShare(shareId: string) {
-    return this.prisma.serviceShare.update({
+    const share = await this.prisma.serviceShare.update({
       where: { id: shareId },
       data: { revokedAt: new Date() },
+      include: {
+        service: { select: { workspaceId: true, name: true } },
+      },
     });
+
+    // Emit webhook for share revocation
+    if (share.service?.workspaceId) {
+      this.webhooksService.emit(share.service.workspaceId, 'share.revoked', {
+        shareId,
+        shareName: share.name,
+        serviceName: share.service.name,
+        revokedAt: share.revokedAt?.toISOString(),
+      }).catch(() => {}); // Fire and forget
+    }
+
+    return share;
   }
 
   /**

@@ -223,6 +223,67 @@ export function useApi() {
     }
   };
 
+  // Audit API
+  const fetchAuditLog = async (options?: {
+    limit?: number;
+    agentId?: string;
+    serviceId?: string;
+    type?: 'agent' | 'share' | 'session' | 'diagnostic';
+    since?: string;
+  }) => {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', options.limit.toString());
+    if (options?.agentId) params.set('agentId', options.agentId);
+    if (options?.serviceId) params.set('serviceId', options.serviceId);
+    if (options?.type) params.set('type', options.type);
+    if (options?.since) params.set('since', options.since);
+    
+    const response = await fetch(`${baseUrl}/v1/audit?${params}`, { headers: headers() });
+    if (!response.ok) throw new Error('Failed to fetch audit log');
+    return response.json();
+  };
+
+  const fetchAuditStats = async () => {
+    const response = await fetch(`${baseUrl}/v1/audit/stats`, { headers: headers() });
+    if (!response.ok) throw new Error('Failed to fetch audit stats');
+    return response.json();
+  };
+
+  // Tunnels API
+  const fetchTunnels = async () => {
+    const response = await fetch(`${baseUrl}/v1/tunnels`, { headers: headers() });
+    if (!response.ok) throw new Error('Failed to fetch tunnels');
+    return response.json();
+  };
+
+  const createTunnel = async (data: {
+    target: string;
+    name?: string;
+    protocol?: string;
+    agentId: string;
+    isPublic?: boolean;
+  }) => {
+    const response = await fetch(`${baseUrl}/v1/tunnels`, {
+      method: 'POST',
+      headers: {
+        ...headers(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to create tunnel');
+    return response.json();
+  };
+
+  const deleteTunnel = async (id: string) => {
+    const response = await fetch(`${baseUrl}/v1/tunnels/${id}`, {
+      method: 'DELETE',
+      headers: headers(),
+    });
+    if (!response.ok) throw new Error('Failed to delete tunnel');
+    return response.json();
+  };
+
   return {
     getApiKey,
     setApiKey,
@@ -248,5 +309,12 @@ export function useApi() {
     deleteService,
     // MCP status
     checkMcpStatus,
+    // Audit
+    fetchAuditLog,
+    fetchAuditStats,
+    // Tunnels
+    fetchTunnels,
+    createTunnel,
+    deleteTunnel,
   };
 }

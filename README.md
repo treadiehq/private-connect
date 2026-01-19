@@ -62,10 +62,30 @@ cd private-connect && pnpm install
 cd apps/agent && pnpm run build:binary
 ```
 
+## Control API
+
+Full REST API for programmatic control. Interactive docs available at `/docs` when running the API.
+
+```bash
+# List tunnels
+curl -H "x-api-key: pc_xxx" https://api.privateconnect.co/v1/tunnels
+
+# Get audit logs
+curl -H "x-api-key: pc_xxx" https://api.privateconnect.co/v1/audit
+
+# Create webhook
+curl -X POST -H "x-api-key: pc_xxx" \
+  -d '{"url":"https://example.com/hook","events":["tunnel.created"]}' \
+  https://api.privateconnect.co/v1/webhooks
+```
+
+See [DETAILED.md#control-api](DETAILED.md#control-api) for full API reference.
+
 ## Links
 
 - **Live**: [privateconnect.co](https://privateconnect.co)
 - **Docs**: [DETAILED.md](DETAILED.md) — full CLI reference, all features
+- **API Reference**: [DETAILED.md#control-api](DETAILED.md#control-api) — REST API documentation
 - **AI & MCP**: [docs/AI.md](docs/AI.md) — AI integration, orchestration, SDK
 - **Use Cases**: [USE_CASES.md](USE_CASES.md) — real scenarios
 - **Security**: [docs/security.md](docs/security.md) — architecture details

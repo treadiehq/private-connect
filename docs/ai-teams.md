@@ -25,7 +25,7 @@ And then someone new joins the team.
 1. "Submit a VPN access request"
 2. "Here's the bastion host SSH key"
 3. "Forward these 6 ports..."
-4. "Oh, the GPU cluster moved to a new IP"
+4. "Oh, the service moved to a new cluster/IP"
 5. 2 hours later: "Can someone help me? I still can't connect"
 
 **The Private Connect way:**
@@ -39,7 +39,7 @@ connect clone alice
 
 ## Access AI infrastructure by name
 
-Stop memorizing IPs and ports. Name your services once, reach them forever.
+Stop managing VPN configs, SSH tunnels, and port forwards. Name your services once, reach them from anywhere—your laptop, CI/CD, or another cloud region.
 
 ```bash
 # On your GPU cluster node

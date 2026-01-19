@@ -354,3 +354,54 @@ model InstallEvent {
   @@index([createdAt(sort: Desc)])
   @@index([source])
 }
+
+// Webhook: external HTTP callbacks for events
+model Webhook {
+  id          String   @id @default(uuid())
+  workspaceId String
+  url         String              // Endpoint URL to POST events to
+  secret      String              // HMAC secret for signature verification
+  events      String[]            // Event types to subscribe to
+  isActive    Boolean  @default(true)
+  description String?
+  
+  // Rate limiting & reliability
+  lastCalledAt    DateTime?
+  lastStatusCode  Int?
+  consecutiveFailures Int @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  deliveries  WebhookDelivery[]
+
+  @@index([workspaceId])
+  @@index([isActive])
+}
+
+// WebhookDelivery: delivery attempts for webhooks
+model WebhookDelivery {
+  id          String   @id @default(uuid())
+  webhookId   String
+  eventType   String              // tunnel.created, tunnel.connected, etc.
+  payload     String              // JSON payload
+  
+  // Delivery status
+  status      String   @default("pending") // pending | success | failed
+  statusCode  Int?
+  response    String?             // Response body (truncated)
+  error       String?             // Error message if failed
+  
+  // Timing
+  attemptedAt DateTime?
+  deliveredAt DateTime?
+  retryCount  Int      @default(0)
+  nextRetryAt DateTime?
+  
+  createdAt   DateTime @default(now())
+  
+  webhook     Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId, createdAt(sort: Desc)])
+  @@index([status, nextRetryAt])  // For retry queue
+}

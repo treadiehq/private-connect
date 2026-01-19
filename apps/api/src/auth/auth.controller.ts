@@ -1,4 +1,6 @@
-import { Controller, Post, Get, Body, Query, Req, Res, UnauthorizedException, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, Req, Res, UnauthorizedException, HttpException, HttpStatus, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { authRateLimiter } from '../common/rate-limiter';
@@ -12,11 +14,30 @@ interface LoginDto {
   email: string;
 }
 
+@ApiTags('Auth')
 @Controller('v1/auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('register')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ short: { limit: 3, ttl: 60000 } }) // 3 requests per minute
+  @ApiOperation({ 
+    summary: 'Register new user', 
+    description: 'Creates a new user account and workspace. Sends a magic link email for verification.' 
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['email', 'workspaceName'],
+      properties: {
+        email: { type: 'string', format: 'email', example: 'user@example.com' },
+        workspaceName: { type: 'string', example: 'my-workspace' },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Registration email sent' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   async register(@Body() body: RegisterDto, @Req() req: Request) {
     // Rate limit by IP
     const clientIp = req.ip || req.headers['x-forwarded-for']?.toString().split(',')[0] || 'unknown';
@@ -34,6 +55,23 @@ export class AuthController {
   }
 
   @Post('login')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ short: { limit: 5, ttl: 60000 } }) // 5 requests per minute
+  @ApiOperation({ 
+    summary: 'Login', 
+    description: 'Sends a magic link email to the user for passwordless authentication.' 
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['email'],
+      properties: {
+        email: { type: 'string', format: 'email', example: 'user@example.com' },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Login email sent' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   async login(@Body() body: LoginDto, @Req() req: Request) {
     // Rate limit by IP
     const clientIp = req.ip || req.headers['x-forwarded-for']?.toString().split(',')[0] || 'unknown';
@@ -51,6 +89,24 @@ export class AuthController {
   }
 
   @Get('verify')
+  @ApiOperation({ 
+    summary: 'Verify magic link', 
+    description: 'Verifies a magic link token and creates a session. Sets a session cookie.' 
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Authentication successful',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        user: { type: 'object' },
+        workspace: { type: 'object' },
+        isNewUser: { type: 'boolean' },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Invalid or expired token' })
   async verify(
     @Query('token') token: string,
     @Req() req: Request,
@@ -83,6 +139,11 @@ export class AuthController {
   }
 
   @Post('logout')
+  @ApiOperation({ 
+    summary: 'Logout', 
+    description: 'Invalidates the current session and clears the session cookie.' 
+  })
+  @ApiResponse({ status: 200, description: 'Logged out successfully' })
   async logout(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -97,6 +158,22 @@ export class AuthController {
   }
 
   @Get('me')
+  @ApiOperation({ 
+    summary: 'Get current user', 
+    description: 'Returns the currently authenticated user and their workspace.' 
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Current user info',
+    schema: {
+      type: 'object',
+      properties: {
+        user: { type: 'object' },
+        workspace: { type: 'object' },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Not authenticated' })
   async me(@Req() req: Request) {
     const token = req.cookies?.session;
     if (!token) {

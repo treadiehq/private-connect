@@ -2,6 +2,7 @@ import { Injectable, Inject, forwardRef, HttpException, HttpStatus } from '@nest
 import { PrismaService } from '../prisma/prisma.service';
 import { TunnelService } from '../tunnel/tunnel.service';
 import { WorkspaceService } from '../workspace/workspace.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { randomBytes } from 'crypto';
 
 // Port allocation range for tunnels
@@ -21,6 +22,7 @@ export class ServicesService {
     private tunnelService: TunnelService,
     @Inject(forwardRef(() => WorkspaceService))
     private workspaceService: WorkspaceService,
+    private webhooksService: WebhooksService,
   ) {
     this.loadUsedPorts();
   }
@@ -78,8 +80,10 @@ export class ServicesService {
       where: { workspaceId_name: { workspaceId, name } },
     });
 
+    const isNewService = !existing;
+
     // Check plan limits only if creating a new service
-    if (!existing) {
+    if (isNewService) {
       const usage = await this.workspaceService.getUsage(workspaceId);
       if (!usage?.canAddService) {
         throw new HttpException(
@@ -124,6 +128,21 @@ export class ServicesService {
       },
       include: { agent: true },
     });
+
+    // Emit webhook for new service/tunnel creation
+    if (isNewService) {
+      this.webhooksService.emit(workspaceId, 'tunnel.created', {
+        serviceId: service.id,
+        serviceName: service.name,
+        targetHost: service.targetHost,
+        targetPort: service.targetPort,
+        tunnelPort: service.tunnelPort,
+        protocol: service.protocol,
+        agentId: service.agentId,
+        agentLabel: service.agent?.label,
+        createdAt: service.createdAt.toISOString(),
+      }).catch(() => {}); // Fire and forget
+    }
 
     return service;
   }
@@ -336,6 +355,7 @@ export class ServicesService {
     // Verify service belongs to workspace
     const service = await this.prisma.service.findUnique({
       where: { id: serviceId },
+      include: { agent: { select: { label: true } } },
     });
 
     if (!service) {
@@ -355,6 +375,15 @@ export class ServicesService {
     await this.prisma.service.delete({
       where: { id: serviceId },
     });
+
+    // Emit webhook for tunnel deletion
+    this.webhooksService.emit(workspaceId, 'tunnel.deleted', {
+      serviceId: service.id,
+      serviceName: service.name,
+      agentId: service.agentId,
+      agentLabel: service.agent?.label,
+      deletedAt: new Date().toISOString(),
+    }).catch(() => {}); // Fire and forget
 
     return { success: true };
   }

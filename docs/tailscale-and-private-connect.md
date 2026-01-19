@@ -10,24 +10,26 @@ Tailscale is great. You install it, join a tailnet, and suddenly you can reach `
 
 But then what?
 
-- Which IP is the staging database again?
-- What port is that API running on?
-- How do I give my new teammate access to the same services I use?
+- **Outside the cluster**: Kubernetes has internal DNS (`postgres.staging.svc.cluster.local`), but that only works inside the cluster. From your laptop, you need VPN, port forwarding, or a bastion host.
+- **Cross-environment access**: Staging database is in one cluster, prod API in another. How do you access both from your local machine?
+- **Team collaboration**: How do you give your new teammate access to the same services you use, without them setting up VPN, SSH tunnels, or cluster access?
+- **Developer experience**: Even with Kubernetes service names, you're still managing port forwards, SSH tunnels, or VPN configs.
 
-Tailscale gives you **network access**. You still need to manage the services yourself.
+Tailscale gives you **network access**. Private Connect gives you **service access** with team collaboration built in.
 
 ---
 
 ## Private Connect adds a service layer
 
-Private Connect sits on top of any network. Tailscale, VPN, or plain internet, and adds:
+Private Connect sits on top of any network. Tailscale, VPN, Kubernetes, or plain internet, and adds:
 
 | Capability | Without Private Connect | With Private Connect |
 |------------|-------------------------|----------------------|
-| Access a database | `psql -h 100.64.1.50 -p 5432` | `connect reach prod-db` |
-| Remember what's running | Spreadsheet / tribal knowledge | `connect status` |
-| Share with teammate | "Here's the IP and port..." | `connect clone alice` |
-| Revoke access | Delete VPN config? | `connect share --revoke` |
+| Access from outside cluster | VPN + port forward, or SSH tunnel | `connect reach prod-db` |
+| Cross-environment access | Different VPN configs per environment | Same command, works everywhere |
+| Share with teammate | "Here's the VPN config and cluster access..." | `connect clone alice` |
+| Works with Kubernetes | Internal DNS only works in-cluster | Access K8s services from your laptop |
+| Revoke access | Delete VPN config? Remove cluster RBAC? | `connect share --revoke` |
 
 ---
 
@@ -51,6 +53,42 @@ Private Connect sits on top of any network. Tailscale, VPN, or plain internet, a
 Tailscale handles the networking. Private Connect handles service discovery and access.
 
 ---
+
+## Example: Kubernetes cluster access
+
+You have a Kubernetes cluster with services like `postgres.staging.svc.cluster.local`. Inside the cluster, DNS works great. But from your laptop?
+
+**Without Private Connect:**
+
+```bash
+# Option 1: VPN + port forward
+kubectl port-forward svc/postgres 5432:5432
+
+# Option 2: SSH tunnel through bastion
+ssh -L 5432:postgres.staging.svc.cluster.local:5432 bastion
+
+# Option 3: Expose via LoadBalancer (security risk)
+# kubectl expose svc/postgres --type=LoadBalancer
+```
+
+Each approach has problems: VPN configs, SSH key management, or exposing services publicly.
+
+**With Private Connect:**
+
+```bash
+# In your cluster (via DaemonSet or sidecar)
+connect expose postgres.staging.svc.cluster.local:5432 --name staging-db
+connect expose redis.prod.svc.cluster.local:6379 --name prod-redis
+
+# From your laptop (anywhere, no VPN needed)
+connect reach staging-db
+connect reach prod-redis
+
+# Teammate gets same access instantly
+connect clone you
+```
+
+Works with Kubernetes service names. No VPN. No SSH tunnels. Teammates clone your setup in 30 seconds.
 
 ## Example: AI development VM
 
@@ -120,12 +158,16 @@ connect reach jellyfin
 | Use case | Tool |
 |----------|------|
 | "I need to SSH into my VM" | Tailscale |
-| "I need to reach the database on my VM" | Private Connect |
+| "I need to reach services from outside the cluster" | Private Connect |
 | "I need to share my dev environment with a teammate" | Private Connect |
 | "I need all my devices on one network" | Tailscale |
-| "I need named, discoverable services" | Private Connect |
+| "I need cross-environment access (staging + prod)" | Private Connect |
+| "I need Kubernetes services accessible from my laptop" | Private Connect |
+| "I need named, discoverable services across environments" | Private Connect |
 
 They're complementary. Use both.
+
+**Kubernetes users**: Private Connect works alongside your existing service discovery. It doesn't replace `postgres.staging.svc.cluster.local`—it makes those services accessible from outside the cluster, with team sharing built in.
 
 ---
 
@@ -166,10 +208,12 @@ connect reach my-database
 
 Tailscale is network infrastructure. Private Connect is developer experience.
 
-- Tailscale: "Can I reach that machine?"
-- Private Connect: "Can I reach that service by name and share it with my team?"
+- **Tailscale**: "Can I reach that machine?"
+- **Private Connect**: "Can I reach that service by name, from anywhere, and share it with my team?"
 
-Use Tailscale for the network. Use Private Connect for the services.
+**For Kubernetes users**: Your internal DNS (`postgres.staging.svc.cluster.local`) works great inside the cluster. Private Connect makes those same services accessible from your laptop, CI/CD, or any environment—without VPN, SSH tunnels, or exposing services publicly.
+
+Use Tailscale for the network. Use Private Connect for cross-environment service access and team collaboration.
 
 ---
 

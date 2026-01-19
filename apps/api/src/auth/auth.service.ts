@@ -338,5 +338,29 @@ export class AuthService {
     }
     return session;
   }
+
+  // Get workspace owner (for API key authenticated requests)
+  async getWorkspaceOwner(workspaceId: string): Promise<{ ownerId: string; ownerEmail: string } | null> {
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      include: {
+        owner: {
+          select: {
+            id: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!workspace) {
+      return null;
+    }
+
+    return {
+      ownerId: workspace.ownerId,
+      ownerEmail: workspace.owner.email,
+    };
+  }
 }
 

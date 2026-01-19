@@ -1,7 +1,9 @@
 import { Controller, Get } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { TunnelService } from '../tunnel/tunnel.service';
 import { PrismaService } from '../prisma/prisma.service';
 
+@ApiTags('Status')
 @Controller()
 export class StatusController {
   private readonly startTime = Date.now();
@@ -11,10 +13,24 @@ export class StatusController {
     private prisma: PrismaService,
   ) {}
 
-  /**
-   * Public health check - no auth required
-   */
   @Get('health')
+  @ApiOperation({ 
+    summary: 'Health check', 
+    description: 'Basic health check endpoint. No authentication required.' 
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Service is healthy',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'ok' },
+        timestamp: { type: 'string', format: 'date-time' },
+        uptime: { type: 'number', description: 'Uptime in seconds' },
+        database: { type: 'string', enum: ['connected', 'disconnected', 'unknown'] },
+      },
+    },
+  })
   async health() {
     let dbStatus = 'unknown';
     try {
@@ -32,11 +48,41 @@ export class StatusController {
     };
   }
 
-  /**
-   * Detailed status with connection stats - no auth required
-   * Useful for monitoring and CLI status command
-   */
   @Get('v1/status')
+  @ApiOperation({ 
+    summary: 'Detailed system status', 
+    description: 'Returns detailed status including connected agents, active services, and hub statistics. No authentication required.' 
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'System status',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'ok' },
+        timestamp: { type: 'string', format: 'date-time' },
+        uptime: { type: 'number', description: 'Uptime in seconds' },
+        database: { type: 'string', enum: ['connected', 'disconnected', 'unknown'] },
+        hub: {
+          type: 'object',
+          properties: {
+            connectedAgents: { type: 'number' },
+            activeServices: { type: 'number' },
+            pendingConnections: { type: 'number' },
+            activeBridges: { type: 'number' },
+          },
+        },
+        totals: {
+          type: 'object',
+          properties: {
+            agents: { type: 'number' },
+            onlineAgents: { type: 'number' },
+            services: { type: 'number' },
+          },
+        },
+      },
+    },
+  })
   async status() {
     const stats = this.tunnelService.getStats();
     
