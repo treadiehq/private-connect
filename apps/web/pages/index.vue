@@ -48,7 +48,9 @@
 
         <!-- vs alternatives -->
         <p class="text-xs text-gray-600 max-w-md mx-auto">
-          Like ngrok, but for <span class="text-gray-400">accessing</span> services, not just exposing them. Like Tailscale, but no mesh network to manage.
+          <!-- Inspired by tools like ngrok and Tailscale, without exposing networks or managing a mesh. -->
+          Service-level access to private infrastructure, not a network VPN.
+          <!-- Like ngrok, but for <span class="text-gray-400">accessing</span> services, not just exposing them. Like Tailscale, but no mesh network to manage. -->
         </p>
 
         <!-- CTA buttons -->
@@ -63,8 +65,244 @@
       </div>
     </section>
 
+    <!-- What You Can Do Section -->
+    <section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
+      <div class="text-center mb-10">
+        <h2 class="text-xl font-semibold text-white mb-2">What you can do</h2>
+        <p class="text-gray-500 text-sm">Access services by name. Share with teammates. Works everywhere.</p>
+      </div>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Expose -->
+        <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-8 h-8 rounded-lg bg-emerald-300/10 flex items-center justify-center">
+              <svg class="w-4 h-4 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+              </svg>
+            </div>
+            <h3 class="font-medium text-white text-sm">Expose</h3>
+          </div>
+          <code class="text-xs font-mono text-emerald-300 bg-black/40 px-2 py-1 rounded block mb-2">connect localhost:5432</code>
+          <p class="text-xs text-gray-500">Make any local service reachable by name.</p>
+        </div>
+
+        <!-- Access -->
+        <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-8 h-8 rounded-lg bg-blue-300/10 flex items-center justify-center">
+              <svg class="w-4 h-4 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
+            </div>
+            <h3 class="font-medium text-white text-sm">Access</h3>
+          </div>
+          <code class="text-xs font-mono text-blue-300 bg-black/40 px-2 py-1 rounded block mb-2">connect prod-db</code>
+          <p class="text-xs text-gray-500">Connect to any service from anywhere.</p>
+        </div>
+
+        <!-- Share -->
+        <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-8 h-8 rounded-lg bg-purple-300/10 flex items-center justify-center">
+              <svg class="w-4 h-4 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+              </svg>
+            </div>
+            <h3 class="font-medium text-white text-sm">Share</h3>
+          </div>
+          <code class="text-xs font-mono text-purple-300 bg-black/40 px-2 py-1 rounded block mb-2">connect share</code>
+          <p class="text-xs text-gray-500">Onboard teammates in seconds.</p>
+        </div>
+
+        <!-- Clone -->
+        <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-8 h-8 rounded-lg bg-amber-300/10 flex items-center justify-center">
+              <svg class="w-4 h-4 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <h3 class="font-medium text-white text-sm">Clone</h3>
+          </div>
+          <code class="text-xs font-mono text-amber-300 bg-black/40 px-2 py-1 rounded block mb-2">connect clone alice</code>
+          <p class="text-xs text-gray-500">Mirror a teammate's environment instantly.</p>
+        </div>
+
+        <!-- Link -->
+        <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-8 h-8 rounded-lg bg-cyan-300/10 flex items-center justify-center">
+              <svg class="w-4 h-4 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+              </svg>
+            </div>
+            <h3 class="font-medium text-white text-sm">Link</h3>
+          </div>
+          <code class="text-xs font-mono text-cyan-300 bg-black/40 px-2 py-1 rounded block mb-2">connect link prod-api</code>
+          <p class="text-xs text-gray-500">Create a public URL. No install needed for viewers.</p>
+        </div>
+
+        <!-- Broker -->
+        <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-8 h-8 rounded-lg bg-rose-300/10 flex items-center justify-center">
+              <svg class="w-4 h-4 text-rose-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+              </svg>
+            </div>
+            <h3 class="font-medium text-white text-sm">Broker</h3>
+          </div>
+          <code class="text-xs font-mono text-rose-300 bg-black/40 px-2 py-1 rounded block mb-2">connect broker claude</code>
+          <p class="text-xs text-gray-500">Run AI agents with guardrails. Policies enforced.</p>
+        </div>
+      </div>
+
+      <!-- Works everywhere callout -->
+      <div class="mt-8 text-center">
+        <p class="text-xs text-gray-600">
+          Works on <span class="text-gray-400">laptops</span>, <span class="text-gray-400">servers</span>, <span class="text-gray-400">CI/CD runners</span>, and <span class="text-gray-400">AI agents</span>.
+        </p>
+      </div>
+
+      <!-- For Teams -->
+      <div class="mt-12 pt-8 border-t border-gray-500/10 hidden">
+        <p class="text-xs text-gray-600 uppercase tracking-wider mb-4 text-center">For teams</p>
+        <div class="grid sm:grid-cols-3 gap-4">
+          <!-- Control Panel -->
+          <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
+            <div class="flex items-center gap-2 mb-3">
+              <div class="w-8 h-8 rounded-lg bg-cyan-300/10 flex items-center justify-center">
+                <svg class="w-4 h-4 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/>
+                </svg>
+              </div>
+              <h3 class="font-medium text-white text-sm">Control Panel</h3>
+            </div>
+            <p class="text-xs text-gray-500">REST API, webhooks, and full programmatic control over agents and services.</p>
+          </div>
+
+          <!-- Permission Broker -->
+          <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
+            <div class="flex items-center gap-2 mb-3">
+              <div class="w-8 h-8 rounded-lg bg-amber-300/10 flex items-center justify-center">
+                <svg class="w-4 h-4 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                </svg>
+              </div>
+              <h3 class="font-medium text-white text-sm">Permission Broker</h3>
+            </div>
+            <p class="text-xs text-gray-500">Control AI agent actions. Approve, block, or require human review.</p>
+          </div>
+
+          <!-- Audit Logs -->
+          <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
+            <div class="flex items-center gap-2 mb-3">
+              <div class="w-8 h-8 rounded-lg bg-purple-300/10 flex items-center justify-center">
+                <svg class="w-4 h-4 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+              </div>
+              <h3 class="font-medium text-white text-sm">Audit Logs</h3>
+            </div>
+            <p class="text-xs text-gray-500">See who accessed what, when, from where. Full visibility into all agent activity.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Key Features Section -->
+    <section class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 relative z-10 hidden">
+      <div class="grid sm:grid-cols-2 gap-4">
+        <!-- Zero Config -->
+        <div class="flex items-start gap-3 p-4 rounded-lg bg-gray-500/5 border border-gray-500/10">
+          <span class="text-emerald-300 text-lg">✓</span>
+          <div>
+            <h3 class="font-medium text-white text-sm mb-1">Zero configuration</h3>
+            <p class="text-xs text-gray-500">No VPN setup, no firewall rules, no port forwarding. Just install and connect.</p>
+          </div>
+        </div>
+
+        <!-- End-to-end encrypted -->
+        <div class="flex items-start gap-3 p-4 rounded-lg bg-gray-500/5 border border-gray-500/10">
+          <span class="text-emerald-300 text-lg">✓</span>
+          <div>
+            <h3 class="font-medium text-white text-sm mb-1">End-to-end encrypted</h3>
+            <p class="text-xs text-gray-500">TLS 1.3 for all connections. Credentials never leave your machine.</p>
+          </div>
+        </div>
+
+        <!-- Service-level access -->
+        <div class="flex items-start gap-3 p-4 rounded-lg bg-gray-500/5 border border-gray-500/10">
+          <span class="text-emerald-300 text-lg">✓</span>
+          <div>
+            <h3 class="font-medium text-white text-sm mb-1">Service-level access</h3>
+            <p class="text-xs text-gray-500">Connect to services by name, not IPs. Per-service permissions, not network-wide.</p>
+          </div>
+        </div>
+
+        <!-- Open source -->
+        <div class="flex items-start gap-3 p-4 rounded-lg bg-gray-500/5 border border-gray-500/10">
+          <span class="text-emerald-300 text-lg">✓</span>
+          <div>
+            <h3 class="font-medium text-white text-sm mb-1">Open source & self-hostable</h3>
+            <p class="text-xs text-gray-500">Inspect the code. Run your own hub. Full control over your infrastructure.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- For Teams Section (compact) - now integrated into What You Can Do -->
+    <section class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 relative z-10 border-t border-gray-500/10 hidden">
+      <div class="text-center mb-8">
+        <h2 class="text-lg font-semibold text-white mb-2">For teams</h2>
+        <p class="text-gray-500 text-sm">Everything you need to manage private access at scale.</p>
+      </div>
+
+      <div class="grid sm:grid-cols-3 gap-6">
+        <!-- Control Panel -->
+        <div class="text-center">
+          <div class="w-10 h-10 rounded-lg bg-cyan-300/10 flex items-center justify-center mx-auto mb-3">
+            <svg class="w-5 h-5 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/>
+            </svg>
+          </div>
+          <h3 class="font-medium text-white text-sm mb-1">Control Panel</h3>
+          <p class="text-xs text-gray-500">REST API, webhooks, and full programmatic control.</p>
+        </div>
+
+        <!-- Permission Broker -->
+        <div class="text-center">
+          <div class="w-10 h-10 rounded-lg bg-amber-300/10 flex items-center justify-center mx-auto mb-3">
+            <svg class="w-5 h-5 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+          </div>
+          <h3 class="font-medium text-white text-sm mb-1">Permission Broker</h3>
+          <p class="text-xs text-gray-500">Control AI agent actions. Approve, block, or require human review.</p>
+        </div>
+
+        <!-- Audit Logs -->
+        <div class="text-center">
+          <div class="w-10 h-10 rounded-lg bg-purple-300/10 flex items-center justify-center mx-auto mb-3">
+            <svg class="w-5 h-5 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+          </div>
+          <h3 class="font-medium text-white text-sm mb-1">Audit Logs</h3>
+          <p class="text-xs text-gray-500">See who accessed what, when, from where.</p>
+        </div>
+      </div>
+
+      <div class="text-center mt-6">
+        <a href="https://api.privateconnect.co/docs" target="_blank" class="text-xs text-gray-500 hover:text-blue-300 transition-colors">
+          API Documentation →
+        </a>
+      </div>
+    </section>
+
     <!-- The Problem / Solution Section -->
-    <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
+    <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10 hidden">
       <div class="grid lg:grid-cols-2 gap-8">
         <!-- The Old Way (Problem) -->
         <div class="relative">
@@ -153,16 +391,16 @@
     <!-- Multiple Ways to Integrate -->
     <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
       <div class="text-center mb-10">
-        <h2 class="text-2xl sm:text-3xl font-bold text-white mb-3">Three ways to integrate</h2>
-        <p class="text-gray-400">CLI for developers. SDK for automation. MCP for AI agents.</p>
+        <h2 class="text-lg font-bold text-white mb-3">Three ways to integrate</h2>
+        <p class="text-gray-500 text-sm">CLI for developers. SDK for automation. MCP for AI agents.</p>
       </div>
 
       <div class="grid md:grid-cols-3 gap-6">
         <!-- CLI -->
-        <div class="bg-gray-500/10 border border-gray-500/10 rounded-xl p-6">
+        <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-6">
           <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 rounded-lg bg-emerald-400/10 flex items-center justify-center">
-              <svg class="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="w-10 h-10 rounded-lg bg-gray-500/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
               </svg>
             </div>
@@ -174,16 +412,16 @@
           <div class="bg-black/40 rounded-lg p-4 font-mono text-xs space-y-1">
             <div><span class="text-gray-500">$</span> <span class="text-gray-300">connect up</span></div>
             <div><span class="text-gray-500">$</span> <span class="text-gray-300">connect prod-db</span></div>
-            <div class="text-emerald-400">✓ Connected on localhost:5432</div>
+            <div class="text-emerald-300">✓ Connected on localhost:5432</div>
           </div>
           <p class="text-gray-500 text-xs mt-4">Install once, reach any service by name. Works on laptops, servers, CI runners.</p>
         </div>
 
         <!-- SDK -->
-        <div class="bg-gray-500/10 border border-gray-500/10 rounded-xl p-6">
+        <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-6">
           <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 rounded-lg bg-blue-300/10 flex items-center justify-center">
-              <svg class="w-5 h-5 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="w-10 h-10 rounded-lg bg-gray-500/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
               </svg>
             </div>
@@ -195,16 +433,16 @@
           <div class="bg-black/40 rounded-lg p-4 font-mono text-xs space-y-1">
             <div><span class="text-purple-300">const</span> db = <span class="text-purple-300">await</span> <span class="text-blue-300">connect</span>(<span class="text-amber-300">'prod-db'</span>);</div>
             <div><span class="text-gray-400">console</span>.<span class="text-blue-300">log</span>(db.<span class="text-gray-300">connectionString</span>);</div>
-            <div class="text-emerald-400">// postgres://localhost:5432/...</div>
+            <div class="text-emerald-300">// postgres://localhost:5432/...</div>
           </div>
           <p class="text-gray-500 text-xs mt-4">Programmatic access for scripts, CI/CD, and orchestration. <code class="bg-black/40 px-1.5 py-0.5 rounded text-blue-300">npm i @privateconnect/sdk</code></p>
         </div>
 
         <!-- MCP -->
-        <div class="bg-gray-500/10 border border-gray-500/10 rounded-xl p-6">
+        <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-6">
           <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 rounded-lg bg-purple-300/10 flex items-center justify-center">
-              <svg class="w-5 h-5 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="w-10 h-10 rounded-lg bg-gray-500/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
               </svg>
             </div>
@@ -215,7 +453,7 @@
           </div>
           <div class="bg-black/40 rounded-lg p-4 font-mono text-xs space-y-1">
             <div><span class="text-gray-500">$</span> <span class="text-gray-300">connect mcp setup</span></div>
-            <div class="text-emerald-400">✓ Added to Cursor config</div>
+            <div class="text-emerald-300">✓ Added to Cursor config</div>
             <div class="text-gray-500 mt-1"># AI can now access services</div>
           </div>
           <p class="text-gray-500 text-xs mt-4">Let AI assistants connect to your services. Works with Cursor, Claude Desktop, any MCP client.</p>
@@ -224,7 +462,7 @@
     </section>
 
     <!-- Use Cases Section -->
-    <section id="features" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
+    <section id="features" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10 hidden">
       <div class="text-center mb-12">
         <h2 class="text-2xl sm:text-3xl font-bold text-white mb-4">Built for developers who…</h2>
         <p class="text-gray-400 max-w-xl mx-auto">If any of these sound familiar, Private Connect is for you and your AI agents.</p>
@@ -307,7 +545,7 @@
     </section>
 
     <!-- How It Works Section -->
-    <section id="how-it-works" class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
+    <section id="how-it-works" class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10 hidden">
       <div class="text-center mb-12">
         <h2 class="text-2xl sm:text-3xl font-bold text-white mb-4">How it works</h2>
         <p class="text-gray-400 max-w-xl mx-auto">Set up once, use every day.</p>
@@ -440,7 +678,7 @@
     </section>
 
     <!-- Team Workflow Section -->
-    <section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
+    <section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10 hidden">
       <div class="text-center mb-10">
         <h2 class="text-2xl sm:text-3xl font-bold text-white mb-3">Works for teams, not just individuals</h2>
         <p class="text-gray-400">Onboard teammates instantly. Share access without sharing credentials.</p>
@@ -536,7 +774,7 @@
     </section>
 
     <!-- Built for AI Agents Section -->
-    <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
+    <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10 hidden">
       <div class="text-center mb-10">
         <h2 class="text-2xl sm:text-3xl font-bold text-white mb-3">Built for AI agents too</h2>
         <p class="text-gray-400">Same CLI, same access model. Plus governance controls you actually need.</p>
@@ -664,7 +902,7 @@
     </section>
 
     <!-- Control Plane Section -->
-    <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
+    <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10 hidden">
       <div class="text-center mb-10">
         <h2 class="text-2xl sm:text-3xl font-bold text-white mb-3">A control plane for private access</h2>
         <p class="text-gray-400">Manage agents and services programmatically. No CLI needed for end users.</p>
@@ -965,13 +1203,13 @@
     <!-- Security FAQ Section -->
     <section id="security" class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
       <div class="text-center mb-10">
-        <h2 class="text-2xl sm:text-3xl font-bold text-white mb-3">Frequently asked questions</h2>
-        <p class="text-gray-400">Everything you need to know about Private Connect security.</p>
+        <h2 class="text-lg font-bold text-white mb-3">Frequently asked questions</h2>
+        <p class="text-gray-500 text-sm">Everything you need to know about Private Connect security.</p>
       </div>
 
-      <div class="space-y-3">
+      <div class="space-y-2 text-sm">
         <!-- FAQ 0: Access Control -->
-        <details class="group bg-gray-500/10 rounded-xl border border-gray-500/10 overflow-hidden">
+        <details class="group bg-gray-500/5 rounded-xl border border-gray-500/10 overflow-hidden">
           <summary class="flex items-center justify-between p-5 cursor-pointer list-none">
             <span class="font-medium text-white">Who can access my exposed services?</span>
             <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -990,7 +1228,7 @@
         </details>
 
         <!-- FAQ 1 -->
-        <details class="group bg-gray-500/10 rounded-xl border border-gray-500/10 overflow-hidden">
+        <details class="group bg-gray-500/5 rounded-xl border border-gray-500/10 overflow-hidden">
           <summary class="flex items-center justify-between p-5 cursor-pointer list-none">
             <span class="font-medium text-white">Why should I trust this tool?</span>
             <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1009,7 +1247,7 @@
         </details>
 
         <!-- FAQ 2 -->
-        <details class="group bg-gray-500/10 rounded-xl border border-gray-500/10 overflow-hidden">
+        <details class="group bg-gray-500/5 rounded-xl border border-gray-500/10 overflow-hidden">
           <summary class="flex items-center justify-between p-5 cursor-pointer list-none">
             <span class="font-medium text-white">What if someone intercepts the connection (MITM)?</span>
             <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1028,7 +1266,7 @@
         </details>
 
         <!-- FAQ 3 -->
-        <details class="group bg-gray-500/10 rounded-xl border border-gray-500/10 overflow-hidden">
+        <details class="group bg-gray-500/5 rounded-xl border border-gray-500/10 overflow-hidden">
           <summary class="flex items-center justify-between p-5 cursor-pointer list-none">
             <span class="font-medium text-white">Has this been security audited?</span>
             <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1042,7 +1280,7 @@
         </details>
 
         <!-- FAQ 4 -->
-        <details class="group bg-gray-500/10 rounded-xl border border-gray-500/10 overflow-hidden">
+        <details class="group bg-gray-500/5 rounded-xl border border-gray-500/10 overflow-hidden">
           <summary class="flex items-center justify-between p-5 cursor-pointer list-none">
             <span class="font-medium text-white">Doesn't this make it easier for attackers to reach prod?</span>
             <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1062,7 +1300,7 @@
         </details>
 
         <!-- FAQ 5 -->
-        <details class="group bg-gray-500/10 rounded-xl border border-gray-500/10 overflow-hidden">
+        <details class="group bg-gray-500/5 rounded-xl border border-gray-500/10 overflow-hidden">
           <summary class="flex items-center justify-between p-5 cursor-pointer list-none">
             <span class="font-medium text-white">Can someone recon my environment from your logs?</span>
             <svg class="w-5 h-5 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1081,18 +1319,18 @@
 
     <!-- Simple CTA Section -->
     <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 relative z-10">
-      <div class="text-center py-12 px-6 rounded-xl bg-gray-500/10 border border-gray-500/10">
+      <div class="text-center py-12 px-6 rounded-xl bg-gray-500/5 border border-gray-500/10">
         <h2 class="text-2xl sm:text-3xl font-bold text-white mb-4">Make every service feel local</h2>
-        <p class="text-gray-400 max-w-md mx-auto mb-2">No signup required. Working tunnel in 10 seconds.</p>
-        <p class="text-xs text-gray-600 max-w-lg mx-auto mb-6">
+        <p class="text-gray-400 max-w-md mx-auto mb-2 text-pretty font-normal">No signup required. Working tunnel in 10 seconds.</p>
+        <!-- <p class="text-xs text-gray-600 max-w-lg mx-auto mb-6">
           Like ngrok, but for <span class="text-gray-400">accessing</span> services, not just exposing them. Like Tailscale, but no mesh network to manage.
-        </p>
+        </p> -->
         
         <!-- Primary: Try now -->
         <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-4">
           <div 
             @click="copyTryNow"
-            class="inline-flex items-center cursor-pointer bg-black/60 border border-blue-300/20 rounded-lg px-4 py-2.5 font-mono text-sm group hover:bg-blue-300/10 transition-colors"
+            class="inline-flex items-center cursor-pointer bg-black/60 border border-gray-500/10 rounded-lg px-4 py-2.5 font-mono text-xs group hover:bg-gray-500/10 transition-colors"
           >
             <span class="text-gray-500 mr-2">$</span>
             <span class="text-blue-300">npx private-connect tunnel 3000</span>

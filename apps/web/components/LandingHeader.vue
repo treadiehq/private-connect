@@ -23,8 +23,8 @@
 
         <div class="hidden lg:flex lg:gap-x-5">
 					<!-- <a href="/#pricing" class="text-sm font-medium text-gray-400 hover:text-white transition-colors cursor-pointer hover:bg-gray-500/15 rounded-lg px-3 py-1.5">Pricing</a> -->
-					<a href="/#features" class="text-sm font-medium text-gray-400 hover:text-white transition-colors cursor-pointer hover:bg-gray-500/15 rounded-lg px-3 py-1.5">Features</a>
-					<a href="/#how-it-works" class="text-sm font-medium text-gray-400 hover:text-white transition-colors cursor-pointer hover:bg-gray-500/15 rounded-lg px-3 py-1.5">How It Works</a>
+					<!-- <a href="/#features" class="text-sm font-medium text-gray-400 hover:text-white transition-colors cursor-pointer hover:bg-gray-500/15 rounded-lg px-3 py-1.5">Features</a> -->
+					<!-- <a href="/#how-it-works" class="text-sm font-medium text-gray-400 hover:text-white transition-colors cursor-pointer hover:bg-gray-500/15 rounded-lg px-3 py-1.5">How It Works</a> -->
 					<a href="/#security" class="text-sm font-medium text-gray-400 hover:text-white transition-colors cursor-pointer hover:bg-gray-500/15 rounded-lg px-3 py-1.5">Security</a>
 					<NuxtLink to="/install" class="text-sm font-medium text-gray-400 hover:text-white transition-colors cursor-pointer hover:bg-gray-500/15 rounded-lg px-3 py-1.5">Install</NuxtLink>
 				</div>
@@ -64,8 +64,8 @@
 						<div class="mt-6 flow-root">
 							<div class="-my-6 divide-y divide-gray-500/15">
 								<div class="space-y-2 py-6">
-									<a href="/#features" class="-mx-3 block rounded-lg px-3 py-2 text-sm font-semibold text-white hover:bg-gray-500/10">Features</a>
-									<a href="/#how-it-works" class="-mx-3 block rounded-lg px-3 py-2 text-sm font-semibold text-white hover:bg-gray-500/10">How It Works</a>
+									<!-- <a href="/#features" class="-mx-3 block rounded-lg px-3 py-2 text-sm font-semibold text-white hover:bg-gray-500/10">Features</a> -->
+									<!-- <a href="/#how-it-works" class="-mx-3 block rounded-lg px-3 py-2 text-sm font-semibold text-white hover:bg-gray-500/10">How It Works</a> -->
 									<a href="/#security" class="-mx-3 block rounded-lg px-3 py-2 text-sm font-semibold text-white hover:bg-gray-500/10">Security</a>
 									<NuxtLink to="/install" class="-mx-3 block rounded-lg px-3 py-2 text-sm font-semibold text-white hover:bg-gray-500/10">Install</NuxtLink>
 									<!-- <a href="/#pricing" class="-mx-3 block rounded-lg px-3 py-2 text-sm font-semibold text-white hover:bg-gray-500/10">Pricing</a> -->
