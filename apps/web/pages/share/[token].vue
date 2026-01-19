@@ -61,6 +61,9 @@
             Expires {{ formatExpiry(shareInfo.expiresAt) }}
           </span>
           <span class="text-xs text-gray-600">No installation required</span>
+          <a href="/" class="text-xs text-blue-300 hover:text-blue-200 transition-colors hidden sm:block">
+            Powered by Private Connect
+          </a>
         </div>
       </div>
 
@@ -101,6 +104,9 @@
             Expires {{ formatExpiry(shareInfo.expiresAt) }}
           </span>
           <span class="text-xs text-gray-600">Web Terminal Preview</span>
+          <a href="/" class="text-xs text-blue-300 hover:text-blue-200 transition-colors hidden sm:block">
+            Powered by Private Connect
+          </a>
         </div>
       </div>
 
@@ -145,6 +151,9 @@
             </svg>
             <span>Open in new tab</span>
           </button>
+          <a href="/" class="text-xs text-blue-300 hover:text-blue-200 transition-colors hidden sm:block">
+            Powered by Private Connect
+          </a>
         </div>
       </div>
 
@@ -215,41 +224,74 @@
       </div>
     </div>
 
-    <!-- Generic Service Info -->
-    <div v-else-if="shareInfo" class="min-h-screen flex items-center justify-center p-4">
-      <div class="max-w-lg w-full">
-        <div class="bg-gray-500/5 rounded-xl border border-gray-500/10 p-8 text-center">
-          <div class="w-16 h-16 mx-auto mb-6 rounded-xl bg-purple-300/10 border border-purple-300/20 flex items-center justify-center">
-            <svg class="w-8 h-8 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-            </svg>
-          </div>
-          
-          <h1 class="text-2xl font-bold text-white mb-2">{{ shareInfo.name }}</h1>
-          <p v-if="shareInfo.description" class="text-gray-400 mb-6">{{ shareInfo.description }}</p>
-          
-          <div class="bg-black/50 rounded-xl p-6 mb-6 border border-gray-500/10">
-            <div class="text-sm text-gray-500 mb-2">Service</div>
-            <div class="text-lg font-mono text-white">{{ shareInfo.service.name }}</div>
-            <div class="text-sm text-gray-500 mt-1">
-              {{ shareInfo.service.targetHost }}:{{ shareInfo.service.targetPort }}
+    <!-- Generic Service Info (with Branded Interstitial) -->
+    <div v-else-if="shareInfo" class="min-h-screen flex flex-col">
+      <!-- Branded Header -->
+      <div class="flex items-center justify-between px-6 py-4 bg-gray-500/5 border-b border-gray-500/10">
+        <NuxtLink to="/" class="flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-blue-300">
+            <path fill-rule="evenodd" d="M9.638 1.093a.75.75 0 0 1 .724 0l2 1.104a.75.75 0 1 1-.724 1.313L10 2.607l-1.638.903a.75.75 0 1 1-.724-1.313l2-1.104ZM5.403 4.287a.75.75 0 0 1-.295 1.019l-.805.444.805.444a.75.75 0 0 1-.724 1.314L3.5 7.02v.73a.75.75 0 0 1-1.5 0v-2a.75.75 0 0 1 .388-.657l1.996-1.1a.75.75 0 0 1 1.019.294Zm9.194 0a.75.75 0 0 1 1.02-.295l1.995 1.101A.75.75 0 0 1 18 5.75v2a.75.75 0 0 1-1.5 0v-.73l-.884.488a.75.75 0 1 1-.724-1.314l.806-.444-.806-.444a.75.75 0 0 1-.295-1.02ZM7.343 8.284a.75.75 0 0 1 1.02-.294L10 8.893l1.638-.903a.75.75 0 1 1 .724 1.313l-1.612.89v1.557a.75.75 0 0 1-1.5 0v-1.557l-1.612-.89a.75.75 0 0 1-.295-1.019ZM2.75 11.5a.75.75 0 0 1 .75.75v1.557l1.608.887a.75.75 0 0 1-.724 1.314l-1.996-1.101A.75.75 0 0 1 2 14.25v-2a.75.75 0 0 1 .75-.75Zm14.5 0a.75.75 0 0 1 .75.75v2a.75.75 0 0 1-.388.657l-1.996 1.1a.75.75 0 1 1-.724-1.313l1.608-.887V12.25a.75.75 0 0 1 .75-.75Zm-7.25 4a.75.75 0 0 1 .75.75v.73l.888-.49a.75.75 0 0 1 .724 1.313l-2 1.104a.75.75 0 0 1-.724 0l-2-1.104a.75.75 0 1 1 .724-1.313l.888.49v-.73a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
+          </svg>
+          <span class="text-sm font-semibold text-white">Private Connect</span>
+        </NuxtLink>
+        <div class="flex items-center gap-4">
+          <span v-if="shareInfo.expiresAt" class="text-xs text-gray-500">
+            Expires {{ formatExpiry(shareInfo.expiresAt) }}
+          </span>
+          <NuxtLink to="/register" class="text-xs text-blue-300 hover:text-blue-200 transition-colors">
+            Get Private Connect →
+          </NuxtLink>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="flex-1 flex items-center justify-center p-4">
+        <div class="max-w-lg w-full">
+          <div class="bg-gray-500/5 rounded-xl border border-gray-500/10 p-8 text-center">
+            <!-- Shared By Badge -->
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-300/10 border border-emerald-300/20 mb-6">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span class="text-xs text-emerald-300">Shared by {{ shareInfo.workspaceName }}</span>
+            </div>
+            
+            <h1 class="text-2xl font-bold text-white mb-2">{{ shareInfo.name }}</h1>
+            <p v-if="shareInfo.description" class="text-gray-400 mb-6">{{ shareInfo.description }}</p>
+            
+            <div class="bg-black/50 rounded-xl p-6 mb-6 border border-gray-500/10">
+              <div class="text-sm text-gray-500 mb-2">Service</div>
+              <div class="text-lg font-mono text-white">{{ shareInfo.service.name }}</div>
+              <div class="text-sm text-gray-500 mt-1">
+                {{ shareInfo.service.targetHost }}:{{ shareInfo.service.targetPort }}
+              </div>
+            </div>
+
+            <div class="text-sm text-gray-500 mb-6">
+              <p>This service requires the Private Connect CLI to access.</p>
+            </div>
+
+            <!-- Install Command -->
+            <div class="bg-black/50 rounded-lg p-4 mb-4 border border-gray-500/10">
+              <div class="text-xs text-gray-500 mb-2">Quick install:</div>
+              <code class="text-sm text-blue-300 font-mono">curl -fsSL https://privateconnect.co/install.sh | bash</code>
+            </div>
+
+            <div class="bg-black/50 rounded-lg p-4 border border-gray-500/10">
+              <div class="text-xs text-gray-500 mb-2">Then connect:</div>
+              <code class="text-sm text-emerald-300 font-mono">connect {{ shareInfo.service.name }}</code>
             </div>
           </div>
+        </div>
+      </div>
 
-          <div class="text-sm text-gray-500 mb-6">
-            <p>This service requires the Private Connect CLI to access.</p>
+      <!-- Branded Footer -->
+      <div class="px-6 py-4 border-t border-gray-500/10 bg-gray-500/5">
+        <div class="flex items-center justify-between max-w-lg mx-auto">
+          <div class="text-xs text-gray-500">
+            Access private services anywhere. No VPN. No installs.
           </div>
-
-          <!-- Install Command -->
-          <div class="bg-black/50 rounded-lg p-4 mb-4 border border-gray-500/10">
-            <div class="text-xs text-gray-500 mb-2">Quick install:</div>
-            <code class="text-sm text-blue-300 font-mono">curl -fsSL https://privateconnect.co/install | sh</code>
-          </div>
-
-          <div class="bg-black/50 rounded-lg p-4 border border-gray-500/10">
-            <div class="text-xs text-gray-500 mb-2">Then connect:</div>
-            <code class="text-sm text-emerald-300 font-mono">connect {{ shareInfo.service.name }}</code>
-          </div>
+          <NuxtLink to="/" class="text-xs text-gray-500 hover:text-white transition-colors">
+            privateconnect.co
+          </NuxtLink>
         </div>
       </div>
     </div>
