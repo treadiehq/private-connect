@@ -1,3 +1,9 @@
+---
+title: MCP Integration
+description: Connect AI assistants (Cursor, Claude Desktop, etc.) to your private services.
+date: 2024-01-10
+---
+
 # MCP Integration
 
 > Connect AI assistants (Cursor, Claude Desktop, etc.) to your private services.

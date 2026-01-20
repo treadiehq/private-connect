@@ -1,3 +1,9 @@
+---
+title: Security Architecture
+description: Learn about Private Connect's security architecture, data isolation, and privacy best practices.
+date: 2024-01-08
+---
+
 # Security Architecture
 
 This document describes how Private Connect handles security, data isolation, and privacy.

@@ -1,3 +1,9 @@
+---
+title: Agent Permission Broker
+description: Policy-based access control for AI agents with approval workflows. Control what AI coding assistants can do in your workspace.
+date: 2024-01-12
+---
+
 # Agent Permission Broker
 
 > ⚠️ **Experimental Feature**: AI agent governance is an emerging space. This feature is forward-looking and may change significantly.

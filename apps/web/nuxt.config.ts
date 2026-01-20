@@ -2,7 +2,17 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineNuxtConfig({
   devtools: { enabled: false },
-  modules: [],
+  modules: ['@nuxt/content'],
+
+  content: {
+    sources: {
+      docs: {
+        driver: 'fs',
+        base: '../../docs',
+        prefix: '/docs',
+      },
+    },
+  },
 
   vue: {
     compilerOptions: {

@@ -1,3 +1,9 @@
+---
+title: Tailscale & Private Connect
+description: How Private Connect works alongside Tailscale and other VPN solutions. Tailscale gets you on the network, Private Connect gets you to your services.
+date: 2024-01-14
+---
+
 # Using Private Connect with Tailscale
 
 Tailscale gets you on the network. Private Connect gets you to your services.

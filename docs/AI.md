@@ -1,3 +1,9 @@
+---
+title: Private Connect for AI
+description: Build AI agents that securely access private services, orchestrate multi-machine workflows, and collaborate with each other.
+date: 2024-01-15
+---
+
 # Private Connect for AI
 
 > Build AI agents that securely access private services, orchestrate multi-machine workflows, and collaborate with each other.

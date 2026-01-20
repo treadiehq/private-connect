@@ -1,3 +1,9 @@
+---
+title: Private Connect for AI Teams
+description: The service layer for AI development infrastructure. How AI teams access GPU clusters, model APIs, and training services, without VPN headaches.
+date: 2024-01-16
+---
+
 # Private Connect for AI Teams
 
 **The service layer for AI development infrastructure.**
