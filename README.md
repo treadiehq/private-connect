@@ -2,9 +2,9 @@
 
 **Access private services by name from anywhere. No VPN setup, no firewall rules, no port forwarding.**
 
-Private Connect is an open-source Tailscale for service-level connectivity. Access your databases, APIs, and internal services with a simple command like `connect prod-db`, no VPN configuration or SSH tunnels required.
+Private Connect is service-level connectivity solution. Access your databases, APIs, and internal services with a simple command like `connect prod-db`, no VPN configuration or SSH tunnels required.
 
-> Like ngrok, but for accessing services, not just exposing them. Like Tailscale, but no mesh network to manage.
+> Tailscale for services, not networks.
 
 ## Quick Start
 
