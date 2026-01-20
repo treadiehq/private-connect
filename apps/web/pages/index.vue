@@ -47,13 +47,23 @@
         </div>
 
         <!-- vs alternatives -->
-        <p class="text-xs text-gray-600 max-w-md mx-auto">
-          <!-- Inspired by tools like ngrok and Tailscale, without exposing networks or managing a mesh. -->
+        <!-- <p class="text-xs text-gray-600 max-w-md mx-auto">
           Service-level access to private infrastructure, not a network VPN.
-          <!-- Like ngrok, but for <span class="text-gray-400">accessing</span> services, not just exposing them. Like Tailscale, but no mesh network to manage. -->
-        </p>
+          Like ngrok, but for <span class="text-gray-400">accessing</span> services, not just exposing them. Like Tailscale, but no mesh network to manage.
+        </p> -->
 
         <!-- CTA buttons -->
+        <div class="flex items-center justify-center gap-3 mt-6">
+          <NuxtLink to="/register" target="_blank" class="text-sm justify-center bg-white font-medium rounded-lg cursor-pointer flex items-center gap-2 text-black hover:bg-gray-300 py-2 px-4">
+            <!-- <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"/>
+            </svg> -->
+            <span>Get started for free</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM6.75 9.25a.75.75 0 0 0 0 1.5h4.59l-2.1 1.95a.75.75 0 0 0 1.02 1.1l3.5-3.25a.75.75 0 0 0 0-1.1l-3.5-3.25a.75.75 0 1 0-1.02 1.1l2.1 1.95H6.75Z" clip-rule="evenodd" />
+            </svg>
+          </NuxtLink>
+        </div>
         <!-- <div class="flex items-center justify-center gap-3 mt-6">
           <a href="https://github.com/treadiehq/private-connect" target="_blank" class="text-sm justify-center font-medium rounded-lg cursor-pointer flex items-center gap-2 text-gray-500 hover:text-white hover:bg-gray-500/10 py-2 px-4">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -76,8 +86,8 @@
         <!-- Expose -->
         <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
           <div class="flex items-center gap-2 mb-3">
-            <div class="w-8 h-8 rounded-lg bg-emerald-300/10 flex items-center justify-center">
-              <svg class="w-4 h-4 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="w-6 h-6 rounded-md bg-emerald-300/10 flex items-center justify-center">
+              <svg class="w-3 h-3 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
               </svg>
             </div>
@@ -90,8 +100,8 @@
         <!-- Access -->
         <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
           <div class="flex items-center gap-2 mb-3">
-            <div class="w-8 h-8 rounded-lg bg-blue-300/10 flex items-center justify-center">
-              <svg class="w-4 h-4 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="w-6 h-6 rounded-md bg-blue-300/10 flex items-center justify-center">
+              <svg class="w-3 h-3 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
               </svg>
             </div>
@@ -104,8 +114,8 @@
         <!-- Share -->
         <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
           <div class="flex items-center gap-2 mb-3">
-            <div class="w-8 h-8 rounded-lg bg-purple-300/10 flex items-center justify-center">
-              <svg class="w-4 h-4 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="w-6 h-6 rounded-md bg-purple-300/10 flex items-center justify-center">
+              <svg class="w-3 h-3 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
               </svg>
             </div>
@@ -118,8 +128,8 @@
         <!-- Clone -->
         <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
           <div class="flex items-center gap-2 mb-3">
-            <div class="w-8 h-8 rounded-lg bg-amber-300/10 flex items-center justify-center">
-              <svg class="w-4 h-4 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="w-6 h-6 rounded-md bg-amber-300/10 flex items-center justify-center">
+              <svg class="w-3 h-3 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
               </svg>
             </div>
@@ -132,8 +142,8 @@
         <!-- Link -->
         <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
           <div class="flex items-center gap-2 mb-3">
-            <div class="w-8 h-8 rounded-lg bg-cyan-300/10 flex items-center justify-center">
-              <svg class="w-4 h-4 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="w-6 h-6 rounded-md bg-cyan-300/10 flex items-center justify-center">
+              <svg class="w-3 h-3 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
               </svg>
             </div>
@@ -146,8 +156,8 @@
         <!-- Broker -->
         <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-5">
           <div class="flex items-center gap-2 mb-3">
-            <div class="w-8 h-8 rounded-lg bg-rose-300/10 flex items-center justify-center">
-              <svg class="w-4 h-4 text-rose-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="w-6 h-6 rounded-md bg-rose-300/10 flex items-center justify-center">
+              <svg class="w-3 h-3 text-rose-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
               </svg>
             </div>
@@ -1351,8 +1361,11 @@
         <!-- Secondary: Sign up for team features -->
         <div class="flex items-center justify-center gap-3">
           <NuxtLink to="/register" 
-                    class="text-sm text-gray-400 hover:text-white transition-colors">
-            Sign up for team features →
+                    class="text-sm text-white bg-gray-500/10 hover:text-gray-400 hover:bg-gray-500/10 rounded-lg px-4 py-2.5 transition-colors flex items-center gap-2">
+            Get started for free
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM6.75 9.25a.75.75 0 0 0 0 1.5h4.59l-2.1 1.95a.75.75 0 0 0 1.02 1.1l3.5-3.25a.75.75 0 0 0 0-1.1l-3.5-3.25a.75.75 0 1 0-1.02 1.1l2.1 1.95H6.75Z" clip-rule="evenodd" />
+            </svg>
           </NuxtLink>
         </div>
       </div>
