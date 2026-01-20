@@ -2,7 +2,9 @@
 
 **Access private services by name from anywhere. No VPN setup, no firewall rules, no port forwarding.**
 
-Private Connect is an open-source alternative Tailscale for service-level connectivity. Access your databases, APIs, and internal services with a simple command like `connect prod-db`, no VPN configuration or SSH tunnels required.
+Private Connect is an open-source Tailscale for service-level connectivity. Access your databases, APIs, and internal services with a simple command like `connect prod-db`, no VPN configuration or SSH tunnels required.
+
+> Like ngrok, but for accessing services, not just exposing them. Like Tailscale, but no mesh network to manage.
 
 ## Quick Start
 
@@ -20,9 +22,9 @@ curl -fsSL https://privateconnect.co/install.sh | bash
 connect up
 
 # Use
-connect localhost:5432           # Expose a service
+connect 5432                     # Expose a service
 connect prod-db                  # Access a service
-connect localhost:5432 --share   # Get a shareable link
+connect 5432 --share             # Get a shareable link
 
 ```
 
@@ -31,9 +33,9 @@ connect localhost:5432 --share   # Get a shareable link
 | You want to... | Command |
 |----------------|---------|
 | Quick tunnel (no signup) | `npx private-connect tunnel 3000` |
-| Expose a service | `connect localhost:5432` |
+| Expose a service | `connect 5432` |
 | Access a service | `connect prod-db` |
-| Share with a teammate | `connect localhost:5432 --share` |
+| Share with a teammate | `connect 5432 --share` |
 | Clone a teammate's setup | `connect clone alice` |
 | Check status | `connect status` |
 

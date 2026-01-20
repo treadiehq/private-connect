@@ -229,6 +229,7 @@ export function makeNameUnique(
  *   "localhost:5432" -> expose
  *   "127.0.0.1:8080" -> expose
  *   ":3000" -> expose (shorthand for localhost:3000)
+ *   "3000" -> expose (shorthand for localhost:3000)
  *   "prod-db" -> reach (service name)
  *   "postgres.alice" -> reach (teammate's service)
  *   "" or undefined -> status (no target)
@@ -240,6 +241,19 @@ export function resolveTarget(target: string | undefined): TargetResolution {
   }
 
   target = target.trim();
+
+  // Shorthand: purely numeric -> localhost:port
+  // e.g., "3000" -> "localhost:3000"
+  if (/^\d+$/.test(target)) {
+    const port = parseInt(target, 10);
+    if (port > 0 && port <= 65535) {
+      return {
+        action: 'expose',
+        target: `localhost:${port}`,
+        port,
+      };
+    }
+  }
 
   // Shorthand :port -> localhost:port
   if (target.startsWith(':')) {

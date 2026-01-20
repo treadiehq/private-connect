@@ -83,7 +83,7 @@
             </div>
             <h3 class="font-medium text-white text-sm">Expose</h3>
           </div>
-          <code class="text-xs font-mono text-emerald-300 bg-black/40 px-2 py-1 rounded block mb-2">connect localhost:5432</code>
+          <code class="text-xs font-mono text-emerald-300 bg-black/40 px-2 py-1 rounded block mb-2">connect 5432</code>
           <p class="text-xs text-gray-500">Make any local service reachable by name.</p>
         </div>
 
@@ -595,7 +595,7 @@
                 </div>
                 <div>
                   <span class="text-gray-500">$</span>
-                  <span class="text-gray-200 ml-2">connect localhost:3000</span>
+                  <span class="text-gray-200 ml-2">connect 3000</span>
                 </div>
                 <div class="text-emerald-300 pt-1">✓ Services exposed (auto-named)</div>
               </div>
