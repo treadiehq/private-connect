@@ -76,7 +76,7 @@
     </section>
 
     <!-- What You Can Do Section -->
-    <section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
+    <section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
       <div class="text-center mb-10">
         <h2 class="text-xl font-semibold text-white mb-2">What you can do</h2>
         <p class="text-gray-500 text-sm">Access services by name. Share with teammates. Works everywhere.</p>
@@ -93,7 +93,7 @@
             </div>
             <h3 class="font-medium text-white text-sm">Expose</h3>
           </div>
-          <code class="text-xs font-mono text-emerald-300 bg-black/40 px-2 py-1 rounded block mb-2">connect 5432</code>
+          <code class="text-xs font-mono text-emerald-300 bg-black/40 px-2 py-1 rounded block mb-2">connect 5432 --name prod-db</code>
           <p class="text-xs text-gray-500">Make any local service reachable by name.</p>
         </div>
 
@@ -1211,7 +1211,7 @@
     </section>
 
     <!-- Security FAQ Section -->
-    <section id="security" class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
+    <section id="security" class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
       <div class="text-center mb-10">
         <h2 class="text-lg font-bold text-white mb-3">Frequently asked questions</h2>
         <p class="text-gray-500 text-sm">Everything you need to know about Private Connect security.</p>
