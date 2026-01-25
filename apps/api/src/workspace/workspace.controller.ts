@@ -7,16 +7,6 @@ import { WorkspaceService } from './workspace.service';
 export class WorkspaceController {
   constructor(private workspaceService: WorkspaceService) {}
 
-  @Post('create')
-  @ApiOperation({ summary: 'Create workspace (deprecated)', description: 'This endpoint is deprecated. Use POST /v1/auth/register instead.' })
-  @ApiResponse({ status: 410, description: 'Gone - use /v1/auth/register' })
-  async createWorkspace() {
-    throw new HttpException(
-      'Workspace creation is now part of user registration. Use POST /v1/auth/register instead.',
-      HttpStatus.GONE
-    );
-  }
-
   @Get()
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Get workspace', description: 'Returns workspace details and usage information.' })

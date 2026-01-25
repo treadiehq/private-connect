@@ -97,14 +97,5 @@ export class WorkspaceService {
   getPlanLimits(plan: string) {
     return PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS] || PLAN_LIMITS.FREE;
   }
-
-  // Note: ensureDefaultWorkspace is deprecated - workspaces are now created during user registration
-  async ensureDefaultWorkspace() {
-    const existing = await this.prisma.workspace.findFirst();
-    if (existing) return existing;
-    
-    // This should not be called in the new auth flow
-    throw new Error('Cannot create workspace without an owner. Use auth/register instead.');
-  }
 }
 
