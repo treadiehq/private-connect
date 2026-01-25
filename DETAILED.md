@@ -11,6 +11,7 @@ Complete reference for all features and commands.
 - [Core Commands](#core-commands)
 - [Share & Collaborate](#share--collaborate)
 - [CLI Reference](#cli-reference)
+- [Live Debugging](#live-debugging)
 - [Advanced Features](#advanced-features)
 - [Agent Orchestration](#agent-orchestration)
 - [Development](#development)
@@ -255,6 +256,99 @@ connect logout                # Clear credentials
 # connect doctor
 --fix                  Auto-fix issues
 ```
+
+---
+
+## Live Debugging
+
+Real-time traffic inspection and AI-powered debugging for your services.
+
+### Quick Start
+
+```bash
+# Expose a service with debug mode enabled
+connect expose localhost:3000 --debug
+
+# Output:
+# ✓ Service exposed: my-api
+# ✓ Debug session active
+# 
+# Debug viewer: https://app.privateconnect.co/debug/abc123
+# Share this link with teammates for live pair-debugging
+```
+
+### Debug Viewer
+
+The debug viewer shows real-time traffic flowing through your service:
+
+- **Live Traffic Stream** - See requests/responses as they happen
+- **Protocol Detection** - Automatically identifies HTTP, GraphQL, gRPC, PostgreSQL, Redis, MySQL
+- **Status Codes** - Color-coded status (green for 2xx, yellow for 4xx, red for 5xx)
+- **Timing** - Response times for each request
+- **Payload Inspection** - Expand any request to see full headers and body
+- **Request Replay** - Re-send captured requests for testing
+
+### Filtering
+
+Filter traffic by protocol, direction, or search:
+
+```
+Protocol: All | HTTP | GraphQL | gRPC | PostgreSQL | Redis | MySQL
+Direction: All | Inbound | Outbound
+Search: [search term]
+```
+
+### AI Copilot
+
+Get AI-powered analysis of your traffic:
+
+```bash
+# Enable AI analysis in debug sessions
+connect expose localhost:3000 --debug --ai
+```
+
+Features:
+- **Ask questions** - "Why is this request failing?" or "Explain this error"
+- **Auto-analyze errors** - Automatically surfaces issues when 4xx/5xx responses occur
+- **Pattern detection** - Identifies slow queries, N+1 problems, auth issues
+
+Configure AI in the web UI under Settings → AI Copilot. Supports:
+- **Ollama** (local, privacy-first)
+- **OpenAI** (GPT-5.2, GPT-4.5, GPT-4o)
+- **Anthropic** (Claude Opus 4.5, Sonnet 4)
+
+### Session Sharing
+
+Debug sessions are shareable - perfect for pair-debugging:
+
+```bash
+# The debug URL is shareable by default
+# https://app.privateconnect.co/debug/abc123
+
+# Viewers see:
+# - Live traffic stream
+# - Who else is viewing (presence indicators)
+# - Full inspection capabilities
+```
+
+### Export
+
+Export debug sessions for later analysis or sharing:
+
+- **JSON** - Full packet data for programmatic analysis
+- **Markdown** - Human-readable recap with summary statistics
+
+### CLI Flags
+
+```bash
+connect expose <target> [options]
+
+# Debug options
+--debug              Enable debug session with live traffic viewer
+--ai                 Enable AI copilot for the debug session
+```
+
+See [docs/debugging.md](docs/debugging.md) for complete documentation.
 
 ---
 

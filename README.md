@@ -58,6 +58,7 @@ Run an agent on each machine. Expose services from one, access from another.
 **Key Features:**
 - **Zero Configuration** - No VPN setup, no firewall rules, no port forwarding
 - **Secure** - End-to-end encrypted tunnels with audit logging
+- **Live Debugging** - Real-time traffic inspection with AI-powered analysis
 - **Team Collaboration** - Share services instantly with `connect share` or clone teammate setups
 - **Works Everywhere** - Works on top of Tailscale, VPN, or plain internet
 - **Open Source** - Self-hostable hub, inspect and modify the code
@@ -100,6 +101,7 @@ See [DETAILED.md#control-api](DETAILED.md#control-api) for full API reference.
 - **Live**: [privateconnect.co](https://privateconnect.co)
 - **Docs**: [DETAILED.md](DETAILED.md) — full CLI reference, all features
 - **API Reference**: [DETAILED.md#control-api](DETAILED.md#control-api) — REST API documentation
+- **Debugging**: [docs/debugging.md](docs/debugging.md) — live traffic inspection, AI copilot
 - **AI & MCP**: [docs/AI.md](docs/AI.md) — AI integration, orchestration, SDK
 - **Use Cases**: [USE_CASES.md](USE_CASES.md) — real scenarios
 - **Security**: [docs/security.md](docs/security.md) — architecture details
