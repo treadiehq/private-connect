@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef, OnModuleDestroy } from '@nestjs/common';
 import { SecureLogger } from '../common/security';
+import { DebugService } from '../debug/debug.service';
 import * as net from 'net';
+import { randomBytes } from 'crypto';
 
 type TunnelType = 'http' | 'tcp';
 
@@ -13,9 +15,13 @@ interface TemporaryTunnel {
   expiresAt: Date;
   socket: any | null; // WebSocket connection from CLI
   requestCount: number;
+  // Public subdomain for HTTP tunnels
+  subdomain?: string;
   // TCP-specific
   tcpPort?: number;
   tcpServer?: net.Server;
+  // Debug session for packet capture
+  debugSessionId?: string;
 }
 
 interface PendingRequest {
@@ -41,19 +47,112 @@ const TCP_PORT_MAX = 50000;
  * Supports both HTTP and raw TCP tunnels
  */
 @Injectable()
-export class TemporaryTunnelService {
+export class TemporaryTunnelService implements OnModuleDestroy {
   private readonly logger = new SecureLogger(TemporaryTunnelService.name);
   private tunnels = new Map<string, TemporaryTunnel>();
   private pendingRequests = new Map<string, PendingRequest>();
   private tcpConnections = new Map<string, TcpConnection>();
   private allocatedPorts = new Set<number>();
+  private usedSubdomains = new Set<string>(); // Track used subdomains
   
   // Cleanup interval
   private cleanupInterval: NodeJS.Timeout;
   
-  constructor() {
+  constructor(
+    @Inject(forwardRef(() => DebugService))
+    private debugService: DebugService,
+  ) {
     // Cleanup expired tunnels every minute
     this.cleanupInterval = setInterval(() => this.cleanupExpired(), 60000);
+  }
+
+  /**
+   * Graceful shutdown - notify all connected clients before closing
+   */
+  async onModuleDestroy() {
+    this.logger.log('Graceful shutdown initiated - notifying connected tunnels...');
+    
+    // Clear the cleanup interval
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
+
+    const tunnelCount = this.tunnels.size;
+    if (tunnelCount === 0) {
+      this.logger.log('No active tunnels to close');
+      return;
+    }
+
+    this.logger.log(`Notifying ${tunnelCount} connected tunnel(s) of shutdown...`);
+
+    // Notify all connected clients
+    for (const [tunnelId, tunnel] of this.tunnels) {
+      if (tunnel.socket?.connected) {
+        // Send shutdown warning with reason
+        tunnel.socket.emit('server_shutdown', {
+          reason: 'Server is restarting',
+          message: 'The tunnel server is shutting down. Please reconnect shortly.',
+          reconnectIn: 5, // Suggest reconnecting in 5 seconds
+        });
+      }
+
+      // Close TCP server if exists
+      if (tunnel.tcpServer) {
+        tunnel.tcpServer.close();
+      }
+
+      // End linked debug session
+      if (tunnel.debugSessionId) {
+        this.debugService.endSession(tunnel.debugSessionId).catch(() => {});
+      }
+    }
+
+    // Give clients a moment to receive the message before disconnecting
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Now disconnect all sockets
+    for (const [tunnelId, tunnel] of this.tunnels) {
+      if (tunnel.socket?.connected) {
+        tunnel.socket.disconnect();
+      }
+    }
+
+    // Close all TCP connections
+    for (const [connId, conn] of this.tcpConnections) {
+      conn.clientSocket.end();
+    }
+
+    this.tunnels.clear();
+    this.tcpConnections.clear();
+    this.allocatedPorts.clear();
+    this.usedSubdomains.clear();
+
+    this.logger.log(`Graceful shutdown complete - closed ${tunnelCount} tunnel(s)`);
+  }
+
+  /**
+   * Generate a random subdomain (8 chars, hex)
+   */
+  private generateSubdomain(): string {
+    return randomBytes(4).toString('hex');
+  }
+
+  /**
+   * Get a unique subdomain
+   */
+  private getUniqueSubdomain(): string {
+    let subdomain: string;
+    let attempts = 0;
+    do {
+      subdomain = this.generateSubdomain();
+      attempts++;
+      if (attempts > 10) {
+        throw new Error('Failed to generate unique subdomain');
+      }
+    } while (this.usedSubdomains.has(subdomain));
+    
+    this.usedSubdomains.add(subdomain);
+    return subdomain;
   }
 
   /**
@@ -62,6 +161,9 @@ export class TemporaryTunnelService {
   createTunnel(tunnelId: string, localHost: string, localPort: number, ttlMinutes: number): TemporaryTunnel {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + ttlMinutes * 60 * 1000);
+    
+    // Generate a unique subdomain for public access
+    const subdomain = this.getUniqueSubdomain();
     
     const tunnel: TemporaryTunnel = {
       tunnelId,
@@ -72,10 +174,11 @@ export class TemporaryTunnelService {
       expiresAt,
       socket: null,
       requestCount: 0,
+      subdomain,
     };
     
     this.tunnels.set(tunnelId, tunnel);
-    this.logger.log(`Created HTTP temporary tunnel ${tunnelId}, expires at ${expiresAt.toISOString()}`);
+    this.logger.log(`Created HTTP temporary tunnel ${tunnelId} with subdomain ${subdomain}, expires at ${expiresAt.toISOString()}`);
     
     return tunnel;
   }
@@ -337,10 +440,58 @@ export class TemporaryTunnelService {
     
     if (this.isExpired(tunnel)) {
       this.tunnels.delete(tunnelId);
+      if (tunnel.subdomain) {
+        this.usedSubdomains.delete(tunnel.subdomain);
+      }
       return null;
     }
     
     return tunnel;
+  }
+
+  /**
+   * Get a tunnel by subdomain
+   */
+  getTunnelBySubdomain(subdomain: string): TemporaryTunnel | null {
+    for (const tunnel of this.tunnels.values()) {
+      if (tunnel.subdomain === subdomain && !this.isExpired(tunnel)) {
+        return tunnel;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * List all active tunnels
+   */
+  listTunnels(): TemporaryTunnel[] {
+    const activeTunnels: TemporaryTunnel[] = [];
+    for (const tunnel of this.tunnels.values()) {
+      if (!this.isExpired(tunnel)) {
+        activeTunnels.push(tunnel);
+      }
+    }
+    return activeTunnels;
+  }
+
+  /**
+   * Link a debug session to a tunnel for packet capture
+   */
+  linkDebugSession(tunnelId: string, debugSessionId: string): boolean {
+    const tunnel = this.getTunnel(tunnelId);
+    if (!tunnel) return false;
+    
+    tunnel.debugSessionId = debugSessionId;
+    this.logger.log(`Linked debug session ${debugSessionId} to tunnel ${tunnelId}`);
+    return true;
+  }
+
+  /**
+   * Get the debug session ID for a tunnel
+   */
+  getDebugSessionId(tunnelId: string): string | undefined {
+    const tunnel = this.getTunnel(tunnelId);
+    return tunnel?.debugSessionId;
   }
 
   /**
@@ -442,6 +593,18 @@ export class TemporaryTunnelService {
           this.releasePort(tunnel.tcpPort);
         }
         
+        // Release subdomain
+        if (tunnel.subdomain) {
+          this.usedSubdomains.delete(tunnel.subdomain);
+        }
+        
+        // End linked debug session
+        if (tunnel.debugSessionId) {
+          this.debugService.endSession(tunnel.debugSessionId).catch(err => {
+            this.logger.warn(`Failed to end debug session ${tunnel.debugSessionId}: ${err.message}`);
+          });
+        }
+        
         // Close any active TCP connections for this tunnel
         for (const [connId, conn] of this.tcpConnections) {
           if (connId.startsWith(tunnelId)) {
@@ -476,6 +639,18 @@ export class TemporaryTunnelService {
     }
     if (tunnel.tcpPort) {
       this.releasePort(tunnel.tcpPort);
+    }
+    
+    // Release subdomain
+    if (tunnel.subdomain) {
+      this.usedSubdomains.delete(tunnel.subdomain);
+    }
+    
+    // End linked debug session
+    if (tunnel.debugSessionId) {
+      this.debugService.endSession(tunnel.debugSessionId).catch(err => {
+        this.logger.warn(`Failed to end debug session ${tunnel.debugSessionId}: ${err.message}`);
+      });
     }
     
     // Close TCP connections

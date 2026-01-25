@@ -22,6 +22,7 @@ import { mcpCommand } from './commands/mcp';
 import { cloneCommand, cloneListCommand } from './commands/clone';
 import { brokerCommand } from './commands/broker';
 import { connectCommand } from './commands/connect';
+import { debugCommand } from './commands/debug';
 import { setConfigPath } from './config';
 import { validateHubUrl } from './security';
 
@@ -223,9 +224,13 @@ program
   .option('-k, --api-key <key>', 'Workspace API key')
   .option('-p, --protocol <protocol>', 'Protocol hint: auto|tcp|http|https', 'auto')
   .option('--public', 'Make service publicly accessible via URL (for webhooks)')
+  .option('-d, --debug', 'Enable debug mode with shareable live traffic viewer')
+  .option('--ai', 'Enable AI Copilot for debug session (requires --debug)')
   .option('-c, --config <path>', 'Config file path (for multiple agents)')
   .action((target, options) => {
     if (options.config) setConfigPath(options.config);
+    // Map --ai to aiEnabled for the expose command
+    if (options.ai) options.aiEnabled = true;
     exposeCommand(target, options);
   });
 
@@ -524,6 +529,19 @@ program
   .action(async (options) => {
     const { brokerAuditCommand } = await import('./commands/broker');
     await brokerAuditCommand(options);
+  });
+
+// Debug Commands
+program
+  .command('debug [session]')
+  .description('View live debug sessions (connect debug <token> to watch)')
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-l, --list', 'List active debug sessions')
+  .option('-s, --stop <token>', 'Stop a debug session')
+  .option('-c, --config <path>', 'Config file path')
+  .action(async (session, options) => {
+    if (options.config) setConfigPath(options.config);
+    await debugCommand(session, options);
   });
 
 program.parse(process.argv);

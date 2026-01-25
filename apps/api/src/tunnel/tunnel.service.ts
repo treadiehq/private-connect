@@ -1,9 +1,10 @@
-import { Injectable, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Inject, forwardRef, Optional } from '@nestjs/common';
 import * as net from 'net';
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { SecureLogger } from '../common/security';
+import { DebugService } from '../debug/debug.service';
 
 interface AgentConnection {
   agentId: string;
@@ -54,11 +55,60 @@ export class TunnelService {
   private agents = new Map<string, AgentConnection>();
   private pendingConnections = new Map<string, PendingConnection>();
   private agentBridges = new Map<string, AgentBridge>();
+  
+  // Track which connections have debug sessions
+  private connectionDebugSessions = new Map<string, string>(); // connectionId -> sessionId
 
   constructor(
     private prisma: PrismaService,
     private webhooksService: WebhooksService,
+    @Optional() @Inject(forwardRef(() => DebugService))
+    private debugService?: DebugService,
   ) {}
+
+  /**
+   * Enable debug capture for a connection
+   */
+  enableDebugForConnection(connectionId: string, sessionId: string): void {
+    this.connectionDebugSessions.set(connectionId, sessionId);
+    if (this.debugService) {
+      this.debugService.registerConnection(connectionId, sessionId);
+    }
+  }
+
+  /**
+   * Disable debug capture for a connection
+   */
+  disableDebugForConnection(connectionId: string): void {
+    this.connectionDebugSessions.delete(connectionId);
+    if (this.debugService) {
+      this.debugService.unregisterConnection(connectionId);
+    }
+  }
+
+  /**
+   * Capture packet if debug session is active for this connection
+   */
+  private async capturePacket(
+    connectionId: string,
+    direction: 'inbound' | 'outbound',
+    data: Buffer,
+  ): Promise<void> {
+    const sessionId = this.connectionDebugSessions.get(connectionId);
+    if (!sessionId || !this.debugService) return;
+
+    try {
+      await this.debugService.capturePacket({
+        sessionId,
+        connectionId,
+        direction,
+        payload: data,
+        timestamp: new Date(),
+      });
+    } catch (err) {
+      this.logger.debug(`Failed to capture packet: ${err}`);
+    }
+  }
 
   registerAgent(agentId: string, socket: any) {
     this.logger.log(`Agent registered: ${agentId}`);
@@ -361,6 +411,15 @@ export class TunnelService {
     clearTimeout(pending.timeout);
     this.logger.log(`Agent dial successful for ${connectionId}`);
     
+    // Check for active debug session and enable capture
+    if (this.debugService) {
+      const sessionId = this.debugService.getSessionForAgent(agentId);
+      if (sessionId) {
+        this.enableDebugForConnection(connectionId, sessionId);
+        this.logger.log(`Debug capture enabled for connection ${connectionId} (session ${sessionId})`);
+      }
+    }
+    
     // Mark connection as ready
     pending.ready = true;
     
@@ -380,6 +439,9 @@ export class TunnelService {
    * Receive data from agent for a connection
    */
   handleAgentData(connectionId: string, data: Buffer) {
+    // Capture for debug session (inbound = from target service)
+    this.capturePacket(connectionId, 'inbound', data);
+
     // First check if this is an agent bridge
     if (this.handleAgentDataForBridge(connectionId, data)) {
       return;
@@ -395,6 +457,9 @@ export class TunnelService {
    * Send data to agent for a connection
    */
   sendToAgent(agentId: string, connectionId: string, data: Buffer) {
+    // Capture for debug session (outbound = to target service)
+    this.capturePacket(connectionId, 'outbound', data);
+
     const agent = this.agents.get(agentId);
     if (agent) {
       agent.socket.emit('data', {
@@ -408,6 +473,9 @@ export class TunnelService {
    * Handle connection close from agent
    */
   handleAgentClose(connectionId: string) {
+    // Clean up debug session tracking
+    this.disableDebugForConnection(connectionId);
+
     // First check if this is an agent bridge
     if (this.handleAgentCloseForBridge(connectionId)) {
       return;
@@ -531,6 +599,9 @@ export class TunnelService {
    * Handle data from reaching agent -> exposing agent
    */
   handleReachData(connectionId: string, data: Buffer) {
+    // Capture for debug session (outbound = going to target)
+    this.capturePacket(connectionId, 'outbound', data);
+
     const bridge = this.agentBridges.get(connectionId);
     if (bridge && bridge.ready) {
       // Forward to exposing agent
@@ -547,6 +618,9 @@ export class TunnelService {
   handleAgentDataForBridge(connectionId: string, data: Buffer): boolean {
     const bridge = this.agentBridges.get(connectionId);
     if (bridge && bridge.ready) {
+      // Capture for debug session (inbound = from target service)
+      this.capturePacket(connectionId, 'inbound', data);
+
       // Forward to reaching agent
       bridge.reachingSocket.emit('reach_data', {
         connectionId,

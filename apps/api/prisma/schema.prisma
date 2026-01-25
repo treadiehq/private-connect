@@ -58,10 +58,19 @@ model Workspace {
   name      String   @unique
   plan      String   @default("FREE") // FREE | PRO
   createdAt DateTime @default(now())
+  
+  // AI Copilot settings (workspace-level defaults)
+  aiProvider    String?   // ollama | openai | anthropic
+  aiModel       String?   // Model name (e.g., llama3, gpt-4o, claude-sonnet)
+  aiApiKey      String?   // Encrypted API key for cloud providers
+  aiAutoAnalyze Boolean   @default(false) // Auto-analyze errors
+  aiOllamaUrl   String?   // Custom Ollama URL (default: http://localhost:11434)
+  
   owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   agents    Agent[]
   services  Service[]
   apiKeys   ApiKey[]
+  debugSessions DebugSession[]
 }
 
 // ApiKey: for workspace API access
@@ -338,6 +347,92 @@ model AgentCapability {
 
   @@unique([agentId, name])
   @@index([name])                 // For capability discovery
+}
+
+// DebugSession: live pair-debugging session with shareable link
+model DebugSession {
+  id            String    @id @default(uuid())
+  workspaceId   String
+  serviceId     String?             // Optional: linked to specific service
+  agentId       String?             // Agent that created the session
+  token         String    @unique   // Short shareable token (e.g., "s-abc123")
+  name          String?             // Optional friendly name
+  status        String    @default("active") // active | paused | ended
+  
+  // AI Copilot settings
+  aiEnabled     Boolean   @default(false)
+  aiProvider    String?             // ollama | openai | anthropic
+  aiModel       String?             // Model name
+  
+  // Lifecycle
+  createdAt     DateTime  @default(now())
+  endedAt       DateTime?
+  expiresAt     DateTime?           // Auto-expire session
+  
+  // Stats
+  packetCount   Int       @default(0)
+  byteCount     BigInt    @default(0)
+  
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  packets       DebugPacket[]
+  aiMessages    DebugAIMessage[]
+
+  @@index([workspaceId])
+  @@index([serviceId])
+  @@index([agentId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+// DebugPacket: captured packet in a debug session
+model DebugPacket {
+  id            String    @id @default(uuid())
+  sessionId     String
+  sequence      Int                 // Packet order in session
+  direction     String              // inbound | outbound
+  protocol      String    @default("unknown") // http | postgres | redis | mysql | unknown
+  
+  // Raw data (base64 encoded for binary safety)
+  payload       String              // Base64 encoded payload
+  payloadSize   Int                 // Size in bytes
+  
+  // Parsed data (for supported protocols)
+  parsed        String?             // JSON: protocol-specific parsed data
+  
+  // Timing
+  capturedAt    DateTime  @default(now())
+  latencyMs     Int?                // Time since last packet
+  
+  // Connection tracking
+  connectionId  String?             // Group packets by connection
+  
+  session       DebugSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, sequence])
+  @@index([sessionId, capturedAt(sort: Desc)])
+  @@index([connectionId])
+}
+
+// DebugAIMessage: AI copilot messages in debug session
+model DebugAIMessage {
+  id            String    @id @default(uuid())
+  sessionId     String
+  role          String              // user | assistant | system
+  content       String              // Message content
+  
+  // Context
+  packetIds     String[]            // Related packet IDs
+  
+  // Metadata
+  model         String?             // Model used
+  tokensUsed    Int?
+  latencyMs     Int?
+  
+  createdAt     DateTime  @default(now())
+  
+  session       DebugSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
 }
 
 // InstallEvent: track CLI installations for analytics

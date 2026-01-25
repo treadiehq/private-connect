@@ -10,6 +10,8 @@ interface ExposeOptions {
   protocol: string;
   public?: boolean;
   config?: string;
+  debug?: boolean;
+  aiEnabled?: boolean;
 }
 
 interface DiagnosticResult {
@@ -90,6 +92,27 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
   if (service.publicUrl) {
     console.log(chalk.cyan(`\n🌐 Public URL: ${service.publicUrl}`));
     console.log(chalk.gray(`   External services (Stripe, GitHub, etc.) can send webhooks to this URL`));
+  }
+
+  // Create debug session if --debug flag is set
+  let debugSession: { id: string; token: string; url: string } | null = null;
+  if (options.debug) {
+    debugSession = await createDebugSession(
+      service.id,
+      config.agentId,
+      options.name,
+      options.aiEnabled || false,
+      config,
+    );
+    
+    if (debugSession) {
+      console.log(chalk.magenta(`\n🔍 Debug mode enabled`));
+      console.log(chalk.cyan(`   Share this link: ${debugSession.url}`));
+      console.log(chalk.gray(`   Anyone with this link can see live traffic`));
+      if (options.aiEnabled) {
+        console.log(chalk.gray(`   AI Copilot: enabled`));
+      }
+    }
   }
 
   // Connect via WebSocket and set up tunnel
@@ -369,5 +392,42 @@ async function runInitialDiagnostics(serviceId: string, serviceName: string, hub
   } catch (error: unknown) {
     const err = error as Error;
     console.log(chalk.yellow(`   [!] Diagnostics error: ${err.message}`));
+  }
+}
+
+async function createDebugSession(
+  serviceId: string,
+  agentId: string,
+  serviceName: string,
+  aiEnabled: boolean,
+  config: { hubUrl: string; apiKey: string },
+): Promise<{ id: string; token: string; url: string } | null> {
+  try {
+    const response = await fetch(`${config.hubUrl}/v1/debug/sessions/cli`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': config.apiKey,
+      },
+      body: JSON.stringify({
+        serviceId,
+        agentId,
+        name: `Debug: ${serviceName}`,
+        aiEnabled,
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.log(chalk.yellow(`   [!] Could not create debug session: ${text}`));
+      return null;
+    }
+
+    const data = await response.json() as { id: string; token: string; url: string };
+    return data;
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.log(chalk.yellow(`   [!] Debug session error: ${err.message}`));
+    return null;
   }
 }

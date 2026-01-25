@@ -8,12 +8,14 @@ import { TemporaryTunnelGateway } from './temporary-tunnel.gateway';
 import { AgentsModule } from '../agents/agents.module';
 import { ServicesModule } from '../services/services.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { DebugModule } from '../debug/debug.module';
 
 @Module({
   imports: [
     PrismaModule,
     forwardRef(() => AgentsModule),
     forwardRef(() => ServicesModule),
+    forwardRef(() => DebugModule),
   ],
   controllers: [ProxyController, TemporaryTunnelController],
   providers: [TunnelGateway, TunnelService, TemporaryTunnelService, TemporaryTunnelGateway],

@@ -101,6 +101,7 @@ export class ApiKeyGuard implements CanActivate {
 
     // Attach workspace to request for use in controllers
     request.workspace = key.workspace;
+    request.workspaceId = key.workspace.id;
     request.apiKeyId = key.id;
 
     return true;

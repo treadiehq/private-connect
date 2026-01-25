@@ -1,9 +1,13 @@
-import { Controller, Post, Get, All, Param, Body, Req, Res, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Delete, All, Param, Body, Req, Res, HttpException, HttpStatus, Inject, forwardRef, OnModuleInit } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { TemporaryTunnelService } from './temporary-tunnel.service';
+import { DebugService } from '../debug/debug.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { randomBytes } from 'crypto';
 
 const HUB_URL = process.env.HUB_URL || process.env.API_URL || 'https://api.privateconnect.co';
+const TEMP_WORKSPACE_ID = 'temp-tunnel-workspace'; // Special workspace for temporary tunnels
+const TEMP_USER_EMAIL = 'system@privateconnect.co'; // System user for temporary workspace
 
 interface CreateTunnelDto {
   tunnelId?: string;
@@ -14,8 +18,93 @@ interface CreateTunnelDto {
 }
 
 @Controller()
-export class TemporaryTunnelController {
-  constructor(private tempTunnelService: TemporaryTunnelService) {}
+export class TemporaryTunnelController implements OnModuleInit {
+  constructor(
+    private tempTunnelService: TemporaryTunnelService,
+    @Inject(forwardRef(() => DebugService))
+    private debugService?: DebugService,
+    private prisma?: PrismaService,
+  ) {}
+
+  async onModuleInit() {
+    // Ensure temporary workspace exists on startup
+    await this.ensureTemporaryWorkspace();
+    // Clean up any orphaned debug sessions from previous runs
+    await this.cleanupOrphanedSessions();
+  }
+
+  /**
+   * Clean up debug sessions that were orphaned by a server restart
+   * (sessions still marked "active" but their tunnels no longer exist)
+   */
+  private async cleanupOrphanedSessions(): Promise<void> {
+    if (!this.prisma) return;
+
+    try {
+      const result = await this.prisma.debugSession.updateMany({
+        where: {
+          workspaceId: TEMP_WORKSPACE_ID,
+          status: 'active',
+        },
+        data: {
+          status: 'ended',
+          endedAt: new Date(),
+        },
+      });
+
+      if (result.count > 0) {
+        console.log(`[TemporaryTunnelController] Cleaned up ${result.count} orphaned debug sessions from previous run`);
+      }
+    } catch (err: any) {
+      console.warn(`[TemporaryTunnelController] Failed to cleanup orphaned sessions: ${err.message}`);
+    }
+  }
+
+  /**
+   * Ensure the temporary workspace exists for debug sessions
+   */
+  private async ensureTemporaryWorkspace(): Promise<void> {
+    if (!this.prisma) return;
+
+    try {
+      // Check if workspace exists
+      const existing = await this.prisma.workspace.findUnique({
+        where: { id: TEMP_WORKSPACE_ID },
+      });
+
+      if (existing) {
+        return; // Already exists
+      }
+
+      // Check if system user exists, create if not
+      let systemUser = await this.prisma.user.findUnique({
+        where: { email: TEMP_USER_EMAIL },
+      });
+
+      if (!systemUser) {
+        systemUser = await this.prisma.user.create({
+          data: {
+            email: TEMP_USER_EMAIL,
+            emailVerified: true,
+            isAdmin: false,
+          },
+        });
+      }
+
+      // Create temporary workspace
+      await this.prisma.workspace.create({
+        data: {
+          id: TEMP_WORKSPACE_ID,
+          name: 'Temporary Tunnels',
+          ownerId: systemUser.id,
+          plan: 'PRO', // Give it PRO limits for temporary tunnels
+        },
+      });
+    } catch (err: any) {
+      // Log but don't fail - debug sessions will just fail gracefully
+      console.warn(`Failed to ensure temporary workspace: ${err.message}`);
+    }
+  }
 
   /**
    * Create a temporary tunnel - no auth required
@@ -76,16 +165,44 @@ export class TemporaryTunnelController {
       ttlMinutes,
     );
     
+    // Generate public subdomain URL
+    const publicUrlBase = process.env.PUBLIC_URL_BASE || 'https://privateconnect.co';
+    const publicUrl = tunnel.subdomain 
+      ? `${publicUrlBase}/w/${tunnel.subdomain}`
+      : `${HUB_URL}/t/${tunnel.tunnelId}`;
+    
     return {
       success: true,
       tunnel: {
         tunnelId: tunnel.tunnelId,
         type: 'http',
-        publicUrl: `${HUB_URL}/t/${tunnel.tunnelId}`,
+        publicUrl,
+        subdomain: tunnel.subdomain,
         wsUrl: `${HUB_URL.replace('http', 'ws')}/temp-tunnel`,
         expiresAt: tunnel.expiresAt.toISOString(),
         ttlMinutes,
       },
+    };
+  }
+
+  /**
+   * List all active tunnels
+   */
+  @Get('v1/tunnels/temporary')
+  async listTunnels() {
+    const tunnels = this.tempTunnelService.listTunnels();
+    
+    return {
+      count: tunnels.length,
+      tunnels: tunnels.map(t => ({
+        tunnelId: t.tunnelId,
+        type: t.type,
+        subdomain: t.subdomain,
+        connected: this.tempTunnelService.isConnected(t.tunnelId),
+        requestCount: t.requestCount,
+        createdAt: t.createdAt.toISOString(),
+        expiresAt: t.expiresAt.toISOString(),
+      })),
     };
   }
 
@@ -106,6 +223,25 @@ export class TemporaryTunnelController {
       requestCount: tunnel.requestCount,
       createdAt: tunnel.createdAt.toISOString(),
       expiresAt: tunnel.expiresAt.toISOString(),
+    };
+  }
+
+  /**
+   * Close/delete a tunnel
+   */
+  @Delete('v1/tunnels/temporary/:tunnelId')
+  async closeTunnel(@Param('tunnelId') tunnelId: string) {
+    const tunnel = this.tempTunnelService.getTunnel(tunnelId);
+    
+    if (!tunnel) {
+      throw new HttpException('Tunnel not found or expired', HttpStatus.NOT_FOUND);
+    }
+    
+    this.tempTunnelService.closeTunnel(tunnelId);
+    
+    return {
+      success: true,
+      message: `Tunnel ${tunnelId} closed`,
     };
   }
 
@@ -187,6 +323,89 @@ export class TemporaryTunnelController {
         error: 'Bad Gateway',
         message: err.message,
       });
+    }
+  }
+
+  /**
+   * Create a debug session for a temporary tunnel (no auth required)
+   */
+  @Post('v1/tunnels/temporary/:tunnelId/debug')
+  async createDebugSession(
+    @Param('tunnelId') tunnelId: string,
+    @Body() body: { aiEnabled?: boolean },
+  ) {
+    const tunnel = this.tempTunnelService.getTunnel(tunnelId);
+    
+    if (!tunnel) {
+      throw new HttpException('Tunnel not found or expired', HttpStatus.NOT_FOUND);
+    }
+
+    if (!this.debugService) {
+      throw new HttpException('Debug service not available', HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    // Ensure workspace exists before creating debug session
+    await this.ensureTemporaryWorkspace();
+
+    // Create debug session with special temporary workspace
+    try {
+      const session = await this.debugService.createSession({
+        workspaceId: TEMP_WORKSPACE_ID,
+        name: `Temporary Tunnel: ${tunnelId}`,
+        aiEnabled: body.aiEnabled || false,
+        expiresIn: Math.ceil((tunnel.expiresAt.getTime() - Date.now()) / 60000), // Match tunnel expiry
+      });
+
+      // Link debug session to tunnel for packet capture
+      this.tempTunnelService.linkDebugSession(tunnelId, session.id);
+
+      const publicUrl = process.env.PUBLIC_URL || 'https://privateconnect.co';
+      
+      return {
+        success: true,
+        session: {
+          id: session.id,
+          token: session.token,
+          url: `${publicUrl}/debug/${session.token}`,
+          status: session.status,
+          aiEnabled: session.aiEnabled,
+        },
+      };
+    } catch (err: any) {
+      // If workspace doesn't exist, try to create it and retry once
+      if (err.message?.includes('workspace') || err.code === 'P2003') {
+        await this.ensureTemporaryWorkspace();
+        try {
+          const session = await this.debugService.createSession({
+            workspaceId: TEMP_WORKSPACE_ID,
+            name: `Temporary Tunnel: ${tunnelId}`,
+            aiEnabled: body.aiEnabled || false,
+            expiresIn: Math.ceil((tunnel.expiresAt.getTime() - Date.now()) / 60000),
+          });
+
+          // Link debug session to tunnel for packet capture
+          this.tempTunnelService.linkDebugSession(tunnelId, session.id);
+
+          const publicUrl = process.env.PUBLIC_URL || 'https://privateconnect.co';
+          
+          return {
+            success: true,
+            session: {
+              id: session.id,
+              token: session.token,
+              url: `${publicUrl}/debug/${session.token}`,
+              status: session.status,
+              aiEnabled: session.aiEnabled,
+            },
+          };
+        } catch (retryErr: any) {
+          throw new HttpException(
+            `Failed to create debug session: ${retryErr.message}`,
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }
+      }
+      throw new HttpException(`Failed to create debug session: ${err.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 }

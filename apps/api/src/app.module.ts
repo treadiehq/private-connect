@@ -17,6 +17,8 @@ import { SharesModule } from './shares/shares.module';
 import { EnvSharesModule } from './env-shares/env-shares.module';
 import { StatusModule } from './status/status.module';
 import { EventsModule } from './events/events.module';
+import { DebugModule } from './debug/debug.module';
+import { AIModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -55,6 +57,8 @@ import { EventsModule } from './events/events.module';
     EnvSharesModule,
     StatusModule,
     EventsModule,
+    DebugModule,
+    AIModule,
   ],
 })
 export class AppModule {}

@@ -284,6 +284,9 @@ ${c.bold}Commands:${c.reset}
   check <target>     Test connectivity to any service
   test <target>      Alias for check
   tunnel <port>      Create a temporary public tunnel
+  list               List all active tunnels
+  close <id>         Close a tunnel by ID
+  close --all        Close all active tunnels
 
 ${c.bold}Examples:${c.reset}
   npx private-connect test vault.internal:8200
@@ -291,6 +294,8 @@ ${c.bold}Examples:${c.reset}
   npx private-connect tunnel 3000
   npx private-connect tunnel localhost:8080
   npx private-connect tunnel 4096 --tcp
+  npx private-connect list
+  npx private-connect close abc123
 
 ${c.bold}Tunnel:${c.reset}
   • No signup required
@@ -387,6 +392,7 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
         tunnelId: string; 
         type: 'http' | 'tcp';
         publicUrl: string; 
+        subdomain?: string;
         wsUrl: string; 
         expiresAt: string; 
         ttlMinutes: number;
@@ -401,11 +407,44 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
       wsUrl = HUB_URL.replace('http', 'ws') + '/temp-tunnel';
     }
     
+    // Auto-create debug session for HTTP tunnels
+    let debugSession: { token: string; url: string } | null = null;
+    if (data.tunnel.type === 'http') {
+      try {
+        const debugResponse = await httpRequest(`${HUB_URL}/v1/tunnels/temporary/${data.tunnel.tunnelId}/debug`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ aiEnabled: false }),
+        });
+        
+        if (debugResponse.ok) {
+          const debugData = JSON.parse(debugResponse.body) as { session: { token: string; url: string } };
+          debugSession = { token: debugData.session.token, url: debugData.session.url };
+        }
+      } catch (err) {
+        // Silently fail - debug is optional
+      }
+    }
+    
     console.log();
     console.log(`${c.gray}────────────────────────────────────${c.reset}`);
     console.log();
     console.log(`  ${c.bold}Local:${c.reset}   ${c.cyan}${host}:${port}${c.reset}`);
-    console.log(`  ${c.bold}Public:${c.reset}  ${c.green}${data.tunnel.publicUrl}${c.reset}`);
+    
+    // Show public URL prominently
+    if (data.tunnel.subdomain) {
+      console.log(`  ${c.bold}Public:${c.reset}  ${c.green}${c.bold}${data.tunnel.publicUrl}${c.reset}`);
+      console.log(`  ${c.gray}         Anyone can access this URL${c.reset}`);
+    } else {
+      console.log(`  ${c.bold}Public:${c.reset}  ${c.green}${data.tunnel.publicUrl}${c.reset}`);
+    }
+    
+    // Show debug inspector link
+    if (debugSession) {
+      console.log(`  ${c.bold}Inspector:${c.reset} ${c.cyan}${debugSession.url}${c.reset}`);
+      console.log(`  ${c.gray}         Live traffic monitoring & request replay${c.reset}`);
+    }
+    
     if (data.tunnel.type === 'tcp' && data.tunnel.tcpHost && data.tunnel.tcpPort) {
       console.log(`  ${c.bold}Connect:${c.reset} ${c.cyan}${data.tunnel.tcpHost}:${data.tunnel.tcpPort}${c.reset}`);
     }
@@ -518,6 +557,18 @@ async function runTunnelProxy(tunnelId: string, wsUrl: string, localHost: string
       console.log();
       socket.disconnect();
       resolve();
+    });
+
+    socket.on('server_shutdown', (data: { reason?: string; message?: string; reconnectIn?: number }) => {
+      console.log();
+      console.log(`  ${c.yellow}⚠ Server shutting down${c.reset}`);
+      if (data.message) {
+        console.log(`  ${c.dim}${data.message}${c.reset}`);
+      }
+      if (data.reconnectIn) {
+        console.log(`  ${c.dim}Reconnect in ${data.reconnectIn} seconds...${c.reset}`);
+      }
+      console.log();
     });
 
     socket.on('connect_error', (err) => {
@@ -672,6 +723,24 @@ async function runTcpTunnelProxy(tunnelId: string, wsUrl: string, localHost: str
       resolve();
     });
 
+    socket.on('server_shutdown', (data: { reason?: string; message?: string; reconnectIn?: number }) => {
+      console.log();
+      console.log(`  ${c.yellow}⚠ Server shutting down${c.reset}`);
+      if (data.message) {
+        console.log(`  ${c.dim}${data.message}${c.reset}`);
+      }
+      if (data.reconnectIn) {
+        console.log(`  ${c.dim}Reconnect in ${data.reconnectIn} seconds...${c.reset}`);
+      }
+      console.log();
+      
+      // Close all TCP connections gracefully
+      for (const [, conn] of tcpConnections) {
+        conn.end();
+      }
+      tcpConnections.clear();
+    });
+
     // Handle TCP dial request from hub
     socket.on('tcp_dial', (data: { connectionId: string; targetHost: string; targetPort: number }) => {
       connectionCount++;
@@ -761,6 +830,180 @@ function parseTunnelTarget(target: string): { host: string; port: number } {
   return { host: 'localhost', port: parseInt(target, 10) || 3000 };
 }
 
+/**
+ * List all active tunnels
+ */
+async function listTunnels(): Promise<void> {
+  console.log();
+  console.log(`  ${c.cyan}${c.bold}Private Connect${c.reset} ${c.dim}Active Tunnels${c.reset}`);
+  console.log();
+
+  const hubUrl = process.env.CONNECT_HUB_URL || 'https://api.privateconnect.co';
+  
+  try {
+    const response = await new Promise<{ count: number; tunnels: any[] }>((resolve, reject) => {
+      const url = new URL(`${hubUrl}/v1/tunnels/temporary`);
+      const protocol = url.protocol === 'https:' ? https : http;
+      
+      const req = protocol.get(url.href, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch {
+            reject(new Error('Invalid response'));
+          }
+        });
+      });
+      
+      req.on('error', reject);
+      req.setTimeout(10000, () => {
+        req.destroy();
+        reject(new Error('Request timeout'));
+      });
+    });
+
+    if (response.count === 0) {
+      console.log(`  ${c.dim}No active tunnels${c.reset}`);
+    } else {
+      console.log(`  ${c.green}${response.count}${c.reset} active tunnel${response.count > 1 ? 's' : ''}`);
+      console.log();
+      
+      for (const tunnel of response.tunnels) {
+        const status = tunnel.connected ? `${c.green}connected${c.reset}` : `${c.yellow}waiting${c.reset}`;
+        const expiresIn = Math.max(0, Math.floor((new Date(tunnel.expiresAt).getTime() - Date.now()) / 60000));
+        console.log(`  ${c.cyan}${tunnel.tunnelId}${c.reset}`);
+        console.log(`    Type: ${tunnel.type}  Status: ${status}  Requests: ${tunnel.requestCount}  Expires: ${expiresIn}m`);
+        if (tunnel.subdomain) {
+          console.log(`    Subdomain: ${c.dim}${tunnel.subdomain}${c.reset}`);
+        }
+        console.log();
+      }
+    }
+  } catch (err: any) {
+    console.error(`  ${fail} Failed to list tunnels: ${err.message}`);
+  }
+  
+  console.log();
+}
+
+/**
+ * Close a tunnel by ID
+ */
+async function closeTunnel(tunnelId: string): Promise<void> {
+  console.log();
+  console.log(`  ${c.cyan}${c.bold}Private Connect${c.reset} ${c.dim}Close Tunnel${c.reset}`);
+  console.log();
+
+  const hubUrl = process.env.CONNECT_HUB_URL || 'https://api.privateconnect.co';
+  
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const url = new URL(`${hubUrl}/v1/tunnels/temporary/${tunnelId}`);
+      const protocol = url.protocol === 'https:' ? https : http;
+      
+      const req = protocol.request(url.href, { method: 'DELETE' }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          if (res.statusCode === 200) {
+            resolve();
+          } else if (res.statusCode === 404) {
+            reject(new Error('Tunnel not found or already expired'));
+          } else {
+            reject(new Error(`Server error: ${res.statusCode}`));
+          }
+        });
+      });
+      
+      req.on('error', reject);
+      req.setTimeout(10000, () => {
+        req.destroy();
+        reject(new Error('Request timeout'));
+      });
+      req.end();
+    });
+
+    console.log(`  ${ok} Tunnel ${c.cyan}${tunnelId}${c.reset} closed`);
+  } catch (err: any) {
+    console.error(`  ${fail} ${err.message}`);
+  }
+  
+  console.log();
+}
+
+/**
+ * Close all active tunnels
+ */
+async function closeAllTunnels(): Promise<void> {
+  console.log();
+  console.log(`  ${c.cyan}${c.bold}Private Connect${c.reset} ${c.dim}Close All Tunnels${c.reset}`);
+  console.log();
+
+  const hubUrl = process.env.CONNECT_HUB_URL || 'https://api.privateconnect.co';
+  
+  try {
+    // First list all tunnels
+    const response = await new Promise<{ count: number; tunnels: any[] }>((resolve, reject) => {
+      const url = new URL(`${hubUrl}/v1/tunnels/temporary`);
+      const protocol = url.protocol === 'https:' ? https : http;
+      
+      const req = protocol.get(url.href, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch {
+            reject(new Error('Invalid response'));
+          }
+        });
+      });
+      
+      req.on('error', reject);
+    });
+
+    if (response.count === 0) {
+      console.log(`  ${c.dim}No active tunnels to close${c.reset}`);
+    } else {
+      let closed = 0;
+      for (const tunnel of response.tunnels) {
+        try {
+          await new Promise<void>((resolve, reject) => {
+            const url = new URL(`${hubUrl}/v1/tunnels/temporary/${tunnel.tunnelId}`);
+            const protocol = url.protocol === 'https:' ? https : http;
+            
+            const req = protocol.request(url.href, { method: 'DELETE' }, (res) => {
+              res.on('data', () => {});
+              res.on('end', () => {
+                if (res.statusCode === 200) {
+                  resolve();
+                } else {
+                  reject(new Error(`Failed: ${res.statusCode}`));
+                }
+              });
+            });
+            
+            req.on('error', reject);
+            req.end();
+          });
+          console.log(`  ${ok} Closed ${c.cyan}${tunnel.tunnelId}${c.reset}`);
+          closed++;
+        } catch (err: any) {
+          console.log(`  ${fail} Failed to close ${tunnel.tunnelId}: ${err.message}`);
+        }
+      }
+      console.log();
+      console.log(`  ${c.green}Closed ${closed}/${response.count} tunnels${c.reset}`);
+    }
+  } catch (err: any) {
+    console.error(`  ${fail} Failed to close tunnels: ${err.message}`);
+  }
+  
+  console.log();
+}
+
 // Main
 const args = process.argv.slice(2);
 
@@ -790,6 +1033,20 @@ if (args[0] === 'test' || args[0] === 'check') {
   const { host, port } = parseTunnelTarget(args[1]);
   const tcp = args.includes('--tcp') || args.includes('-t');
   createTemporaryTunnel({ host, port, tcp }).catch(console.error);
+} else if (args[0] === 'list' || args[0] === 'ls') {
+  listTunnels().catch(console.error);
+} else if (args[0] === 'close' || args[0] === 'kill') {
+  if (!args[1]) {
+    console.error(`${c.red}Error: Tunnel ID required${c.reset}`);
+    console.error(`Usage: npx private-connect close <tunnelId>`);
+    console.error(`       npx private-connect close --all`);
+    process.exit(1);
+  }
+  if (args[1] === '--all' || args[1] === '-a') {
+    closeAllTunnels().catch(console.error);
+  } else {
+    closeTunnel(args[1]).catch(console.error);
+  }
 } else {
   // Default to test if just a target is provided
   runTest(args[0]).catch(console.error);
