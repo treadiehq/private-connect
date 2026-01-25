@@ -87,8 +87,8 @@
         <div class="flex items-center px-5 py-3">
           <span class="flex-1 text-sm text-gray-400">DNS</span>
           <span class="w-32 text-right flex items-center justify-end gap-2">
-            <span :class="getDnsStatus === 'OK' ? 'w-2 h-2 rounded-full bg-emerald-400' : 'w-2 h-2 rounded-full bg-red-400'"></span>
-            <span :class="getDnsStatus === 'OK' ? 'text-sm text-emerald-400' : 'text-sm text-red-400'">{{ getDnsStatus }}</span>
+            <span :class="getDnsStatusClass"></span>
+            <span :class="getDnsStatusTextClass">{{ getDnsStatusDisplay }}</span>
           </span>
         </div>
 
@@ -155,7 +155,29 @@ const getDnsStatus = computed(() => {
   if (!latestDiagnostic.value) return 'N/A';
   const status = latestDiagnostic.value.dnsStatus;
   if (status.includes('OK')) return 'OK';
+  if (status.includes('SKIP')) return 'SKIP';
   return status;
+});
+
+const getDnsStatusDisplay = computed(() => {
+  const status = getDnsStatus.value;
+  if (status === 'SKIP') return 'N/A';
+  if (status === 'OK') return 'OK';
+  return status;
+});
+
+const getDnsStatusClass = computed(() => {
+  const status = getDnsStatus.value;
+  if (status === 'OK') return 'w-2 h-2 rounded-full bg-emerald-400';
+  if (status === 'SKIP') return 'w-2 h-2 rounded-full bg-gray-500';
+  return 'w-2 h-2 rounded-full bg-red-400';
+});
+
+const getDnsStatusTextClass = computed(() => {
+  const status = getDnsStatus.value;
+  if (status === 'OK') return 'text-sm text-emerald-400';
+  if (status === 'SKIP') return 'text-sm text-gray-500';
+  return 'text-sm text-red-400';
 });
 
 const formatTime = (date: string | null | undefined) => {

@@ -57,7 +57,8 @@ export class DiagnosticsService {
 
     // For tunnel diagnostics, we connect to localhost:tunnelPort
     // DNS is not applicable since we're connecting to localhost
-    result.dnsStatus = 'OK (localhost)';
+    // Note: This doesn't check DNS for the target service, just confirms we're using localhost
+    result.dnsStatus = 'SKIP (tunnel)';
 
     // TCP Connect test
     const startTime = Date.now();

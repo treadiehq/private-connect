@@ -744,6 +744,7 @@ const tunnelClosed = ref(false);
 // Detect if session has ended based on error message or manual close
 const isSessionEnded = computed(() => {
   if (tunnelClosed.value) return true;
+  if (session.value?.status === 'ended') return true;
   if (!error.value) return false;
   const msg = error.value.toLowerCase();
   return msg.includes('not active') || msg.includes('ended') || msg.includes('expired');
@@ -855,16 +856,24 @@ const checkSessionStatus = async () => {
       sessionStatusMessage.value = data.message || 'Session not found or expired';
     } else if (data.status === 'ended') {
       sessionStatusMessage.value = 'This session has ended';
-    } else if (data.expiresAt) {
-      const expiresAt = new Date(data.expiresAt);
-      if (expiresAt < new Date()) {
-        sessionStatusMessage.value = 'This session has expired';
+    } else if (data.status === 'paused') {
+      sessionStatusMessage.value = 'This session is paused';
+    } else if (data.status === 'active') {
+      // Only show "active" if status is explicitly "active"
+      if (data.expiresAt) {
+        const expiresAt = new Date(data.expiresAt);
+        if (expiresAt < new Date()) {
+          sessionStatusMessage.value = 'This session has expired';
+        } else {
+          const minutesLeft = Math.round((expiresAt.getTime() - Date.now()) / 60000);
+          sessionStatusMessage.value = `Session active. Expires in ${minutesLeft} minutes.`;
+        }
       } else {
-        const minutesLeft = Math.round((expiresAt.getTime() - Date.now()) / 60000);
-        sessionStatusMessage.value = `Session active. Expires in ${minutesLeft} minutes.`;
+        sessionStatusMessage.value = 'Session is active. Make requests to see traffic.';
       }
     } else {
-      sessionStatusMessage.value = 'Session is active. Make requests to see traffic.';
+      // Unknown status - be conservative
+      sessionStatusMessage.value = `Session status: ${data.status || 'unknown'}`;
     }
   } catch (err) {
     sessionStatusMessage.value = 'Could not check session status';

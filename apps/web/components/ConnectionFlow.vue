@@ -225,7 +225,11 @@ const isHealthy = computed(() => {
 const getCheckStatus = (check: string) => {
   if (!props.diagnostic) return 'N/A';
   switch (check) {
-    case 'DNS': return props.diagnostic.dnsStatus?.includes('OK') ? 'OK' : props.diagnostic.dnsStatus === 'FAIL' ? 'FAIL' : 'N/A';
+    case 'DNS': 
+      if (props.diagnostic.dnsStatus?.includes('OK')) return 'OK';
+      if (props.diagnostic.dnsStatus?.includes('SKIP')) return 'SKIP';
+      if (props.diagnostic.dnsStatus === 'FAIL') return 'FAIL';
+      return 'N/A';
     case 'TCP': return props.diagnostic.tcpStatus;
     case 'TLS': return props.diagnostic.tlsStatus;
     case 'HTTP': return props.diagnostic.httpStatus;

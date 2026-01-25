@@ -34,6 +34,7 @@ const props = defineProps<{
 const displayStatus = computed(() => {
   if (props.status === 'OK' || props.status.includes('OK')) return '✓ OK';
   if (props.status === 'FAIL') return '✗ FAIL';
+  if (props.status.includes('SKIP')) return '— N/A';
   if (props.status === 'N/A') return '—';
   return props.status;
 });
@@ -41,7 +42,7 @@ const displayStatus = computed(() => {
 const statusColor = computed(() => {
   if (props.status === 'OK' || props.status.includes('OK')) return 'text-emerald-300';
   if (props.status === 'FAIL') return 'text-red-400';
-  if (props.status === 'N/A') return 'text-gray-500';
+  if (props.status.includes('SKIP') || props.status === 'N/A') return 'text-gray-500';
   return 'text-gray-300';
 });
 
