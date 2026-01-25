@@ -41,6 +41,8 @@ connect 5432 --share             # Get a shareable link
 
 Everything is automatic: auto-naming, background daemon, local DNS.
 
+**Quick tunnels** show your actual website at the public URL - perfect for demos and testing.
+
 ## How It Works
 
 ```

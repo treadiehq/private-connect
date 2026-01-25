@@ -124,6 +124,16 @@ npx private-connect test vault.internal:8200
 
 Checks TCP, TLS, HTTP, latency. No signup required.
 
+### Quick Tunnel (No Auth)
+
+```bash
+npx private-connect tunnel 3000
+```
+
+Creates a temporary public tunnel (2hr expiry). Works whether you're logged in or not. The public URL shows your actual website - perfect for demos and testing.
+
+**Note:** Temporary tunnels are separate from authenticated tunnels. Use `npx private-connect tunnel` for quick, unauthenticated tunnels, or `connect expose --public` for persistent, authenticated public URLs.
+
 ---
 
 ## Share & Collaborate

@@ -1,4 +1,4 @@
-# private-connect
+# Private Connect
 
 Zero-friction connectivity tools. No signup required.
 
@@ -53,22 +53,28 @@ Private Connect - Temporary Tunnel
 ────────────────────────────────────
 
   Local:   localhost:3000
-  Public:  https://api.privateconnect.co/t/abc123
+  Public:  https://privateconnect.co/w/abc12345
+           Anyone can access this URL
+  Inspector: https://privateconnect.co/debug/s-xyz789
+           Live traffic monitoring & request replay
   Expires: 120 minutes
 
 ────────────────────────────────────
 
   Press Ctrl+C to stop
-
-  [12:00:01] GET /api/users
-  [12:00:02] POST /api/login
 ```
+
+**Sharing:**
+- The public URL shows your actual website (like ngrok)
+- Perfect for demos, testing, and sharing with teammates
+- Works immediately - no landing page, just your app
 
 **Features:**
 - No signup or account required
 - Auto-expires in 2 hours
 - Real-time request logging
 - Works with any HTTP service
+- **Shareable URLs** - The public URL shows your actual website, perfect for demos and testing
 
 ## Need more?
 
