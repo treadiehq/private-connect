@@ -231,6 +231,62 @@
       </div>
     </section>
 
+    <!-- Project Dev Mode Section -->
+    <section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10 hidden">
+      <div class="text-center mb-10">
+        <h2 class="text-xl sm:text-2xl font-semibold text-white mb-3">Same setup, every developer</h2>
+        <p class="text-gray-500 text-sm max-w-xl mx-auto">Add one file to your repo. Every developer gets the same services, same ports, every time.</p>
+      </div>
+
+      <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-6 mb-6">
+        <div class="flex items-start gap-4">
+          <div class="w-10 h-10 rounded-lg bg-blue-300/10 flex items-center justify-center shrink-0 mt-1">
+            <svg class="w-5 h-5 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+          </div>
+          <div class="flex-1">
+            <h3 class="font-semibold text-white mb-3">Add pconnect.yml to your repo</h3>
+            <div class="bg-black/40 rounded-lg p-4 font-mono text-xs mb-3">
+              <div class="text-gray-500 mb-2"># pconnect.yml</div>
+              <div><span class="text-purple-300">services</span><span class="text-gray-400">:</span></div>
+              <div class="ml-2"><span class="text-gray-400">-</span> <span class="text-cyan-300">name</span><span class="text-gray-400">:</span> <span class="text-amber-300">staging-db</span></div>
+              <div class="ml-4"><span class="text-cyan-300">port</span><span class="text-gray-400">:</span> <span class="text-emerald-300">5432</span></div>
+              <div class="ml-2"><span class="text-gray-400">-</span> <span class="text-cyan-300">name</span><span class="text-gray-400">:</span> <span class="text-amber-300">redis</span></div>
+              <div class="ml-4"><span class="text-cyan-300">port</span><span class="text-gray-400">:</span> <span class="text-emerald-300">6379</span></div>
+            </div>
+            <p class="text-gray-500 text-xs">One file. Same services for everyone. Commit it to git.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-6">
+        <div class="flex items-start gap-4">
+          <div class="w-10 h-10 rounded-lg bg-emerald-300/10 flex items-center justify-center shrink-0 mt-1">
+            <svg class="w-5 h-5 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+          <div class="flex-1">
+            <h3 class="font-semibold text-white mb-3">Run connect dev</h3>
+            <div class="bg-black/40 rounded-lg p-4 font-mono text-xs space-y-1 mb-3">
+              <div><span class="text-gray-500">$</span> <span class="text-gray-300">connect dev</span></div>
+              <div class="text-emerald-300">✓ staging-db → localhost:5432</div>
+              <div class="text-emerald-300">✓ redis → localhost:6379</div>
+              <div class="text-emerald-300">✓ user-api → localhost:8080</div>
+            </div>
+            <p class="text-gray-500 text-xs">All services connected. Your app works. No manual setup.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-6 text-center">
+        <p class="text-xs text-gray-600">
+          Clone a repo → <span class="text-gray-400">connect dev</span> → Start coding. That's it.
+        </p>
+      </div>
+    </section>
+
     <!-- Use Cases Section -->
     <section id="features" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
       <div class="text-center mb-12">
