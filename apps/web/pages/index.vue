@@ -90,7 +90,11 @@
           </li>
           <li class="flex items-start gap-3">
             <span class="text-emerald-300 mt-0.5">•</span>
-            <span class="text-gray-400"><strong class="text-white">Works everywhere:</strong> Laptop, server, CI/CD, or coffee shop, works with Tailscale, VPN, or plain internet</span>
+            <span class="text-gray-400"><strong class="text-white">Works with any infrastructure:</strong> AWS, exe.dev, DigitalOcean, your local machine, or anywhere, works regardless of where services run</span>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="text-emerald-300 mt-0.5">•</span>
+            <span class="text-gray-400"><strong class="text-white">Solves a daily problem:</strong> Access private services is something you need constantly, not just when setting up infrastructure</span>
           </li>
           <li class="flex items-start gap-3">
             <span class="text-emerald-300 mt-0.5">•</span>

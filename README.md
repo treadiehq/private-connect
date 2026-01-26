@@ -9,7 +9,8 @@ Private Connect is **Tailscale for services, not networks**. Access your databas
 - **Access by name:** `connect prod-db` instead of remembering IPs or ports
 - **Onboard teammates in 30 seconds:** `connect clone alice` gives them your exact setup
 - **Share instantly:** `connect share` → teammate runs `connect join`, same environment
-- **Works everywhere:** Laptop, server, CI/CD, or coffee shop—no VPN needed
+- **Works with any infrastructure:** AWS, exe.dev, DigitalOcean, your local machine, or anywhere—works regardless of where services run
+- **Solves a daily problem:** Access private services is something you need constantly, not just when setting up infrastructure
 - **No port conflicts:** Services stay connected via background daemon
 - **Bidirectional:** Access remote services, not just expose local ones (unlike ngrok)
 - **Private by default:** Workspace isolation, not public URLs
