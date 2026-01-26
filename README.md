@@ -2,9 +2,17 @@
 
 **Access private services by name from anywhere. No VPN setup, no firewall rules, no port forwarding.**
 
-Private Connect is service-level connectivity solution. Access your databases, APIs, and internal services with a simple command like `connect prod-db`, no VPN configuration or SSH tunnels required.
+Private Connect is **Tailscale for services, not networks**. Access your databases, APIs, and internal services with a simple command like `connect prod-db`, no VPN configuration or SSH tunnels required.
 
-> Tailscale for services, not networks.
+**Example:** Have a local database but need to access it from another machine? On your local machine: `connect expose localhost:5432 --name my-db`. From anywhere: `connect reach my-db`. **Yes, this solves that problem**—no port forwarding, no firewall rules, no changing localhost to 0.0.0.0. Works with Tailscale.
+
+- **Access by name:** `connect prod-db` instead of remembering IPs or ports
+- **Onboard teammates in 30 seconds:** `connect clone alice` gives them your exact setup
+- **Share instantly:** `connect share` → teammate runs `connect join`, same environment
+- **Works everywhere:** Laptop, server, CI/CD, or coffee shop—no VPN needed
+- **No port conflicts:** Services stay connected via background daemon
+- **Bidirectional:** Access remote services, not just expose local ones (unlike ngrok)
+- **Private by default:** Workspace isolation, not public URLs
 
 ## Quick Start
 

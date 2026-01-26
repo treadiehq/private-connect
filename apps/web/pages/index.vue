@@ -57,6 +57,57 @@
       </div>
     </section>
 
+    <!-- What It Is Section -->
+    <section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
+      <div class="text-center mb-10">
+        <h2 class="text-xl font-semibold text-white mb-2">What is Private Connect?</h2>
+        <p class="text-gray-500 text-sm mb-4 max-w-lg mx-auto">Private Connect is a tunnel agent that lets you access private services by name from anywhere. Like Tailscale, but for services, not networks.</p>
+        <div class="bg-gray-500/10 border border-gray-500/10 rounded-lg p-4 max-w-2xl mx-auto mt-4">
+          <p class="text-gray-300 text-xs mb-2"><strong class="text-white">Example:</strong> Have a local database but need to access it from another machine?</p>
+          <div class="bg-black/40 rounded p-3 font-mono text-xs space-y-1">
+            <div class="text-gray-500"># On your local machine:</div>
+            <div><span class="text-gray-400">$</span> <span class="text-emerald-300">connect localhost:5432 --name my-db</span></div>
+            <div class="text-gray-500 mt-2"># From anywhere (works with Tailscale):</div>
+            <div><span class="text-gray-400">$</span> <span class="text-blue-300">connect my-db</span></div>
+            <div class="text-gray-500 text-xs mt-2"># no port forwarding, no firewall rules, no changing localhost to 0.0.0.0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-6">
+        <ul class="space-y-3 text-sm">
+          <li class="flex items-start gap-3">
+            <span class="text-emerald-300 mt-0.5">•</span>
+            <span class="text-gray-400"><strong class="text-white">Access by name:</strong> <code class="bg-black/40 px-1.5 py-0.5 rounded text-emerald-300">connect prod-db</code> instead of remembering IPs or ports</span>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="text-emerald-300 mt-0.5">•</span>
+            <span class="text-gray-400"><strong class="text-white">Onboard teammates in 30 seconds:</strong> <code class="bg-black/40 px-1.5 py-0.5 rounded text-emerald-300">connect clone alice</code> gives them your exact setup</span>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="text-emerald-300 mt-0.5">•</span>
+            <span class="text-gray-400"><strong class="text-white">Share instantly:</strong> <code class="bg-black/40 px-1.5 py-0.5 rounded text-emerald-300">connect share</code> → teammate runs <code class="bg-black/40 px-1.5 py-0.5 rounded text-emerald-300">connect join</code>, same environment</span>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="text-emerald-300 mt-0.5">•</span>
+            <span class="text-gray-400"><strong class="text-white">Works everywhere:</strong> Laptop, server, CI/CD, or coffee shop, works with Tailscale, VPN, or plain internet</span>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="text-emerald-300 mt-0.5">•</span>
+            <span class="text-gray-400"><strong class="text-white">No port conflicts:</strong> Services stay connected via background daemon</span>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="text-emerald-300 mt-0.5">•</span>
+            <span class="text-gray-400"><strong class="text-white">Bidirectional:</strong> Access remote services, not just expose local ones (unlike ngrok)</span>
+          </li>
+          <li class="flex items-start gap-3">
+            <span class="text-emerald-300 mt-0.5">•</span>
+            <span class="text-gray-400"><strong class="text-white">Private by default:</strong> Workspace isolation, not public URLs</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
     <!-- What You Can Do Section -->
     <section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
       <div class="text-center mb-10">
