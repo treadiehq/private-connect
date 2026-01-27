@@ -408,6 +408,12 @@ export class TunnelService {
       return;
     }
 
+    // Validate that the agent owns this connection
+    if (pending.agentId !== agentId) {
+      this.logger.error(`Agent ${agentId} attempted to hijack connection ${connectionId} belonging to ${pending.agentId}`);
+      return;
+    }
+
     clearTimeout(pending.timeout);
     this.logger.log(`Agent dial successful for ${connectionId}`);
     
@@ -438,17 +444,27 @@ export class TunnelService {
   /**
    * Receive data from agent for a connection
    */
-  handleAgentData(connectionId: string, data: Buffer) {
+  handleAgentData(connectionId: string, data: Buffer, agentId: string) {
     // Capture for debug session (inbound = from target service)
     this.capturePacket(connectionId, 'inbound', data);
 
     // First check if this is an agent bridge
-    if (this.handleAgentDataForBridge(connectionId, data)) {
+    if (this.handleAgentDataForBridge(connectionId, data, agentId)) {
       return;
     }
 
     const pending = this.pendingConnections.get(connectionId);
-    if (pending && !pending.clientSocket.destroyed) {
+    if (!pending) {
+      return;
+    }
+
+    // Validate that the agent owns this connection
+    if (pending.agentId !== agentId) {
+      this.logger.error(`Agent ${agentId} attempted to send data for connection ${connectionId} belonging to ${pending.agentId}`);
+      return;
+    }
+
+    if (!pending.clientSocket.destroyed) {
       pending.clientSocket.write(data);
     }
   }
@@ -472,17 +488,23 @@ export class TunnelService {
   /**
    * Handle connection close from agent
    */
-  handleAgentClose(connectionId: string) {
+  handleAgentClose(connectionId: string, agentId: string) {
     // Clean up debug session tracking
     this.disableDebugForConnection(connectionId);
 
     // First check if this is an agent bridge
-    if (this.handleAgentCloseForBridge(connectionId)) {
+    if (this.handleAgentCloseForBridge(connectionId, agentId)) {
       return;
     }
 
     const pending = this.pendingConnections.get(connectionId);
     if (pending) {
+      // Validate that the agent owns this connection
+      if (pending.agentId !== agentId) {
+        this.logger.error(`Agent ${agentId} attempted to close connection ${connectionId} belonging to ${pending.agentId}`);
+        return;
+      }
+
       clearTimeout(pending.timeout);
       pending.clientSocket.end();
       this.pendingConnections.delete(connectionId);
@@ -598,12 +620,22 @@ export class TunnelService {
   /**
    * Handle data from reaching agent -> exposing agent
    */
-  handleReachData(connectionId: string, data: Buffer) {
+  handleReachData(connectionId: string, data: Buffer, agentId: string) {
     // Capture for debug session (outbound = going to target)
     this.capturePacket(connectionId, 'outbound', data);
 
     const bridge = this.agentBridges.get(connectionId);
-    if (bridge && bridge.ready) {
+    if (!bridge) {
+      return;
+    }
+
+    // Validate that the agent is the reaching agent for this bridge
+    if (bridge.reachingAgentId !== agentId) {
+      this.logger.error(`Agent ${agentId} attempted to send reach data for bridge ${connectionId} belonging to ${bridge.reachingAgentId}`);
+      return;
+    }
+
+    if (bridge.ready) {
       // Forward to exposing agent
       bridge.exposingSocket.emit('data', {
         connectionId,
@@ -615,9 +647,15 @@ export class TunnelService {
   /**
    * Handle data from exposing agent -> reaching agent (for bridges)
    */
-  handleAgentDataForBridge(connectionId: string, data: Buffer): boolean {
+  handleAgentDataForBridge(connectionId: string, data: Buffer, agentId: string): boolean {
     const bridge = this.agentBridges.get(connectionId);
     if (bridge && bridge.ready) {
+      // Validate that the agent is the exposing agent for this bridge
+      if (bridge.exposingAgentId !== agentId) {
+        this.logger.error(`Agent ${agentId} attempted to send bridge data for ${connectionId} belonging to exposing agent ${bridge.exposingAgentId}`);
+        return true; // Return true to prevent falling through to pendingConnections check
+      }
+
       // Capture for debug session (inbound = from target service)
       this.capturePacket(connectionId, 'inbound', data);
 
@@ -634,9 +672,15 @@ export class TunnelService {
   /**
    * Handle close from reaching agent
    */
-  handleReachClose(connectionId: string) {
+  handleReachClose(connectionId: string, agentId: string) {
     const bridge = this.agentBridges.get(connectionId);
     if (bridge) {
+      // Validate that the agent is the reaching agent for this bridge
+      if (bridge.reachingAgentId !== agentId) {
+        this.logger.error(`Agent ${agentId} attempted to close bridge ${connectionId} belonging to ${bridge.reachingAgentId}`);
+        return;
+      }
+
       clearTimeout(bridge.timeout);
       // Tell exposing agent to close
       bridge.exposingSocket.emit('close', { connectionId });
@@ -648,9 +692,15 @@ export class TunnelService {
   /**
    * Handle close from exposing agent (for bridges)
    */
-  handleAgentCloseForBridge(connectionId: string): boolean {
+  handleAgentCloseForBridge(connectionId: string, agentId: string): boolean {
     const bridge = this.agentBridges.get(connectionId);
     if (bridge) {
+      // Validate that the agent is the exposing agent for this bridge
+      if (bridge.exposingAgentId !== agentId) {
+        this.logger.error(`Agent ${agentId} attempted to close bridge ${connectionId} belonging to exposing agent ${bridge.exposingAgentId}`);
+        return true; // Return true to prevent falling through to pendingConnections check
+      }
+
       clearTimeout(bridge.timeout);
       // Tell reaching agent to close
       bridge.reachingSocket.emit('reach_close', { connectionId });

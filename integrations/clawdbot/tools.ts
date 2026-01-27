@@ -5,10 +5,10 @@
  * https://privateconnect.co
  */
 
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 interface ToolResult {
   success: boolean;
@@ -16,9 +16,13 @@ interface ToolResult {
   error?: string;
 }
 
-async function runConnect(args: string): Promise<ToolResult> {
+/**
+ * Run a connect CLI command safely using execFile with argument array.
+ * This prevents command injection by avoiding shell interpretation.
+ */
+async function runConnect(args: string[]): Promise<ToolResult> {
   try {
-    const { stdout, stderr } = await execAsync(`connect ${args}`, {
+    const { stdout, stderr } = await execFileAsync('connect', args, {
       timeout: 30000, // 30 second timeout
     });
     return {
@@ -40,9 +44,9 @@ async function runConnect(args: string): Promise<ToolResult> {
 export async function connect_reach(params: { service: string; port?: number }) {
   const { service, port } = params;
   
-  let args = `reach ${service}`;
+  const args = ['reach', service];
   if (port) {
-    args += ` --port ${port}`;
+    args.push('--port', String(port));
   }
   
   const result = await runConnect(args);
@@ -65,7 +69,7 @@ export async function connect_reach(params: { service: string; port?: number }) 
  * Show available services and their status
  */
 export async function connect_status() {
-  const result = await runConnect('status --json');
+  const result = await runConnect(['status', '--json']);
   
   if (result.success && result.output) {
     try {
@@ -94,12 +98,12 @@ export async function connect_status() {
 export async function connect_share(params: { expires?: string; name?: string }) {
   const { expires, name } = params;
   
-  let args = 'share';
+  const args = ['share'];
   if (expires) {
-    args += ` --expires ${expires}`;
+    args.push('--expires', expires);
   }
   if (name) {
-    args += ` --name "${name}"`;
+    args.push('--name', name);
   }
   
   const result = await runConnect(args);
@@ -130,7 +134,7 @@ export async function connect_share(params: { expires?: string; name?: string })
 export async function connect_join(params: { code: string }) {
   const { code } = params;
   
-  const result = await runConnect(`join ${code}`);
+  const result = await runConnect(['join', code]);
   
   if (result.success) {
     return {
@@ -151,7 +155,7 @@ export async function connect_join(params: { code: string }) {
 export async function connect_clone(params: { teammate: string }) {
   const { teammate } = params;
   
-  const result = await runConnect(`clone ${teammate}`);
+  const result = await runConnect(['clone', teammate]);
   
   if (result.success) {
     return {
@@ -170,7 +174,7 @@ export async function connect_clone(params: { teammate: string }) {
  * List active shares
  */
 export async function connect_list_shares() {
-  const result = await runConnect('share --list');
+  const result = await runConnect(['share', '--list']);
   
   if (result.success) {
     return {
@@ -191,7 +195,7 @@ export async function connect_list_shares() {
 export async function connect_revoke(params: { code: string }) {
   const { code } = params;
   
-  const result = await runConnect(`share --revoke ${code}`);
+  const result = await runConnect(['share', '--revoke', code]);
   
   if (result.success) {
     return {
@@ -212,7 +216,7 @@ export async function connect_revoke(params: { code: string }) {
 export async function connect_expose(params: { target: string; name: string }) {
   const { target, name } = params;
   
-  const result = await runConnect(`expose ${target} --name ${name}`);
+  const result = await runConnect(['expose', target, '--name', name]);
   
   if (result.success) {
     return {
@@ -235,7 +239,7 @@ export async function connect_expose_gateway(params: { name?: string; persistent
   
   // First, check if gateway is running
   try {
-    await execAsync('curl -s http://localhost:18789/health', { timeout: 5000 });
+    await execFileAsync('curl', ['-s', 'http://localhost:18789/health'], { timeout: 5000 });
   } catch {
     return {
       success: false,
@@ -246,10 +250,10 @@ export async function connect_expose_gateway(params: { name?: string; persistent
   
   // Install daemon if persistent
   if (persistent) {
-    await runConnect('daemon install');
+    await runConnect(['daemon', 'install']);
   }
   
-  const result = await runConnect(`expose localhost:18789 --name ${name}`);
+  const result = await runConnect(['expose', 'localhost:18789', '--name', name]);
   
   if (result.success) {
     return {
@@ -279,10 +283,10 @@ export async function connect_reach_gateway(params: { name?: string; persistent?
   
   // Install daemon if persistent
   if (persistent) {
-    await runConnect('daemon install');
+    await runConnect(['daemon', 'install']);
   }
   
-  const result = await runConnect(`reach ${name}`);
+  const result = await runConnect(['reach', name]);
   
   if (result.success) {
     return {

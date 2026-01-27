@@ -1,4 +1,4 @@
-import { Injectable, Inject, forwardRef, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, Inject, forwardRef, HttpException, HttpStatus, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TunnelService } from '../tunnel/tunnel.service';
 import { WorkspaceService } from '../workspace/workspace.service';
@@ -13,7 +13,7 @@ const TUNNEL_PORT_MAX = 23999;
 const PUBLIC_URL_BASE = process.env.PUBLIC_URL_BASE || 'https://privateconnect.co';
 
 @Injectable()
-export class ServicesService {
+export class ServicesService implements OnModuleInit {
   private usedPorts = new Set<number>();
 
   constructor(
@@ -24,7 +24,11 @@ export class ServicesService {
     private workspaceService: WorkspaceService,
     private webhooksService: WebhooksService,
   ) {
-    this.loadUsedPorts();
+    // Constructor should only perform dependency injection
+  }
+
+  async onModuleInit() {
+    await this.loadUsedPorts();
   }
 
   private async loadUsedPorts() {

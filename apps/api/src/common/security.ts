@@ -2,8 +2,77 @@ import { Logger } from '@nestjs/common';
 
 /**
  * Security utilities for Private Connect
- * Handles log scrubbing, token management, and audit logging
+ * Handles log scrubbing, token management, input sanitization, and audit logging
  */
+
+/**
+ * Escape HTML entities to prevent XSS attacks
+ */
+export function escapeHtml(input: string): string {
+  if (!input) return input;
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
+/**
+ * Escape a string for safe inclusion in JavaScript string literals
+ * Prevents XSS when interpolating values into <script> blocks
+ */
+export function escapeJsString(input: string): string {
+  if (!input) return input;
+  return input
+    .replace(/\\/g, '\\\\')     // Backslash first
+    .replace(/'/g, "\\'")       // Single quotes
+    .replace(/"/g, '\\"')       // Double quotes
+    .replace(/\n/g, '\\n')      // Newlines
+    .replace(/\r/g, '\\r')      // Carriage returns
+    .replace(/</g, '\\x3c')     // < to prevent </script> injection
+    .replace(/>/g, '\\x3e');    // > for consistency
+}
+
+/**
+ * Sanitize CSS color value to prevent CSS injection
+ * Returns a safe default if the color is invalid
+ */
+export function sanitizeCssColor(color: string, defaultColor: string = '#06b6d4'): string {
+  if (!color) return defaultColor;
+  
+  const trimmed = color.trim();
+  
+  // Allow hex colors (3, 4, 6, or 8 digits)
+  if (/^#([A-Fa-f0-9]{3,4}|[A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$/.test(trimmed)) {
+    return trimmed;
+  }
+  
+  // Allow rgb/rgba with numeric values only
+  if (/^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(,\s*(0|1|0?\.\d+))?\s*\)$/.test(trimmed)) {
+    return trimmed;
+  }
+  
+  // Allow hsl/hsla with numeric values only
+  if (/^hsla?\(\s*\d{1,3}\s*,\s*\d{1,3}%\s*,\s*\d{1,3}%\s*(,\s*(0|1|0?\.\d+))?\s*\)$/.test(trimmed)) {
+    return trimmed;
+  }
+  
+  // Allow safe named colors (lowercase only, no special characters)
+  const safeNamedColors = new Set([
+    'red', 'blue', 'green', 'yellow', 'purple', 'orange', 'pink', 'brown',
+    'black', 'white', 'gray', 'grey', 'cyan', 'magenta', 'lime', 'navy',
+    'teal', 'aqua', 'maroon', 'olive', 'silver', 'fuchsia', 'indigo', 'violet',
+    'coral', 'salmon', 'gold', 'khaki', 'plum', 'orchid', 'crimson', 'tomato',
+  ]);
+  
+  if (safeNamedColors.has(trimmed.toLowerCase())) {
+    return trimmed.toLowerCase();
+  }
+  
+  // Invalid color - return default
+  return defaultColor;
+}
 
 // Patterns to scrub from logs
 const SENSITIVE_PATTERNS = [

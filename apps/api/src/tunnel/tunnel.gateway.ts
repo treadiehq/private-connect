@@ -184,7 +184,7 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const agentId = this.socketToAgent.get(client.id);
     if (agentId) {
       this.logger.error(`Agent dial error: ${data.error}`);
-      this.tunnelService.handleAgentClose(data.connectionId);
+      this.tunnelService.handleAgentClose(data.connectionId, agentId);
     }
   }
 
@@ -193,9 +193,15 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { connectionId: string; data: string },
   ) {
+    const agentId = this.socketToAgent.get(client.id);
+    if (!agentId) {
+      this.logger.warn('Data event from unregistered socket');
+      return;
+    }
+
     // Data comes as base64 from agent
     const buffer = Buffer.from(data.data, 'base64');
-    this.tunnelService.handleAgentData(data.connectionId, buffer);
+    this.tunnelService.handleAgentData(data.connectionId, buffer, agentId);
   }
 
   @SubscribeMessage('close')
@@ -203,7 +209,13 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { connectionId: string },
   ) {
-    this.tunnelService.handleAgentClose(data.connectionId);
+    const agentId = this.socketToAgent.get(client.id);
+    if (!agentId) {
+      this.logger.warn('Close event from unregistered socket');
+      return;
+    }
+
+    this.tunnelService.handleAgentClose(data.connectionId, agentId);
   }
 
   /**
@@ -243,8 +255,14 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { connectionId: string; data: string },
   ) {
+    const agentId = this.socketToAgent.get(client.id);
+    if (!agentId) {
+      this.logger.warn('Reach data event from unregistered socket');
+      return;
+    }
+
     const buffer = Buffer.from(data.data, 'base64');
-    this.tunnelService.handleReachData(data.connectionId, buffer);
+    this.tunnelService.handleReachData(data.connectionId, buffer, agentId);
   }
 
   /**
@@ -255,7 +273,13 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { connectionId: string },
   ) {
-    this.tunnelService.handleReachClose(data.connectionId);
+    const agentId = this.socketToAgent.get(client.id);
+    if (!agentId) {
+      this.logger.warn('Reach close event from unregistered socket');
+      return;
+    }
+
+    this.tunnelService.handleReachClose(data.connectionId, agentId);
   }
 }
 

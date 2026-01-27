@@ -1,6 +1,7 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SharesService } from '../shares/shares.service';
+import { escapeHtml, escapeJsString, sanitizeCssColor } from '../common/security';
 
 export interface WidgetConfig {
   shareToken: string;
@@ -60,12 +61,16 @@ export class WidgetsService {
    * Generate embeddable JavaScript widget
    */
   generateEmbedScript(shareToken: string, baseUrl: string): string {
+    // Sanitize inputs for defense-in-depth (prevent JS string injection)
+    const safeToken = escapeJsString(shareToken);
+    const safeBaseUrl = escapeJsString(baseUrl);
+    
     return `
 (function() {
   'use strict';
   
-  var SHARE_TOKEN = '${shareToken}';
-  var BASE_URL = '${baseUrl}';
+  var SHARE_TOKEN = '${safeToken}';
+  var BASE_URL = '${safeBaseUrl}';
   
   // Create widget container
   var container = document.createElement('div');
@@ -125,8 +130,11 @@ export class WidgetsService {
     color?: string;
     size?: 'small' | 'medium' | 'large';
   }): string {
-    const text = options?.text || 'Connect';
-    const color = options?.color || '#06b6d4';
+    // Sanitize all inputs to prevent XSS and CSS injection
+    const text = escapeHtml(options?.text || 'Connect');
+    const color = sanitizeCssColor(options?.color || '#06b6d4');
+    const safeToken = escapeHtml(shareToken);
+    const safeBaseUrl = escapeHtml(baseUrl);
     const padding = options?.size === 'small' ? '8px 16px' : options?.size === 'large' ? '16px 32px' : '12px 24px';
     const fontSize = options?.size === 'small' ? '12px' : options?.size === 'large' ? '16px' : '14px';
 
@@ -163,7 +171,7 @@ export class WidgetsService {
   </style>
 </head>
 <body>
-  <a href="${baseUrl}/share/${shareToken}" target="_blank" class="pc-connect-btn">
+  <a href="${safeBaseUrl}/share/${safeToken}" target="_blank" class="pc-connect-btn">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101"/>
       <path d="M10.172 13.828a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>

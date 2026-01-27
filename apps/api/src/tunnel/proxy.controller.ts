@@ -165,6 +165,14 @@ export class ProxyController {
         res.status(response.status).send(response.body);
         return;
       } catch (err: any) {
+        // Check for body size limit error
+        if (err.message?.includes('exceeds maximum size')) {
+          return res.status(413).json({
+            error: 'Payload too large',
+            message: err.message,
+          });
+        }
+
         this.logger.error(`Temporary tunnel proxy error for ${subdomain}: ${err.message}`);
         return res.status(502).json({ 
           error: 'Bad gateway',
@@ -321,13 +329,24 @@ export class ProxyController {
   }
 
   private async getRequestBody(req: Request): Promise<string> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const chunks: Buffer[] = [];
-      req.on('data', (chunk) => chunks.push(chunk));
+      let totalSize = 0;
+
+      req.on('data', (chunk) => {
+        totalSize += chunk.length;
+        if (totalSize > MAX_BODY_SIZE) {
+          reject(new Error(`Request body exceeds maximum size of ${MAX_BODY_SIZE / 1024 / 1024}MB`));
+          return;
+        }
+        chunks.push(chunk);
+      });
+
       req.on('end', () => {
         resolve(Buffer.concat(chunks).toString('utf-8'));
       });
-      req.on('error', () => resolve(''));
+
+      req.on('error', (err) => reject(err));
     });
   }
 

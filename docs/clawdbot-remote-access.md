@@ -32,6 +32,39 @@ Private Connect creates a secure, private tunnel to your Clawdbot gateway. No pu
 └─────────────────────┘                           └─────────────────┘
 ```
 
+**Note:** Clawdbot's [security docs](https://docs.clawd.bot/gateway/security) recommend Tailscale Serve for remote access. Private Connect is a great alternative if you:
+- Don't use Tailscale
+- Need multi-device access without Tailscale auth key management
+- Want team sharing features (`connect share` / `connect clone`)
+- Prefer service-level access over network-level VPN
+
+## Security Best Practices
+
+Private Connect keeps your gateway on localhost, but you still need to follow Clawdbot's security guidelines:
+
+**1. Gateway Authentication (Required)**
+```json5
+{
+  gateway: {
+    auth: { mode: "token", token: "your-long-random-token" }
+  }
+}
+```
+Without authentication, anyone who can reach your gateway can access it. Generate a token: `clawdbot doctor --generate-gateway-token`
+
+**2. DM Pairing/Allowlists**
+Remote access via Private Connect doesn't bypass Clawdbot's access controls. Configure:
+- `dmPolicy: "pairing"` (default) — requires approval for new DMs
+- `allowFrom` — restrict who can message the bot
+- Group allowlists — control which groups can trigger the bot
+
+**3. Review Clawdbot Security Docs**
+See [Clawdbot's full security guide](https://docs.clawd.bot/gateway/security) for:
+- Prompt injection defenses
+- Sandboxing options
+- Tool access controls
+- Incident response procedures
+
 ## Quick Start
 
 ### Step 1: Install Private Connect on your Clawdbot server
@@ -123,14 +156,18 @@ connect join x7k9m2
 
 ## Security Comparison
 
-| | ngrok | Tailscale | SSH Tunnel | Private Connect |
-|---|-------|-----------|------------|-----------------|
+| | ngrok | Tailscale Serve | SSH Tunnel | Private Connect |
+|---|-------|-----------------|------------|-----------------|
 | Public URL | Yes (risky) | No | No | No |
-| Multi-device | Limited | Yes | Manual | Yes |
+| Multi-device | Limited | Yes (with auth keys) | Manual | Yes |
+| Team sharing | No | No | No | Yes (`connect share`) |
 | Persistent | Paid | Yes | No | Yes |
 | Setup time | 2 min | 10 min | 5 min | 2 min |
-| VPN overhead | No | Yes | No | No |
+| VPN overhead | No | Yes (mesh VPN) | No | No |
 | Self-hosted option | No | Headscale | Yes | Yes |
+| Clawdbot recommended | No | ✅ Yes | No | Alternative |
+
+**Tailscale Serve** is Clawdbot's recommended approach. Private Connect offers similar security with added team collaboration features.
 
 ## Troubleshooting
 
@@ -170,9 +207,16 @@ A: Yes. Private Connect is open source: `docker compose up` with your own hub.
 **Q: Does this work with WhatsApp/Telegram/Discord?**  
 A: Yes. Your chat apps connect to `localhost:18789` as usual — the tunnel is transparent.
 
+**Q: Do I still need Clawdbot gateway authentication?**  
+A: Yes. Private Connect provides secure remote access, but you must still configure `gateway.auth.mode: "token"` or `password` in your Clawdbot config. See [Clawdbot security docs](https://docs.clawd.bot/gateway/security) for details.
+
+**Q: How does this compare to Tailscale Serve?**  
+A: Tailscale Serve is Clawdbot's recommended approach and works great if you're already using Tailscale. Private Connect offers similar security with added benefits: no Tailscale required, built-in team sharing (`connect share`), and service-level access control.
+
 ## Links
 
 - [Private Connect](https://privateconnect.co)
 - [Clawdbot](https://clawd.bot)
+- [Clawdbot Security Guide](https://docs.clawd.bot/gateway/security) — essential reading before exposing your gateway
 - [GitHub](https://github.com/treadiehq/private-connect)
 - [Discord](https://discord.gg/KqdBcqRk5E)

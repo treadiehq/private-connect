@@ -8,12 +8,26 @@ import {
   Headers,
   HttpException,
   HttpStatus,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { EnvSharesService } from './env-shares.service';
 import { ServicesService } from '../services/services.service';
 import { AgentsService } from '../agents/agents.service';
 import { z } from 'zod';
 import { SecureLogger } from '../common/security';
+
+/**
+ * Extract client IP from request, checking multiple sources
+ */
+function getClientIp(req: Request): string {
+  return (
+    req.ip ||
+    (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+    req.connection?.remoteAddress ||
+    'unknown'
+  );
+}
 
 const CreateEnvShareSchema = z.object({
   name: z.string().max(100).optional(),
@@ -49,6 +63,7 @@ export class EnvSharesController {
    */
   @Post()
   async createShare(
+    @Req() req: Request,
     @Body() body: unknown,
     @Headers('x-api-key') apiKey: string,
     @Headers('x-agent-id') agentId: string,
@@ -58,8 +73,9 @@ export class EnvSharesController {
       throw new HttpException(parsed.error.message, HttpStatus.BAD_REQUEST);
     }
 
-    // Validate agent
-    const agent = await this.agentsService.validateAgent(agentId, apiKey);
+    // Validate agent (including IP restrictions)
+    const clientIp = getClientIp(req);
+    const agent = await this.agentsService.validateAgent(agentId, apiKey, clientIp);
     if (!agent) {
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
@@ -122,6 +138,7 @@ export class EnvSharesController {
    */
   @Post(':code/join')
   async joinShare(
+    @Req() req: Request,
     @Param('code') code: string,
     @Body() body: unknown,
     @Headers('x-api-key') apiKey: string,
@@ -132,8 +149,9 @@ export class EnvSharesController {
       throw new HttpException(parsed.error.message, HttpStatus.BAD_REQUEST);
     }
 
-    // Validate agent
-    const agent = await this.agentsService.validateAgent(agentId, apiKey);
+    // Validate agent (including IP restrictions)
+    const clientIp = getClientIp(req);
+    const agent = await this.agentsService.validateAgent(agentId, apiKey, clientIp);
     if (!agent) {
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
@@ -220,10 +238,13 @@ export class EnvSharesController {
    */
   @Get()
   async listShares(
+    @Req() req: Request,
     @Headers('x-api-key') apiKey: string,
     @Headers('x-agent-id') agentId: string,
   ) {
-    const agent = await this.agentsService.validateAgent(agentId, apiKey);
+    // Validate agent (including IP restrictions)
+    const clientIp = getClientIp(req);
+    const agent = await this.agentsService.validateAgent(agentId, apiKey, clientIp);
     if (!agent) {
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
@@ -248,11 +269,14 @@ export class EnvSharesController {
    */
   @Delete(':code')
   async revokeShare(
+    @Req() req: Request,
     @Param('code') code: string,
     @Headers('x-api-key') apiKey: string,
     @Headers('x-agent-id') agentId: string,
   ) {
-    const agent = await this.agentsService.validateAgent(agentId, apiKey);
+    // Validate agent (including IP restrictions)
+    const clientIp = getClientIp(req);
+    const agent = await this.agentsService.validateAgent(agentId, apiKey, clientIp);
     if (!agent) {
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
     }

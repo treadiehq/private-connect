@@ -462,7 +462,21 @@ function parseYamlValue(value: string): string | number | boolean {
   const trimmed = value.trim();
 
   // Remove quotes if present
-  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    // Double-quoted strings: unescape special sequences using single-pass to handle
+    // edge cases correctly (e.g., \\n should become \n, not a newline)
+    const unquoted = trimmed.slice(1, -1);
+    return unquoted.replace(/\\(.)/g, (_, char) => {
+      switch (char) {
+        case 'n': return '\n';
+        case '"': return '"';
+        case '\\': return '\\';
+        default: return '\\' + char; // Unknown escape, preserve as-is
+      }
+    });
+  }
+  if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+    // Single-quoted strings in YAML don't use backslash escapes (except '' for ')
     return trimmed.slice(1, -1);
   }
 

@@ -542,7 +542,7 @@ export class SharesController {
     
     // For external HTTPS targets, try with certificate validation first
     // Fall back to no validation only if explicitly configured (self-signed certs)
-    const rejectUnauthorized = useHttps && !service.isExternal; // Trust internal tunnel, verify external
+    const rejectUnauthorized = useHttps && service.isExternal; // Trust internal tunnel, verify external
     
     if (useHttps && !rejectUnauthorized) {
       this.logger.warn(`Proxying to ${targetHost}:${targetPort} with TLS validation disabled`);

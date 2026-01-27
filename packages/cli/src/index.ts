@@ -747,10 +747,11 @@ async function runTcpTunnelProxy(tunnelId: string, wsUrl: string, localHost: str
       const timestamp = new Date().toLocaleTimeString();
       console.log(`  ${c.gray}[${timestamp}]${c.reset} ${c.cyan}TCP${c.reset} connection ${data.connectionId.slice(0, 8)}`);
 
-      // Connect to local service
+      // Connect to local service - use validated localHost/localPort, not server-provided values
+      // This prevents SSRF attacks where a compromised server could redirect connections
       const localSocket = net.createConnection({
-        host: data.targetHost,
-        port: data.targetPort,
+        host: localHost,
+        port: localPort,
       });
 
       tcpConnections.set(data.connectionId, localSocket);

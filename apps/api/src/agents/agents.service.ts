@@ -10,6 +10,7 @@ import {
   SecureLogger,
   maskIpAddress,
 } from '../common/security';
+import { isIpAllowed } from '../auth/api-key.guard';
 
 // Audit event types for agent token usage
 export enum AgentAuditEvent {
@@ -255,7 +256,7 @@ export class AgentsService {
     }
   }
 
-  async validateWorkspaceApiKey(apiKey: string) {
+  async validateWorkspaceApiKey(apiKey: string, clientIp?: string) {
     const key = await this.prisma.apiKey.findUnique({
       where: { key: apiKey },
       include: { workspace: true },
@@ -265,10 +266,21 @@ export class AgentsService {
       return null;
     }
 
-    // Update last used timestamp
+    // Check IP restrictions if configured
+    if (clientIp && key.allowedIpRanges && key.allowedIpRanges.length > 0) {
+      if (!isIpAllowed(clientIp, key.allowedIpRanges)) {
+        this.logger.warn(`API key ${key.keyPrefix}... rejected: IP ${clientIp} not in allowed ranges`);
+        return null;
+      }
+    }
+
+    // Update last used timestamp and IP
     await this.prisma.apiKey.update({
       where: { id: key.id },
-      data: { lastUsedAt: new Date() },
+      data: { 
+        lastUsedAt: new Date(),
+        lastUsedIp: clientIp || undefined,
+      },
     });
 
     return key.workspace;
@@ -394,9 +406,9 @@ export class AgentsService {
    * Validate agent by ID and API key
    * Used for authenticated agent operations
    */
-  async validateAgent(agentId: string, apiKey: string) {
-    // Validate the API key first
-    const workspace = await this.validateWorkspaceApiKey(apiKey);
+  async validateAgent(agentId: string, apiKey: string, clientIp?: string) {
+    // Validate the API key first (including IP restrictions)
+    const workspace = await this.validateWorkspaceApiKey(apiKey, clientIp);
     if (!workspace) {
       return null;
     }

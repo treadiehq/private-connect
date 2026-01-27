@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Headers, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger';
 import { WorkspaceService } from './workspace.service';
+import { ApiKeyGuard } from '../auth/api-key.guard';
 
 @ApiTags('Workspace')
 @Controller('v1/workspace')
@@ -8,40 +9,26 @@ export class WorkspaceController {
   constructor(private workspaceService: WorkspaceService) {}
 
   @Get()
+  @UseGuards(ApiKeyGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Get workspace', description: 'Returns workspace details and usage information.' })
   @ApiResponse({ status: 200, description: 'Workspace details' })
   @ApiResponse({ status: 401, description: 'Invalid API key' })
-  async getWorkspace(@Headers('x-api-key') apiKey: string) {
-    if (!apiKey) {
-      throw new HttpException('API key required', HttpStatus.UNAUTHORIZED);
-    }
-
-    const workspace = await this.workspaceService.findByApiKey(apiKey);
-    if (!workspace) {
-      throw new HttpException('Invalid API key', HttpStatus.UNAUTHORIZED);
-    }
-
-    return this.workspaceService.getUsage(workspace.id);
+  @ApiResponse({ status: 403, description: 'IP address not allowed' })
+  async getWorkspace(@Req() req: any) {
+    return this.workspaceService.getUsage(req.workspace.id);
   }
 
   @Post('upgrade')
+  @UseGuards(ApiKeyGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Upgrade workspace', description: 'Upgrades the workspace to PRO plan.' })
   @ApiResponse({ status: 200, description: 'Workspace upgraded' })
   @ApiResponse({ status: 401, description: 'Invalid API key' })
-  async upgrade(@Headers('x-api-key') apiKey: string) {
-    if (!apiKey) {
-      throw new HttpException('API key required', HttpStatus.UNAUTHORIZED);
-    }
+  @ApiResponse({ status: 403, description: 'IP address not allowed' })
+  async upgrade(@Req() req: any) {
+    const updated = await this.workspaceService.upgradeToPro(req.workspace.id);
 
-    const workspace = await this.workspaceService.findByApiKey(apiKey);
-    if (!workspace) {
-      throw new HttpException('Invalid API key', HttpStatus.UNAUTHORIZED);
-    }
-
-    const updated = await this.workspaceService.upgradeToPro(workspace.id);
-    
     return {
       success: true,
       message: 'Upgraded to PRO plan',

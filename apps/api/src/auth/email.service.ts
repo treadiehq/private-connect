@@ -73,12 +73,18 @@ If you didn't request this, you can safely ignore this email.`;
 
     // Production: send via Resend (plain text only)
     try {
-      await this.resend.emails.send({
+      const { data: _data, error } = await this.resend.emails.send({
         from: process.env.EMAIL_FROM || 'Private Connect <noreply@privateconnect.dev>',
         to,
         subject,
         text,
       });
+
+      if (error) {
+        this.logger.error(`Failed to send email to ${to}:`, error);
+        throw new Error('Failed to send magic link email');
+      }
+
       this.logger.log(`Magic link email sent to ${to}`);
     } catch (error) {
       this.logger.error(`Failed to send email to ${to}:`, error);
