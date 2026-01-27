@@ -228,6 +228,85 @@ export async function connect_expose(params: { target: string; name: string }) {
 }
 
 /**
+ * Expose the Clawdbot gateway for remote access
+ */
+export async function connect_expose_gateway(params: { name?: string; persistent?: boolean }) {
+  const { name = 'clawdbot', persistent = true } = params;
+  
+  // First, check if gateway is running
+  try {
+    await execAsync('curl -s http://localhost:18789/health', { timeout: 5000 });
+  } catch {
+    return {
+      success: false,
+      message: 'Clawdbot gateway not found on localhost:18789. Is Clawdbot running?',
+      hint: 'Start Clawdbot with: clawdbot start',
+    };
+  }
+  
+  // Install daemon if persistent
+  if (persistent) {
+    await runConnect('daemon install');
+  }
+  
+  const result = await runConnect(`expose localhost:18789 --name ${name}`);
+  
+  if (result.success) {
+    return {
+      success: true,
+      message: `Clawdbot gateway exposed as "${name}".`,
+      instructions: [
+        `On other devices, run: connect reach ${name}`,
+        'Your chat apps will connect via localhost:18789 as usual.',
+        persistent ? 'Tunnel will persist across reboots.' : 'Tunnel active until terminal closes.',
+      ],
+      details: result.output,
+    };
+  } else {
+    return {
+      success: false,
+      message: 'Failed to expose Clawdbot gateway.',
+      error: result.error,
+    };
+  }
+}
+
+/**
+ * Connect to a remote Clawdbot gateway
+ */
+export async function connect_reach_gateway(params: { name?: string; persistent?: boolean }) {
+  const { name = 'clawdbot', persistent = true } = params;
+  
+  // Install daemon if persistent
+  if (persistent) {
+    await runConnect('daemon install');
+  }
+  
+  const result = await runConnect(`reach ${name}`);
+  
+  if (result.success) {
+    return {
+      success: true,
+      message: `Connected to remote Clawdbot gateway "${name}".`,
+      endpoint: 'ws://localhost:18789',
+      instructions: [
+        'Clawdbot gateway is now available at localhost:18789',
+        'Your chat apps (WhatsApp, Telegram, etc.) will work as if Clawdbot were local.',
+        persistent ? 'Connection will persist across reboots.' : 'Connection active until terminal closes.',
+      ],
+      details: result.output,
+    };
+  } else {
+    return {
+      success: false,
+      message: `Failed to connect to Clawdbot gateway "${name}".`,
+      error: result.error,
+      hint: 'Make sure the gateway is exposed with: connect expose localhost:18789 --name clawdbot',
+    };
+  }
+}
+
+/**
  * Tool definitions for Clawdbot
  */
 export const toolDefinitions = {
@@ -347,6 +426,42 @@ export const toolDefinitions = {
         },
       },
       required: ['target', 'name'],
+    },
+  },
+  
+  connect_expose_gateway: {
+    name: 'connect_expose_gateway',
+    description: 'Expose the Clawdbot gateway (localhost:18789) for secure remote access. Use this when you want to access Clawdbot from your phone, laptop, or other devices while it runs on a server.',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Name for the exposed gateway. Default is "clawdbot".',
+        },
+        persistent: {
+          type: 'boolean',
+          description: 'Install daemon for persistent connection across reboots. Default is true.',
+        },
+      },
+    },
+  },
+  
+  connect_reach_gateway: {
+    name: 'connect_reach_gateway',
+    description: 'Connect to a remote Clawdbot gateway. Use this when Clawdbot runs on a server and you want to access it from your current device.',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Name of the exposed gateway to connect to. Default is "clawdbot".',
+        },
+        persistent: {
+          type: 'boolean',
+          description: 'Install daemon for persistent connection across reboots. Default is true.',
+        },
+      },
     },
   },
 };

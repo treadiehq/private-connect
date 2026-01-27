@@ -14,6 +14,8 @@ export {
   connect_list_shares,
   connect_revoke,
   connect_expose,
+  connect_expose_gateway,
+  connect_reach_gateway,
   toolDefinitions,
 } from './tools';
 

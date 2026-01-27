@@ -1,10 +1,32 @@
 # Private Connect Skill for Clawdbot
 
-Access private services by name, from anywhere via natural language.
+Access your Clawdbot gateway from anywhere, and connect to private services by name.
 
-## What is this?
+## Secure Remote Access to Clawdbot
 
-This is a [Clawdbot](https://github.com/clawdbot/clawdbot) skill that lets you control Private Connect through your AI assistant.
+**Running Clawdbot on a VPS or Mac Mini?** Access it securely from your phone, laptop, or any device — without exposing the gateway publicly.
+
+```
+You: "Expose my Clawdbot gateway for remote access"
+Clawd: ✓ Gateway exposed as "clawdbot"
+       On other devices, run: connect reach clawdbot
+       Tunnel will persist across reboots.
+
+# Later, from your phone or laptop:
+You: "Connect to my Clawdbot"
+Clawd: ✓ Connected to clawdbot gateway
+       WhatsApp/Telegram will work as if Clawdbot were local.
+```
+
+This is the **easiest secure alternative to Tailscale/ngrok** for remote Clawdbot access. No VPN setup, no public URLs, no firewall changes.
+
+See the [full remote access guide](../../docs/clawdbot-remote-access.md) for details.
+
+---
+
+## Access Private Services
+
+This skill also lets you control Private Connect through natural language.
 
 **Examples:**
 
@@ -59,6 +81,15 @@ clawdbot restart
 
 ## Available Commands
 
+### Gateway Access (Clawdbot Remote)
+
+| Command | What it does |
+|---------|--------------|
+| `connect_expose_gateway` | Expose your Clawdbot gateway for remote access |
+| `connect_reach_gateway` | Connect to a remote Clawdbot gateway |
+
+### Service Access
+
 | Command | What it does |
 |---------|--------------|
 | `connect_reach` | Connect to a service by name |
@@ -71,6 +102,23 @@ clawdbot restart
 | `connect_revoke` | Revoke a share |
 
 ## Example Conversations
+
+### Remote Gateway Access
+
+```
+# On your VPS where Clawdbot runs:
+You: "Set up remote access to this Clawdbot"
+Clawd: ✓ Clawdbot gateway exposed as "clawdbot"
+       Your gateway at localhost:18789 is now accessible remotely.
+       On other devices, run: connect reach clawdbot
+       Tunnel will persist across reboots.
+
+# Later, from your phone or laptop:
+You: "Connect to my Clawdbot server"
+Clawd: ✓ Connected to remote Clawdbot gateway
+       Endpoint: ws://localhost:18789
+       Your chat apps will work as if Clawdbot were running locally.
+```
 
 ### Connecting to services
 

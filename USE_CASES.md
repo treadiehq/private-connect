@@ -145,6 +145,38 @@ No dynamic DNS. No port forwarding. No security exposure.
 
 ---
 
+## Secure Remote Access to Clawdbot
+
+Running [Clawdbot](https://clawd.bot) on a VPS, Mac Mini, or home server? Access the gateway securely from your phone, laptop, or any device.
+
+**The problem:** Clawdbot's gateway binds to `127.0.0.1:18789` for security. The docs warn: never expose it publicly. But you want to use it from WhatsApp on your phone.
+
+**The solution:**
+
+```bash
+# On your VPS where Clawdbot runs
+connect daemon install
+connect expose localhost:18789 --name clawdbot
+
+# From your phone or laptop (anywhere)
+connect reach clawdbot
+# → Gateway available at localhost:18789
+# → WhatsApp/Telegram connects as if Clawdbot were local
+```
+
+**Why this beats alternatives:**
+
+| | ngrok | Tailscale | SSH Tunnel | Private Connect |
+|---|-------|-----------|------------|-----------------|
+| Public URL | Yes (risky) | No | No | No |
+| Multi-device | Limited | Yes | Manual | Yes |
+| Persistent | Paid | Yes | No | Yes |
+| Setup time | 2 min | 10 min | 5 min | 2 min |
+
+See the [full Clawdbot remote access guide](docs/clawdbot-remote-access.md).
+
+---
+
 ## Give Contractors Temporary Access
 
 External developer needs to test against your staging API for a week.
