@@ -177,6 +177,38 @@ See the [full Clawdbot remote access guide](docs/clawdbot-remote-access.md).
 
 ---
 
+## Secure Remote Access to OpenCode
+
+Running [OpenCode](https://opencode.ai) on a VPS or GPU server? Access it securely from your laptop without exposing ports.
+
+**The problem:** OpenCode's server binds to `127.0.0.1:4096` for security. Setting `--hostname 0.0.0.0` exposes you to brute-force attacks.
+
+**The solution:**
+
+```bash
+# On your VPS where OpenCode runs
+opencode serve                                    # Stays on localhost
+connect daemon install
+connect expose localhost:4096 --name opencode
+
+# From your laptop (anywhere)
+connect opencode
+opencode attach http://localhost:4096             # Works as if local
+```
+
+**Why this beats alternatives:**
+
+| | ngrok | Tailscale | SSH Tunnel | Private Connect |
+|---|-------|-----------|------------|-----------------|
+| Public URL | Yes (risky) | No | No | No |
+| Multi-device | Limited | Yes | Manual | Yes |
+| Persistent | Paid | Yes | No | Yes |
+| Setup time | 2 min | 10 min | 5 min | 2 min |
+
+See the [full OpenCode remote access guide](docs/opencode-remote-access.md).
+
+---
+
 ## Give Contractors Temporary Access
 
 External developer needs to test against your staging API for a week.
