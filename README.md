@@ -114,6 +114,7 @@ See [DETAILED.md#control-api](DETAILED.md#control-api) for full API reference.
 - **AI & MCP**: [docs/AI.md](docs/AI.md) — AI integration, orchestration, SDK
 - **Clawdbot**: [docs/clawdbot-remote-access.md](docs/clawdbot-remote-access.md) — secure remote access to Clawdbot gateway
 - **OpenCode**: [docs/opencode-remote-access.md](docs/opencode-remote-access.md) — secure remote access to OpenCode server
+- **exe.dev**: [docs/exe-dev-private-access.md](docs/exe-dev-private-access.md) — access private services from exe.dev VMs
 - **Use Cases**: [USE_CASES.md](USE_CASES.md) — real scenarios
 - **Security**: [docs/security.md](docs/security.md) — architecture details
 - **SDK**: [packages/sdk](packages/sdk) — TypeScript SDK for programmatic access

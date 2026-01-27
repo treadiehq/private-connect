@@ -209,6 +209,40 @@ See the [full OpenCode remote access guide](docs/opencode-remote-access.md).
 
 ---
 
+## Access Private Services from exe.dev VMs
+
+Running AI agents on [exe.dev](https://exe.dev)? Give them secure access to your private infrastructure — databases, APIs, internal services — without exposing them publicly.
+
+**The problem:** exe.dev has great HTTPS proxies for exposing services, but your agent needs to *access* private infrastructure that isn't publicly exposed.
+
+**The solution:**
+
+```bash
+# On your private server (home, office, AWS)
+connect daemon install
+connect expose localhost:5432 --name prod-db
+connect expose localhost:8080 --name internal-api
+
+# On your exe.dev VM
+curl -fsSL https://privateconnect.co/install.sh | bash
+connect up
+connect prod-db
+connect internal-api
+
+# Your agent can now access:
+# → localhost:5432 (database)
+# → localhost:8080 (internal API)
+```
+
+**Also great for:**
+- Cross-VM private communication (two exe.dev VMs talking without public URLs)
+- Team collaboration on exe.dev environments
+- Integrating with exe.dev's Shelley/AGENTS.md system
+
+See the [full exe.dev guide](docs/exe-dev-private-access.md).
+
+---
+
 ## Give Contractors Temporary Access
 
 External developer needs to test against your staging API for a week.
