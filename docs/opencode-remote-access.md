@@ -1,6 +1,6 @@
 # Secure OpenCode Remote Access in 5 Minutes
 
-Access your OpenCode server from anywhere — laptop, phone, or any device — without exposing it to the internet.
+Access your OpenCode server from anywhere, laptop, phone, or any device, without exposing it to the internet.
 
 ## The Problem
 
@@ -95,13 +95,13 @@ The tunnel stays up 24/7, reconnecting automatically.
 If you're using `opencode web` instead:
 
 ```bash
-# On server
-opencode web --port 3000
-connect localhost:3000 --name opencode-web
+# On server (use any port you prefer)
+opencode web --port 8080
+connect localhost:8080 --name opencode-web
 
 # On laptop
 connect opencode-web
-# Open http://localhost:3000 in your browser
+# Open http://localhost:8080 in your browser
 ```
 
 ## Multi-Device Access
@@ -119,7 +119,7 @@ opencode attach http://localhost:4096
 
 # Device 3 (tablet via web)
 connect opencode-web
-# Open browser to localhost:3000
+# Open browser to localhost:8080
 ```
 
 All devices get secure access to the same OpenCode instance.
@@ -172,8 +172,10 @@ connect doctor  # Full diagnostics
 ```bash
 # On the server - check if server is listening
 lsof -i :4096
-# Or try the health endpoint
-curl http://localhost:4096/health
+# Or try connecting
+nc -zv localhost 4096
+# Or check the API docs endpoint
+curl http://localhost:4096/doc
 ```
 
 ### View tunnel logs
@@ -197,7 +199,7 @@ A: Yes. Private Connect is open source: `docker compose up` with your own hub.
 A: Yes. The tunnel is transparent — `opencode attach http://localhost:4096` works exactly as if the server were local.
 
 **Q: What about the web UI?**  
-A: Works the same way. Expose port 3000 (or whatever port you use for `opencode web`) and access it via localhost in your browser.
+A: Works the same way. Expose whatever port you use for `opencode web` and access it via localhost in your browser.
 
 ## Links
 
