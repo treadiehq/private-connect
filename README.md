@@ -134,6 +134,11 @@ See [DETAILED.md#control-api](DETAILED.md#control-api) for full API reference.
 - **Security**: [docs/security.md](docs/security.md) — architecture details
 - **SDK**: [packages/sdk](packages/sdk) — TypeScript SDK for programmatic access
 
+### Comparisons
+
+- **vs Tailscale**: [docs/tailscale-and-private-connect.md](docs/tailscale-and-private-connect.md) — Tailscale is network access, Private Connect is service access
+- **vs ngrok**: [docs/ngrok-and-private-connect.md](docs/ngrok-and-private-connect.md) — ngrok is public URLs, Private Connect is team collaboration
+
 ### Automation Scripts
 
 - **exe.dev Template**: [scripts/exe-dev-moltbot.md](scripts/exe-dev-moltbot.md) — one-click Moltbot + Private Connect VM
