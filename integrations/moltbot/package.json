@@ -1,7 +1,7 @@
 {
-  "name": "clawdbot-skill-private-connect",
+  "name": "moltbot-skill-private-connect",
   "version": "1.0.0",
-  "description": "Private Connect skill for Clawdbot - access private services by name",
+  "description": "Private Connect skill for Moltbot - access private services by name",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -9,6 +9,7 @@
     "prepare": "npm run build"
   },
   "keywords": [
+    "moltbot",
     "clawdbot",
     "skill",
     "private-connect",

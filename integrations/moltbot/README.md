@@ -1,26 +1,28 @@
-# Private Connect Skill for Clawdbot
+# Private Connect Skill for Moltbot
 
-Access your Clawdbot gateway from anywhere, and connect to private services by name.
+Access your Moltbot gateway from anywhere, and connect to private services by name.
 
-## Secure Remote Access to Clawdbot
+> **Note:** Moltbot was previously called Clawdbot. This skill works with both.
 
-**Running Clawdbot on a VPS or Mac Mini?** Access it securely from your phone, laptop, or any device — without exposing the gateway publicly.
+## Secure Remote Access to Moltbot
+
+**Running Moltbot on a VPS, exe.dev VM, or Mac Mini?** Access it securely from your phone, laptop, or any device — without exposing the gateway publicly.
 
 ```
-You: "Expose my Clawdbot gateway for remote access"
-Clawd: ✓ Gateway exposed as "clawdbot"
-       On other devices, run: connect reach clawdbot
+You: "Expose my Moltbot gateway for remote access"
+Molt: ✓ Gateway exposed as "moltbot"
+       On other devices, run: connect reach moltbot
        Tunnel will persist across reboots.
 
 # Later, from your phone or laptop:
-You: "Connect to my Clawdbot"
-Clawd: ✓ Connected to clawdbot gateway
-       WhatsApp/Telegram will work as if Clawdbot were local.
+You: "Connect to my Moltbot"
+Molt: ✓ Connected to moltbot gateway
+       WhatsApp/Telegram will work as if Moltbot were local.
 ```
 
-This is the **easiest secure alternative to Tailscale/ngrok** for remote Clawdbot access. No VPN setup, no public URLs, no firewall changes.
+This is the **easiest secure alternative to Tailscale/ngrok** for remote Moltbot access. No VPN setup, no public URLs, no firewall changes.
 
-See the [full remote access guide](../../docs/clawdbot-remote-access.md) for details.
+See the [full remote access guide](../../docs/moltbot-remote-access.md) for details.
 
 ---
 
@@ -32,10 +34,10 @@ This skill also lets you control Private Connect through natural language.
 
 ```
 You: "Connect me to the staging database"
-Clawd: ✓ Connected to staging-db on localhost:5432
+Molt: ✓ Connected to staging-db on localhost:5432
 
 You: "What services are available?"
-Clawd: Found 5 services:
+Molt: Found 5 services:
        • staging-db (online)
        • prod-api (online)  
        • redis (online)
@@ -43,7 +45,7 @@ Clawd: Found 5 services:
        • jupyter-gpu (online)
 
 You: "Clone Alice's setup"
-Clawd: ✓ Cloned 4 services from alice
+Molt: ✓ Cloned 4 services from alice
        • staging-db → localhost:5432
        • redis → localhost:6379
        • prod-api → localhost:8080
@@ -61,32 +63,32 @@ connect up
 
 ### 2. Install the skill
 
-Copy this skill to your Clawdbot skills directory:
+Copy this skill to your Moltbot skills directory:
 
 ```bash
-cp -r integrations/clawdbot ~/clawd/skills/private-connect
+cp -r integrations/moltbot ~/molt/skills/private-connect
 ```
 
-Or if you're using ClawdHub:
+Or if you're using MoltHub:
 
 ```bash
-clawdbot skills install private-connect
+moltbot skills install private-connect
 ```
 
-### 3. Restart Clawdbot
+### 3. Restart Moltbot
 
 ```bash
-clawdbot restart
+moltbot restart
 ```
 
 ## Available Commands
 
-### Gateway Access (Clawdbot Remote)
+### Gateway Access (Moltbot Remote)
 
 | Command | What it does |
 |---------|--------------|
-| `connect_expose_gateway` | Expose your Clawdbot gateway for remote access |
-| `connect_reach_gateway` | Connect to a remote Clawdbot gateway |
+| `connect_expose_gateway` | Expose your Moltbot gateway for remote access |
+| `connect_reach_gateway` | Connect to a remote Moltbot gateway |
 
 ### Service Access
 
@@ -106,18 +108,18 @@ clawdbot restart
 ### Remote Gateway Access
 
 ```
-# On your VPS where Clawdbot runs:
-You: "Set up remote access to this Clawdbot"
-Clawd: ✓ Clawdbot gateway exposed as "clawdbot"
+# On your VPS where Moltbot runs:
+You: "Set up remote access to this Moltbot"
+Molt: ✓ Moltbot gateway exposed as "moltbot"
        Your gateway at localhost:18789 is now accessible remotely.
-       On other devices, run: connect reach clawdbot
+       On other devices, run: connect reach moltbot
        Tunnel will persist across reboots.
 
 # Later, from your phone or laptop:
-You: "Connect to my Clawdbot server"
-Clawd: ✓ Connected to remote Clawdbot gateway
+You: "Connect to my Moltbot server"
+Molt: ✓ Connected to remote Moltbot gateway
        Endpoint: ws://localhost:18789
-       Your chat apps will work as if Clawdbot were running locally.
+       Your chat apps will work as if Moltbot were running locally.
 ```
 
 ### Connecting to services
@@ -151,7 +153,7 @@ Clawd: Cloning alice's environment...
 
 ## Requirements
 
-- Clawdbot v2026.1.0 or later
+- Moltbot v2026.1.0 or later (or Clawdbot v2026.1.0+)
 - Private Connect CLI installed (`connect` in PATH)
 - Authenticated with `connect up`
 
@@ -159,5 +161,5 @@ Clawd: Cloning alice's environment...
 
 - [Private Connect](https://privateconnect.co)
 - [GitHub](https://github.com/treadiehq/private-connect)
-- [Clawdbot](https://github.com/clawdbot/clawdbot)
+- [Moltbot](https://docs.molt.bot)
 

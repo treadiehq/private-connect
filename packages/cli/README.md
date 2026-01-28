@@ -76,13 +76,71 @@ Private Connect - Temporary Tunnel
 - Works with any HTTP service
 - **Shareable URLs** - The public URL shows your actual website, perfect for demos and testing
 
-## Need more?
+### `setup-moltbot` - One-command Moltbot setup
 
-For permanent tunnels, sharing with teammates, and AI agent integration:
+```bash
+npx private-connect setup-moltbot
+```
+
+Quickly set up remote access to your Moltbot gateway:
+- Detects Moltbot on localhost:18789
+- Creates temporary tunnel for remote access
+- Shows next steps for permanent setup
+
+### `pair` - Mobile pairing
+
+```bash
+npx private-connect pair
+```
+
+Generate a QR code to pair your mobile device for remote access.
+
+### `list` - List active tunnels
+
+```bash
+npx private-connect list
+```
+
+### `close` - Close tunnels
+
+```bash
+npx private-connect close <tunnelId>
+npx private-connect close --all
+```
+
+## Installation Options
+
+### Quick (npx)
+
+```bash
+npx private-connect tunnel 3000
+```
+
+### Full Install (with daemon)
 
 ```bash
 curl -fsSL https://privateconnect.co/install.sh | bash
 connect up
 ```
+
+### Automated/Non-interactive
+
+```bash
+# For scripts, CI/CD, or VM provisioning
+curl -fsSL https://privateconnect.co/install.sh | bash -s -- \
+  --non-interactive \
+  --api-key=YOUR_KEY \
+  --daemon
+```
+
+Options:
+- `--non-interactive` - Skip all prompts
+- `--api-key=KEY` - Set API key for authentication
+- `--daemon` - Install and start background service
+- `--expose-moltbot` - Expose Moltbot gateway after install
+
+## Need more?
+
+For permanent tunnels, sharing with teammates, and AI agent integration:
 
 → [privateconnect.co](https://privateconnect.co)

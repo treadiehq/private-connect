@@ -1,0 +1,101 @@
+#cloud-config
+# Moltbot + Private Connect Cloud-Init Script
+#
+# Use this as user-data when creating VMs on:
+# - AWS EC2
+# - DigitalOcean Droplets
+# - Vultr
+# - Linode
+# - Hetzner Cloud
+# - exe.dev
+# - Mac Mini (with cloud-init)
+# - Any cloud provider supporting cloud-init
+#
+# Replace YOUR_API_KEY_HERE with your Private Connect API key from:
+# https://privateconnect.co/settings/api-keys
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - nginx
+  - jq
+
+write_files:
+  # nginx config for Moltbot WebSocket proxy
+  - path: /etc/nginx/sites-available/moltbot
+    content: |
+      server {
+          listen 80 default_server;
+          listen [::]:80 default_server;
+          
+          location / {
+              proxy_pass http://127.0.0.1:18789;
+              proxy_http_version 1.1;
+              proxy_set_header Upgrade $http_upgrade;
+              proxy_set_header Connection "upgrade";
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+              proxy_read_timeout 86400;
+              proxy_send_timeout 86400;
+          }
+      }
+
+  # Private Connect API key
+  - path: /root/.config/privateconnect/api-key
+    content: |
+      YOUR_API_KEY_HERE
+    permissions: '0600'
+
+  # Setup script
+  - path: /root/setup-moltbot.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -e
+      
+      echo "=== Setting up Moltbot + Private Connect ==="
+      
+      # Enable nginx config
+      ln -sf /etc/nginx/sites-available/moltbot /etc/nginx/sites-enabled/default
+      systemctl restart nginx
+      echo "✓ nginx configured"
+      
+      # Install Moltbot (adjust based on official install method)
+      # curl -fsSL https://molt.bot/install.sh | bash -s -- --non-interactive
+      echo "⚠ Install Moltbot manually: https://docs.molt.bot/install"
+      
+      # Install Private Connect
+      curl -fsSL https://privateconnect.co/install.sh | bash -s -- \
+        --non-interactive \
+        --daemon
+      echo "✓ Private Connect installed"
+      
+      # Wait for Moltbot to be ready, then expose
+      echo "Waiting for Moltbot gateway..."
+      for i in {1..30}; do
+        if nc -z localhost 18789 2>/dev/null; then
+          connect expose localhost:18789 --name moltbot
+          echo "✓ Moltbot gateway exposed as 'moltbot'"
+          break
+        fi
+        sleep 2
+      done
+      
+      echo ""
+      echo "=== Setup Complete ==="
+      echo "From any device, run: connect reach moltbot"
+
+runcmd:
+  - /root/setup-moltbot.sh
+
+final_message: |
+  Moltbot + Private Connect setup complete!
+  
+  From your phone/laptop:
+    curl -fsSL https://privateconnect.co/install.sh | bash
+    connect up
+    connect reach moltbot

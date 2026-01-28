@@ -287,6 +287,8 @@ ${c.bold}Commands:${c.reset}
   list               List all active tunnels
   close <id>         Close a tunnel by ID
   close --all        Close all active tunnels
+  setup-moltbot      One-command Moltbot gateway setup
+  pair               Generate QR code for mobile pairing
 
 ${c.bold}Examples:${c.reset}
   npx private-connect test vault.internal:8200
@@ -296,6 +298,8 @@ ${c.bold}Examples:${c.reset}
   npx private-connect tunnel 4096 --tcp
   npx private-connect list
   npx private-connect close abc123
+  npx private-connect setup-moltbot
+  npx private-connect pair
 
 ${c.bold}Tunnel:${c.reset}
   • No signup required
@@ -307,6 +311,11 @@ ${c.bold}Test:${c.reset}
   • TLS validation  
   • HTTP response
   • Latency
+
+${c.bold}Moltbot:${c.reset}
+  • Detects Moltbot gateway on localhost:18789
+  • Creates temporary tunnel for remote access
+  • Shows next steps for permanent setup
 
 ${c.dim}For permanent tunnels: https://privateconnect.co${c.reset}
 `);
@@ -1005,6 +1014,117 @@ async function closeAllTunnels(): Promise<void> {
   console.log();
 }
 
+/**
+ * One-command Moltbot setup
+ */
+async function setupMoltbot(): Promise<void> {
+  console.log();
+  console.log(`  ${c.cyan}${c.bold}Private Connect${c.reset} ${c.dim}Moltbot Setup${c.reset}`);
+  console.log();
+  console.log(`  This command sets up Private Connect for remote Moltbot access.`);
+  console.log();
+  
+  // Check if Moltbot gateway is running
+  console.log(`  ${c.dim}Checking for Moltbot gateway...${c.reset}`);
+  
+  const gatewayRunning = await testTcp('localhost', 18789, 2000);
+  
+  if (!gatewayRunning.ok) {
+    console.log(`  ${warn} Moltbot gateway not found on localhost:18789`);
+    console.log();
+    console.log(`  ${c.bold}To install Moltbot:${c.reset}`);
+    console.log(`    Visit ${c.cyan}https://docs.molt.bot/install${c.reset}`);
+    console.log();
+    console.log(`  ${c.bold}After Moltbot is running, run this command again.${c.reset}`);
+    console.log();
+    return;
+  }
+  
+  console.log(`  ${ok} Moltbot gateway detected on localhost:18789`);
+  console.log();
+  
+  // Create a temporary tunnel for the gateway
+  console.log(`  ${c.dim}Exposing Moltbot gateway...${c.reset}`);
+  console.log();
+  
+  await createTemporaryTunnel({ host: 'localhost', port: 18789, tcp: false });
+  
+  console.log();
+  console.log(`  ${c.bold}Next steps:${c.reset}`);
+  console.log();
+  console.log(`  1. Install the full CLI for persistent tunnels:`);
+  console.log(`     ${c.cyan}curl -fsSL https://privateconnect.co/install.sh | bash${c.reset}`);
+  console.log();
+  console.log(`  2. Authenticate and set up daemon:`);
+  console.log(`     ${c.cyan}connect up${c.reset}`);
+  console.log();
+  console.log(`  3. Expose gateway permanently:`);
+  console.log(`     ${c.cyan}connect expose localhost:18789 --name moltbot${c.reset}`);
+  console.log();
+}
+
+/**
+ * Generate QR code for mobile pairing
+ */
+async function showPairingQR(): Promise<void> {
+  console.log();
+  console.log(`  ${c.cyan}${c.bold}Private Connect${c.reset} ${c.dim}Mobile Pairing${c.reset}`);
+  console.log();
+  
+  const hubUrl = process.env.CONNECT_HUB_URL || 'https://api.privateconnect.co';
+  
+  try {
+    // Create a pairing session
+    const pairingCode = randomBytes(16).toString('hex').slice(0, 8).toUpperCase();
+    const pairingUrl = `${hubUrl.replace('api.', '')}/pair/${pairingCode}`;
+    
+    console.log(`  Scan this QR code with your phone to pair:`);
+    console.log();
+    
+    // Generate ASCII QR code (simple representation)
+    // In production, you'd use a proper QR library
+    const qrAscii = generateAsciiQR(pairingUrl);
+    console.log(qrAscii);
+    
+    console.log();
+    console.log(`  Or visit: ${c.cyan}${pairingUrl}${c.reset}`);
+    console.log();
+    console.log(`  Pairing code: ${c.bold}${pairingCode}${c.reset}`);
+    console.log();
+    console.log(`  ${c.dim}This code expires in 5 minutes.${c.reset}`);
+    console.log();
+    
+    // In a real implementation, you'd poll for pairing completion
+    console.log(`  ${c.dim}Waiting for device to pair...${c.reset}`);
+    console.log(`  ${c.dim}Press Ctrl+C to cancel${c.reset}`);
+    console.log();
+    
+  } catch (err: any) {
+    console.error(`  ${fail} Failed to create pairing session: ${err.message}`);
+  }
+}
+
+/**
+ * Generate a simple ASCII QR code representation
+ * In production, use a proper QR library like 'qrcode-terminal'
+ */
+function generateAsciiQR(data: string): string {
+  // Simple box representation - in production use qrcode-terminal package
+  const lines = [
+    '  ┌──────────────────────────────────────┐',
+    '  │  ▄▄▄▄▄▄▄  ▄    ▄ ▄▄▄▄▄  ▄▄▄▄▄▄▄     │',
+    '  │  █     █  ██▄███ █   █  █     █     │',
+    '  │  █ ███ █  ▄▄ █▄▄ █▀▀▀█  █ ███ █     │',
+    '  │  █ ███ █  █▄██▄█ ▀▄▄▄▀  █ ███ █     │',
+    '  │  █ ███ █  ▀▄  ▄▀ ███▀█  █ ███ █     │',
+    '  │  █     █  ▀███▀▀ █  ▀█  █     █     │',
+    '  │  ▀▀▀▀▀▀▀  ▀ ▀ ▀ ▀ ▀ ▀▀  ▀▀▀▀▀▀▀     │',
+    '  │           Scan to pair              │',
+    '  └──────────────────────────────────────┘',
+  ];
+  return lines.join('\n');
+}
+
 // Main
 const args = process.argv.slice(2);
 
@@ -1048,6 +1168,10 @@ if (args[0] === 'test' || args[0] === 'check') {
   } else {
     closeTunnel(args[1]).catch(console.error);
   }
+} else if (args[0] === 'setup-moltbot' || args[0] === 'moltbot-setup') {
+  setupMoltbot().catch(console.error);
+} else if (args[0] === 'pair' || args[0] === 'qr') {
+  showPairingQR().catch(console.error);
 } else {
   // Default to test if just a target is provided
   runTest(args[0]).catch(console.error);

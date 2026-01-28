@@ -1,5 +1,5 @@
 /**
- * Private Connect Skill for Clawdbot
+ * Private Connect Skill for Moltbot
  * 
  * Access private services by name, from anywhere.
  * https://privateconnect.co
@@ -232,10 +232,10 @@ export async function connect_expose(params: { target: string; name: string }) {
 }
 
 /**
- * Expose the Clawdbot gateway for remote access
+ * Expose the Moltbot gateway for remote access
  */
 export async function connect_expose_gateway(params: { name?: string; persistent?: boolean }) {
-  const { name = 'clawdbot', persistent = true } = params;
+  const { name = 'moltbot', persistent = true } = params;
   
   // First, check if gateway is running
   try {
@@ -243,8 +243,8 @@ export async function connect_expose_gateway(params: { name?: string; persistent
   } catch {
     return {
       success: false,
-      message: 'Clawdbot gateway not found on localhost:18789. Is Clawdbot running?',
-      hint: 'Start Clawdbot with: clawdbot start',
+      message: 'Moltbot gateway not found on localhost:18789. Is Moltbot running?',
+      hint: 'Start Moltbot with: moltbot start',
     };
   }
   
@@ -258,7 +258,7 @@ export async function connect_expose_gateway(params: { name?: string; persistent
   if (result.success) {
     return {
       success: true,
-      message: `Clawdbot gateway exposed as "${name}".`,
+      message: `Moltbot gateway exposed as "${name}".`,
       instructions: [
         `On other devices, run: connect reach ${name}`,
         'Your chat apps will connect via localhost:18789 as usual.',
@@ -269,17 +269,17 @@ export async function connect_expose_gateway(params: { name?: string; persistent
   } else {
     return {
       success: false,
-      message: 'Failed to expose Clawdbot gateway.',
+      message: 'Failed to expose Moltbot gateway.',
       error: result.error,
     };
   }
 }
 
 /**
- * Connect to a remote Clawdbot gateway
+ * Connect to a remote Moltbot gateway
  */
 export async function connect_reach_gateway(params: { name?: string; persistent?: boolean }) {
-  const { name = 'clawdbot', persistent = true } = params;
+  const { name = 'moltbot', persistent = true } = params;
   
   // Install daemon if persistent
   if (persistent) {
@@ -291,11 +291,11 @@ export async function connect_reach_gateway(params: { name?: string; persistent?
   if (result.success) {
     return {
       success: true,
-      message: `Connected to remote Clawdbot gateway "${name}".`,
+      message: `Connected to remote Moltbot gateway "${name}".`,
       endpoint: 'ws://localhost:18789',
       instructions: [
-        'Clawdbot gateway is now available at localhost:18789',
-        'Your chat apps (WhatsApp, Telegram, etc.) will work as if Clawdbot were local.',
+        'Moltbot gateway is now available at localhost:18789',
+        'Your chat apps (WhatsApp, Telegram, etc.) will work as if Moltbot were local.',
         persistent ? 'Connection will persist across reboots.' : 'Connection active until terminal closes.',
       ],
       details: result.output,
@@ -303,15 +303,15 @@ export async function connect_reach_gateway(params: { name?: string; persistent?
   } else {
     return {
       success: false,
-      message: `Failed to connect to Clawdbot gateway "${name}".`,
+      message: `Failed to connect to Moltbot gateway "${name}".`,
       error: result.error,
-      hint: 'Make sure the gateway is exposed with: connect expose localhost:18789 --name clawdbot',
+      hint: 'Make sure the gateway is exposed with: connect expose localhost:18789 --name moltbot',
     };
   }
 }
 
 /**
- * Tool definitions for Clawdbot
+ * Tool definitions for Moltbot
  */
 export const toolDefinitions = {
   connect_reach: {
@@ -435,13 +435,13 @@ export const toolDefinitions = {
   
   connect_expose_gateway: {
     name: 'connect_expose_gateway',
-    description: 'Expose the Clawdbot gateway (localhost:18789) for secure remote access. Use this when you want to access Clawdbot from your phone, laptop, or other devices while it runs on a server.',
+    description: 'Expose the Moltbot gateway (localhost:18789) for secure remote access. Use this when you want to access Moltbot from your phone, laptop, or other devices while it runs on a server.',
     parameters: {
       type: 'object',
       properties: {
         name: {
           type: 'string',
-          description: 'Name for the exposed gateway. Default is "clawdbot".',
+          description: 'Name for the exposed gateway. Default is "moltbot".',
         },
         persistent: {
           type: 'boolean',
@@ -453,13 +453,13 @@ export const toolDefinitions = {
   
   connect_reach_gateway: {
     name: 'connect_reach_gateway',
-    description: 'Connect to a remote Clawdbot gateway. Use this when Clawdbot runs on a server and you want to access it from your current device.',
+    description: 'Connect to a remote Moltbot gateway. Use this when Moltbot runs on a server and you want to access it from your current device.',
     parameters: {
       type: 'object',
       properties: {
         name: {
           type: 'string',
-          description: 'Name of the exposed gateway to connect to. Default is "clawdbot".',
+          description: 'Name of the exposed gateway to connect to. Default is "moltbot".',
         },
         persistent: {
           type: 'boolean',

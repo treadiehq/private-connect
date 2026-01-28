@@ -1,6 +1,6 @@
 ---
 name: private-connect
-description: Secure remote access to Clawdbot gateway + access private services by name. No VPN or SSH tunnels.
+description: Secure remote access to Moltbot gateway + access private services by name. No VPN or SSH tunnels.
 homepage: https://privateconnect.co
 repository: https://github.com/treadiehq/private-connect
 author: Treadie
@@ -10,31 +10,33 @@ gating:
 
 # Private Connect
 
-**Secure remote access to your Clawdbot gateway**, plus access to private services by name. No VPN or SSH tunnels needed.
+**Secure remote access to your Moltbot gateway**, plus access to private services by name. No VPN or SSH tunnels needed.
+
+> **Note:** Moltbot was previously called Clawdbot. This skill works with both.
 
 ## What it does
 
-1. **Remote Clawdbot Access**: Access your Clawdbot gateway from anywhere (phone, laptop) while it runs on a VPS or Mac Mini — without exposing it publicly.
+1. **Remote Moltbot Access**: Access your Moltbot gateway from anywhere (phone, laptop) while it runs on a VPS or Mac Mini — without exposing it publicly.
 
 2. **Private Service Access**: Reach private infrastructure (databases, APIs, GPU clusters) using simple names instead of IPs and ports.
 
 ## Commands
 
 ### connect_expose_gateway
-Expose your Clawdbot gateway (localhost:18789) for secure remote access.
+Expose your Moltbot gateway (localhost:18789) for secure remote access.
 
 **Examples:**
-- "Expose my Clawdbot for remote access"
+- "Expose my Moltbot for remote access"
 - "Set up remote access to this gateway"
-- "Make my Clawdbot accessible from my phone"
+- "Make my Moltbot accessible from my phone"
 
 ### connect_reach_gateway
-Connect to a remote Clawdbot gateway from your current device.
+Connect to a remote Moltbot gateway from your current device.
 
 **Examples:**
-- "Connect to my Clawdbot server"
-- "Reach my remote Clawdbot"
-- "Access my VPS Clawdbot"
+- "Connect to my Moltbot server"
+- "Reach my remote Moltbot"
+- "Access my VPS Moltbot"
 
 ### connect_reach
 Connect to a private service by name.

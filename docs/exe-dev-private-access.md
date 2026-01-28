@@ -1,6 +1,6 @@
-# Access Private Services from exe.dev VMs
+# Access Private Services from exe.dev VMs (or Mac Mini)
 
-Give your exe.dev agents and dev environments secure access to your private infrastructure — databases, APIs, and internal services — without exposing them to the internet.
+Give your exe.dev agents, Mac Mini servers, and dev environments secure access to your private infrastructure, databases, APIs, and internal services, without exposing them to the internet.
 
 ## The Problem
 
@@ -19,7 +19,7 @@ Private Connect creates secure tunnels between your exe.dev VMs and your private
 
 ```
 ┌─────────────────────┐         ┌───────┐         ┌─────────────────┐
-│   exe.dev VM        │────────▶│  Hub  │◀────────│  Your Server    │
+│ exe.dev / Mac Mini  │────────▶│  Hub  │◀────────│  Your Server    │
 │                     │         └───────┘         │                 │
 │ Your AI Agent       │                           │ Private DB      │
 │ → localhost:5432    │                           │ localhost:5432  │
@@ -169,6 +169,32 @@ To connect to these, run `connect <name>` in the terminal.
 | Multi-service | N/A | Yes | Manual | Yes |
 | Persistent | Yes | Yes | No | Yes |
 | Team sharing | Hard | Hard | Hard | Easy |
+
+## One-Click VM Setup (Moltbot + Private Connect)
+
+When creating a new VM on exe.dev, paste this prompt for automatic Moltbot + Private Connect setup:
+
+```
+PRIVATECONNECT_API_KEY=<your-api-key>
+
+Set up Moltbot (https://docs.molt.bot/install) on this VM using non-interactive mode.
+Configure nginx to forward from port 18789 to the root location, enabling WebSocket support.
+
+Then install Private Connect:
+curl -fsSL https://privateconnect.co/install.sh | bash -s -- \
+  --non-interactive \
+  --api-key=$PRIVATECONNECT_API_KEY \
+  --daemon \
+  --expose-moltbot
+```
+
+After VM creation, connect from any device:
+
+```bash
+connect reach moltbot
+```
+
+See [scripts/exe-dev-moltbot.md](../scripts/exe-dev-moltbot.md) for the full template.
 
 ## Troubleshooting
 

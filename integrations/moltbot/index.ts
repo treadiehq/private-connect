@@ -1,5 +1,5 @@
 /**
- * Private Connect Skill for Clawdbot
+ * Private Connect Skill for Moltbot
  * 
  * Access private services by name, from anywhere.
  * https://privateconnect.co

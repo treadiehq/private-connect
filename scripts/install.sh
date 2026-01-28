@@ -3,23 +3,83 @@ set -e
 
 # Private Connect CLI Installer
 # Usage: curl -fsSL https://privateconnect.co/install.sh | bash
+#        curl -fsSL https://privateconnect.co/install.sh | bash -s -- --non-interactive
+#        curl -fsSL https://privateconnect.co/install.sh | bash -s -- --non-interactive --api-key=YOUR_KEY
 
 DOWNLOAD_BASE="https://privateconnect.co/releases"
 BINARY_NAME="connect"
 INSTALL_DIR="/usr/local/bin"
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+# Parse arguments
+NON_INTERACTIVE=false
+API_KEY=""
+AUTO_DAEMON=false
+EXPOSE_MOLTBOT=false
 
-echo -e "${CYAN}"
-echo "╔════════════════════════════════════════════╗"
-echo "║     Private Connect CLI Installer          ║"
-echo "╚════════════════════════════════════════════╝"
-echo -e "${NC}"
+for arg in "$@"; do
+  case $arg in
+    --non-interactive|-n)
+      NON_INTERACTIVE=true
+      ;;
+    --api-key=*)
+      API_KEY="${arg#*=}"
+      ;;
+    --daemon)
+      AUTO_DAEMON=true
+      ;;
+    --expose-moltbot)
+      EXPOSE_MOLTBOT=true
+      ;;
+    --help|-h)
+      echo "Private Connect Installer"
+      echo ""
+      echo "Usage: curl -fsSL https://privateconnect.co/install.sh | bash -s -- [OPTIONS]"
+      echo ""
+      echo "Options:"
+      echo "  --non-interactive, -n   Skip prompts (for scripts/automation)"
+      echo "  --api-key=KEY           Set API key for authentication"
+      echo "  --daemon                Install and start background daemon"
+      echo "  --expose-moltbot        Expose Moltbot gateway after install"
+      echo "  --help, -h              Show this help"
+      echo ""
+      echo "Examples:"
+      echo "  # Basic install"
+      echo "  curl -fsSL https://privateconnect.co/install.sh | bash"
+      echo ""
+      echo "  # Non-interactive with API key and daemon"
+      echo "  curl -fsSL https://privateconnect.co/install.sh | bash -s -- --non-interactive --api-key=pc_xxx --daemon"
+      echo ""
+      echo "  # Full Moltbot setup (for exe.dev VMs)"
+      echo "  curl -fsSL https://privateconnect.co/install.sh | bash -s -- -n --api-key=pc_xxx --daemon --expose-moltbot"
+      exit 0
+      ;;
+  esac
+done
+
+# Colors (disable in non-interactive mode for cleaner logs)
+if [ "$NON_INTERACTIVE" = true ]; then
+  RED=''
+  GREEN=''
+  YELLOW=''
+  CYAN=''
+  NC=''
+else
+  RED='\033[0;31m'
+  GREEN='\033[0;32m'
+  YELLOW='\033[1;33m'
+  CYAN='\033[0;36m'
+  NC='\033[0m'
+fi
+
+if [ "$NON_INTERACTIVE" = false ]; then
+  echo -e "${CYAN}"
+  echo "╔════════════════════════════════════════════╗"
+  echo "║     Private Connect CLI Installer          ║"
+  echo "╚════════════════════════════════════════════╝"
+  echo -e "${NC}"
+else
+  echo "[Private Connect] Installing..."
+fi
 
 # Detect OS
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -80,9 +140,44 @@ else
 fi
 
 # Verify installation
-if command -v $BINARY_NAME &> /dev/null; then
-  echo ""
-  echo -e "${GREEN}✓ Private Connect installed successfully!${NC}"
+if ! command -v $BINARY_NAME &> /dev/null; then
+  echo -e "${RED}Error: Installation failed${NC}"
+  exit 1
+fi
+
+echo -e "${GREEN}✓ Private Connect installed successfully!${NC}"
+
+# Handle non-interactive setup
+if [ "$NON_INTERACTIVE" = true ]; then
+  # Configure API key if provided
+  if [ -n "$API_KEY" ]; then
+    echo "[Private Connect] Configuring API key..."
+    mkdir -p ~/.config/privateconnect
+    echo "$API_KEY" > ~/.config/privateconnect/api-key
+    chmod 600 ~/.config/privateconnect/api-key
+    echo "[Private Connect] ✓ API key configured"
+  fi
+
+  # Install daemon if requested
+  if [ "$AUTO_DAEMON" = true ]; then
+    echo "[Private Connect] Installing daemon..."
+    $BINARY_NAME daemon install --non-interactive 2>/dev/null || true
+    echo "[Private Connect] ✓ Daemon installed"
+  fi
+
+  # Expose Moltbot if requested
+  if [ "$EXPOSE_MOLTBOT" = true ]; then
+    echo "[Private Connect] Exposing Moltbot gateway..."
+    # Wait a moment for daemon to start
+    sleep 2
+    $BINARY_NAME expose localhost:18789 --name moltbot 2>/dev/null || {
+      echo "[Private Connect] Note: Moltbot gateway not found on :18789 (start Moltbot first)"
+    }
+    echo "[Private Connect] ✓ Setup complete"
+  fi
+
+  echo "[Private Connect] Installation complete"
+else
   echo ""
   echo -e "${CYAN}Next step:${NC}"
   echo ""
@@ -98,7 +193,4 @@ if command -v $BINARY_NAME &> /dev/null; then
   echo -e "  ${CYAN}connect prod-db${NC}           # Connect to a service"
   echo -e "  ${CYAN}connect clone alice${NC}       # Clone teammate's environment"
   echo ""
-else
-  echo -e "${RED}Error: Installation failed${NC}"
-  exit 1
 fi

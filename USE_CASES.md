@@ -145,23 +145,23 @@ No dynamic DNS. No port forwarding. No security exposure.
 
 ---
 
-## Secure Remote Access to Clawdbot
+## Secure Remote Access to Moltbot
 
-Running [Clawdbot](https://clawd.bot) on a VPS, Mac Mini, or home server? Access the gateway securely from your phone, laptop, or any device.
+Running [Moltbot](https://molt.bot) on a VPS, exe.dev VM, or home server? Access the gateway securely from your phone, laptop, or any device.
 
-**The problem:** Clawdbot's gateway binds to `127.0.0.1:18789` for security. The docs warn: never expose it publicly. But you want to use it from WhatsApp on your phone.
+**The problem:** Moltbot's gateway binds to `127.0.0.1:18789` for security. The docs warn: never expose it publicly. But you want to use it from WhatsApp on your phone.
 
 **The solution:**
 
 ```bash
-# On your VPS where Clawdbot runs
+# On your VPS where Moltbot runs
 connect daemon install
-connect expose localhost:18789 --name clawdbot
+connect expose localhost:18789 --name moltbot
 
 # From your phone or laptop (anywhere)
-connect reach clawdbot
+connect reach moltbot
 # → Gateway available at localhost:18789
-# → WhatsApp/Telegram connects as if Clawdbot were local
+# → WhatsApp/Telegram connects as if Moltbot were local
 ```
 
 **Why this beats alternatives:**
@@ -173,7 +173,7 @@ connect reach clawdbot
 | Persistent | Paid | Yes | No | Yes |
 | Setup time | 2 min | 10 min | 5 min | 2 min |
 
-See the [full Clawdbot remote access guide](docs/clawdbot-remote-access.md).
+See the [full Moltbot remote access guide](docs/moltbot-remote-access.md).
 
 ---
 

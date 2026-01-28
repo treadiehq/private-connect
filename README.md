@@ -79,7 +79,22 @@ Run an agent on each machine. Expose services from one, access from another.
 curl -fsSL https://privateconnect.co/install.sh | bash
 ```
 
-Or from source:
+### Automated/Non-interactive
+
+For scripts, CI/CD, VM provisioning (exe.dev, cloud-init, etc.):
+
+```bash
+curl -fsSL https://privateconnect.co/install.sh | bash -s -- \
+  --non-interactive \
+  --api-key=YOUR_KEY \
+  --daemon \
+  --expose-moltbot
+```
+
+See [scripts/exe-dev-moltbot.md](scripts/exe-dev-moltbot.md) for exe.dev one-click setup, or [scripts/cloud-init-moltbot.yaml](scripts/cloud-init-moltbot.yaml) for VPS provisioning.
+
+### From source
+
 ```bash
 git clone https://github.com/treadiehq/private-connect.git
 cd private-connect && pnpm install
@@ -112,12 +127,17 @@ See [DETAILED.md#control-api](DETAILED.md#control-api) for full API reference.
 - **API Reference**: [DETAILED.md#control-api](DETAILED.md#control-api) — REST API documentation
 - **Debugging**: [docs/debugging.md](docs/debugging.md) — live traffic inspection, AI copilot
 - **AI & MCP**: [docs/AI.md](docs/AI.md) — AI integration, orchestration, SDK
-- **Clawdbot**: [docs/clawdbot-remote-access.md](docs/clawdbot-remote-access.md) — secure remote access to Clawdbot gateway
+- **Moltbot**: [docs/moltbot-remote-access.md](docs/moltbot-remote-access.md) — secure remote access to Moltbot gateway
 - **OpenCode**: [docs/opencode-remote-access.md](docs/opencode-remote-access.md) — secure remote access to OpenCode server
-- **exe.dev**: [docs/exe-dev-private-access.md](docs/exe-dev-private-access.md) — access private services from exe.dev VMs
+- **exe.dev / Mac Mini**: [docs/exe-dev-private-access.md](docs/exe-dev-private-access.md) — access private services from exe.dev VMs or Mac Mini
 - **Use Cases**: [USE_CASES.md](USE_CASES.md) — real scenarios
 - **Security**: [docs/security.md](docs/security.md) — architecture details
 - **SDK**: [packages/sdk](packages/sdk) — TypeScript SDK for programmatic access
+
+### Automation Scripts
+
+- **exe.dev Template**: [scripts/exe-dev-moltbot.md](scripts/exe-dev-moltbot.md) — one-click Moltbot + Private Connect VM
+- **Cloud-Init**: [scripts/cloud-init-moltbot.yaml](scripts/cloud-init-moltbot.yaml) — VPS provisioning script (AWS, DO, etc.)
 
 ## Community
 
