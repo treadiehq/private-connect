@@ -243,6 +243,27 @@ See the [full exe.dev guide](docs/exe-dev-private-access.md).
 
 ---
 
+## Virtual Kubernetes Clusters (Multicluster API + Distributed Nodes)
+
+Running a multicluster or virtual Kubernetes API server (e.g. [kplane-dev/apiserver](https://github.com/kplane-dev/apiserver)) with nodes in different regions? They need to talk bidirectionally without a VPN.
+
+**The solution:**
+
+```bash
+# On the API server host
+connect expose localhost:6443 --name k8s-api
+
+# On each node (any region/cloud)
+connect reach k8s-api --port 6443
+# → Use localhost:6443 as the API server; no VPN required
+```
+
+Control plane and nodes stay private; Private Connect routes traffic by name. Works with path-based multicluster API servers and distributed worker nodes.
+
+See the [full virtual Kubernetes guide](docs/kubernetes-virtual-clusters-and-private-connect.md) and [recipe](scripts/kubernetes-virtual-clusters-and-private-connect.md).
+
+---
+
 ## Give Contractors Temporary Access
 
 External developer needs to test against your staging API for a week.

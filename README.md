@@ -130,6 +130,7 @@ See [DETAILED.md#control-api](DETAILED.md#control-api) for full API reference.
 - **Moltbot**: [docs/moltbot-remote-access.md](docs/moltbot-remote-access.md) — secure remote access to Moltbot gateway
 - **OpenCode**: [docs/opencode-remote-access.md](docs/opencode-remote-access.md) — secure remote access to OpenCode server
 - **exe.dev / Mac Mini**: [docs/exe-dev-private-access.md](docs/exe-dev-private-access.md) — access private services from exe.dev VMs or Mac Mini
+- **Virtual Kubernetes**: [docs/kubernetes-virtual-clusters-and-private-connect.md](docs/kubernetes-virtual-clusters-and-private-connect.md) — multicluster API server + distributed nodes over private tunnels
 - **Use Cases**: [USE_CASES.md](USE_CASES.md) — real scenarios
 - **Security**: [docs/security.md](docs/security.md) — architecture details
 - **SDK**: [packages/sdk](packages/sdk) — TypeScript SDK for programmatic access
@@ -143,6 +144,7 @@ See [DETAILED.md#control-api](DETAILED.md#control-api) for full API reference.
 
 - **exe.dev Template**: [scripts/exe-dev-moltbot.md](scripts/exe-dev-moltbot.md) — one-click Moltbot + Private Connect VM
 - **Cloud-Init**: [scripts/cloud-init-moltbot.yaml](scripts/cloud-init-moltbot.yaml) — VPS provisioning script (AWS, DO, etc.)
+- **Virtual Kubernetes**: [scripts/kubernetes-virtual-clusters-and-private-connect.md](scripts/kubernetes-virtual-clusters-and-private-connect.md) — recipe for multicluster API server + Private Connect
 
 ## Community
 
