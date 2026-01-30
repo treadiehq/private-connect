@@ -20,7 +20,7 @@
               id="service"
               v-model="service"
               type="text"
-              placeholder="http://localhost:3000 or my-api.internal"
+              placeholder="https://api.example.com or my-api.internal"
               class="w-full bg-black/50 border border-gray-500/20 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-300 font-mono text-sm"
             />
           </div>
