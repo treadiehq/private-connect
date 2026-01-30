@@ -1,11 +1,10 @@
 ---
 name: private-connect
-description: Secure remote access to OpenClaw gateway + access private services by name. No VPN or SSH tunnels.
+description: Secure remote access to OpenClaw gateway + access private services by name. Use `connect expose` and `connect reach` for tunnels; no VPN or SSH. Expose gateway (localhost:18789) for phone/remote access; reach services by name (staging-db, prod-api).
 homepage: https://privateconnect.co
 repository: https://github.com/treadiehq/private-connect
 author: Treadie
-gating:
-  binary: connect
+metadata: {"openclaw":{"emoji":"🔗","requires":{"bins":["connect"]},"install":[{"id":"install","kind":"script","label":"Install Private Connect: curl -fsSL https://privateconnect.co/install.sh | bash","bins":["connect"]}]}}
 ---
 
 # Private Connect
