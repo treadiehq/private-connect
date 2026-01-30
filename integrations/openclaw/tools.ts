@@ -1,5 +1,5 @@
 /**
- * Private Connect Skill for Moltbot
+ * Private Connect Skill for OpenClaw
  * 
  * Access private services by name, from anywhere.
  * https://privateconnect.co
@@ -232,10 +232,10 @@ export async function connect_expose(params: { target: string; name: string }) {
 }
 
 /**
- * Expose the Moltbot gateway for remote access
+ * Expose the OpenClaw gateway for remote access
  */
 export async function connect_expose_gateway(params: { name?: string; persistent?: boolean }) {
-  const { name = 'moltbot', persistent = true } = params;
+  const { name = 'openclaw', persistent = true } = params;
   
   // First, check if gateway is running
   try {
@@ -243,8 +243,8 @@ export async function connect_expose_gateway(params: { name?: string; persistent
   } catch {
     return {
       success: false,
-      message: 'Moltbot gateway not found on localhost:18789. Is Moltbot running?',
-      hint: 'Start Moltbot with: moltbot start',
+      message: 'OpenClaw gateway not found on localhost:18789. Is OpenClaw running?',
+      hint: 'Start OpenClaw with: openclaw start (or see https://openclaw.ai)',
     };
   }
   
@@ -258,7 +258,7 @@ export async function connect_expose_gateway(params: { name?: string; persistent
   if (result.success) {
     return {
       success: true,
-      message: `Moltbot gateway exposed as "${name}".`,
+      message: `OpenClaw gateway exposed as "${name}".`,
       instructions: [
         `On other devices, run: connect reach ${name}`,
         'Your chat apps will connect via localhost:18789 as usual.',
@@ -269,17 +269,17 @@ export async function connect_expose_gateway(params: { name?: string; persistent
   } else {
     return {
       success: false,
-      message: 'Failed to expose Moltbot gateway.',
+      message: 'Failed to expose OpenClaw gateway.',
       error: result.error,
     };
   }
 }
 
 /**
- * Connect to a remote Moltbot gateway
+ * Connect to a remote OpenClaw gateway
  */
 export async function connect_reach_gateway(params: { name?: string; persistent?: boolean }) {
-  const { name = 'moltbot', persistent = true } = params;
+  const { name = 'openclaw', persistent = true } = params;
   
   // Install daemon if persistent
   if (persistent) {
@@ -291,11 +291,11 @@ export async function connect_reach_gateway(params: { name?: string; persistent?
   if (result.success) {
     return {
       success: true,
-      message: `Connected to remote Moltbot gateway "${name}".`,
+      message: `Connected to remote OpenClaw gateway "${name}".`,
       endpoint: 'ws://localhost:18789',
       instructions: [
-        'Moltbot gateway is now available at localhost:18789',
-        'Your chat apps (WhatsApp, Telegram, etc.) will work as if Moltbot were local.',
+        'OpenClaw gateway is now available at localhost:18789',
+        'Your chat apps (WhatsApp, Telegram, etc.) will work as if OpenClaw were local.',
         persistent ? 'Connection will persist across reboots.' : 'Connection active until terminal closes.',
       ],
       details: result.output,
@@ -303,15 +303,15 @@ export async function connect_reach_gateway(params: { name?: string; persistent?
   } else {
     return {
       success: false,
-      message: `Failed to connect to Moltbot gateway "${name}".`,
+      message: `Failed to connect to OpenClaw gateway "${name}".`,
       error: result.error,
-      hint: 'Make sure the gateway is exposed with: connect expose localhost:18789 --name moltbot',
+      hint: 'Make sure the gateway is exposed with: connect expose localhost:18789 --name openclaw',
     };
   }
 }
 
 /**
- * Tool definitions for Moltbot
+ * Tool definitions for OpenClaw
  */
 export const toolDefinitions = {
   connect_reach: {
@@ -435,13 +435,13 @@ export const toolDefinitions = {
   
   connect_expose_gateway: {
     name: 'connect_expose_gateway',
-    description: 'Expose the Moltbot gateway (localhost:18789) for secure remote access. Use this when you want to access Moltbot from your phone, laptop, or other devices while it runs on a server.',
+    description: 'Expose the OpenClaw gateway (localhost:18789) for secure remote access. Use this when you want to access OpenClaw from your phone, laptop, or other devices while it runs on a server.',
     parameters: {
       type: 'object',
       properties: {
         name: {
           type: 'string',
-          description: 'Name for the exposed gateway. Default is "moltbot".',
+          description: 'Name for the exposed gateway. Default is "openclaw".',
         },
         persistent: {
           type: 'boolean',
@@ -453,13 +453,13 @@ export const toolDefinitions = {
   
   connect_reach_gateway: {
     name: 'connect_reach_gateway',
-    description: 'Connect to a remote Moltbot gateway. Use this when Moltbot runs on a server and you want to access it from your current device.',
+    description: 'Connect to a remote OpenClaw gateway. Use this when OpenClaw runs on a server and you want to access it from your current device.',
     parameters: {
       type: 'object',
       properties: {
         name: {
           type: 'string',
-          description: 'Name of the exposed gateway to connect to. Default is "moltbot".',
+          description: 'Name of the exposed gateway to connect to. Default is "openclaw".',
         },
         persistent: {
           type: 'boolean',
@@ -469,4 +469,3 @@ export const toolDefinitions = {
     },
   },
 };
-

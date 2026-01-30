@@ -88,10 +88,10 @@ curl -fsSL https://privateconnect.co/install.sh | bash -s -- \
   --non-interactive \
   --api-key=YOUR_KEY \
   --daemon \
-  --expose-moltbot
+  --expose-openclaw
 ```
 
-See [scripts/exe-dev-moltbot.md](scripts/exe-dev-moltbot.md) for exe.dev one-click setup, or [scripts/cloud-init-moltbot.yaml](scripts/cloud-init-moltbot.yaml) for VPS provisioning.
+See [scripts/exe-dev-openclaw.md](scripts/exe-dev-openclaw.md) for exe.dev one-click setup (OpenClaw gateway), or [scripts/cloud-init-openclaw.yaml](scripts/cloud-init-openclaw.yaml) for VPS provisioning.
 
 ### From source
 
@@ -127,7 +127,7 @@ See [DETAILED.md#control-api](DETAILED.md#control-api) for full API reference.
 - **API Reference**: [DETAILED.md#control-api](DETAILED.md#control-api) — REST API documentation
 - **Debugging**: [docs/debugging.md](docs/debugging.md) — live traffic inspection, AI copilot
 - **AI & MCP**: [docs/AI.md](docs/AI.md) — AI integration, orchestration, SDK
-- **Moltbot**: [docs/moltbot-remote-access.md](docs/moltbot-remote-access.md) — secure remote access to Moltbot gateway
+- **OpenClaw**: [docs/openclaw-remote-access.md](docs/openclaw-remote-access.md) — secure remote access to OpenClaw gateway
 - **OpenCode**: [docs/opencode-remote-access.md](docs/opencode-remote-access.md) — secure remote access to OpenCode server
 - **exe.dev / Mac Mini**: [docs/exe-dev-private-access.md](docs/exe-dev-private-access.md) — access private services from exe.dev VMs or Mac Mini
 - **Virtual Kubernetes**: [docs/kubernetes-virtual-clusters-and-private-connect.md](docs/kubernetes-virtual-clusters-and-private-connect.md) — multicluster API server + distributed nodes over private tunnels
@@ -142,8 +142,8 @@ See [DETAILED.md#control-api](DETAILED.md#control-api) for full API reference.
 
 ### Automation Scripts
 
-- **exe.dev Template**: [scripts/exe-dev-moltbot.md](scripts/exe-dev-moltbot.md) — one-click Moltbot + Private Connect VM
-- **Cloud-Init**: [scripts/cloud-init-moltbot.yaml](scripts/cloud-init-moltbot.yaml) — VPS provisioning script (AWS, DO, etc.)
+- **exe.dev Template**: [scripts/exe-dev-openclaw.md](scripts/exe-dev-openclaw.md) — one-click OpenClaw + Private Connect VM
+- **Cloud-Init**: [scripts/cloud-init-openclaw.yaml](scripts/cloud-init-openclaw.yaml) — VPS provisioning script for OpenClaw (AWS, DO, etc.)
 - **Virtual Kubernetes**: [scripts/kubernetes-virtual-clusters-and-private-connect.md](scripts/kubernetes-virtual-clusters-and-private-connect.md) — recipe for multicluster API server + Private Connect
 
 ## Community

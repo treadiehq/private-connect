@@ -1,16 +1,16 @@
-# Secure Moltbot Remote Access in 5 Minutes
+# Secure OpenClaw Remote Access in 5 Minutes
 
-Access your Moltbot gateway from anywhere, phone, laptop, or any device, without exposing it to the internet.
+Access your [OpenClaw](https://openclaw.ai) gateway from anywhere, phone, laptop, or any device, without exposing it to the internet.
 
-> **Note:** Moltbot was previously called Clawdbot. This guide works with both.
+> **Note:** OpenClaw was previously called Moltbot and Clawdbot. This guide works with all.
 
 ## The Problem
 
-Moltbot's gateway binds to `127.0.0.1:18789` by default for security. The docs are clear: **never expose it publicly**. But what if you want to:
+OpenClaw's gateway binds to `127.0.0.1:18789` by default for security. The docs are clear: **never expose it publicly**. But what if you want to:
 
-- Access your Moltbot from your phone via WhatsApp/Telegram while it runs on a VPS
-- Connect from your laptop when Moltbot runs on a home server or Mac Mini
-- Let multiple devices reach the same Moltbot instance
+- Access your OpenClaw from your phone via WhatsApp/Telegram while it runs on a VPS
+- Connect from your laptop when OpenClaw runs on a home server or Mac Mini
+- Let multiple devices reach the same OpenClaw instance
 
 Common solutions have drawbacks:
 
@@ -23,18 +23,18 @@ Common solutions have drawbacks:
 
 ## The Solution: Private Connect
 
-Private Connect creates a secure, private tunnel to your Moltbot gateway. No public URLs, no VPN setup, no firewall changes.
+Private Connect creates a secure, private tunnel to your OpenClaw gateway. No public URLs, no VPN setup, no firewall changes.
 
 ```
 ┌─────────────────────┐         ┌───────┐         ┌───────────────── ┐
 │ VPS / exe.dev / Mac │────────▶│  Hub  │◀────────│   Your Phone     │
 │                     │         └───────┘         │                  │
-│ Moltbot Gateway     │                           │ WhatsApp/TG      │
-│ localhost:18789     │                           │ → localhost:18789│
+│ OpenClaw Gateway    │                           │ WhatsApp/TG      │
+│ localhost:18789     │                           │ → localhost:18789 │
 └─────────────────────┘                           └───────────────── ┘
 ```
 
-**Note:** Moltbot's [security docs](https://docs.molt.bot/gateway/security) recommend Tailscale Serve for remote access. Private Connect is a great alternative if you:
+**Note:** OpenClaw's [documentation](https://openclaw.ai) recommends Tailscale Serve for remote access. Private Connect is a great alternative if you:
 - Don't use Tailscale
 - Need multi-device access without Tailscale auth key management
 - Want team sharing features (`connect share` / `connect clone`)
@@ -45,8 +45,7 @@ Private Connect creates a secure, private tunnel to your Moltbot gateway. No pub
 If you're using [exe.dev](https://exe.dev), paste this prompt when creating a new VM:
 
 ```
-Set up Moltbot (https://docs.molt.bot/install) on this VM. Use the non-interactive 
-and accept-risk flags for moltbot onboarding. Add the supplied auth or token as needed.
+Set up OpenClaw (https://openclaw.ai) on this VM. Use the one-liner installer and openclaw onboard with non-interactive flags. Add the supplied auth or token as needed.
 Configure nginx to forward from the default port 18789 to the root location on the 
 default enabled site config, making sure to enable Websocket support. The final 
 reachable URL should be https://<vm-name>.exe.xyz without port specification.
@@ -54,14 +53,14 @@ reachable URL should be https://<vm-name>.exe.xyz without port specification.
 Then install Private Connect and expose the gateway:
 curl -fsSL https://privateconnect.co/install.sh | bash
 connect up --non-interactive
-connect localhost:18789 --name moltbot
+connect localhost:18789 --name openclaw
 ```
 
-That's it — your Moltbot will be accessible from any device via `connect reach moltbot`.
+That's it — your OpenClaw will be accessible from any device via `connect reach openclaw`.
 
 ## Security Best Practices
 
-Private Connect keeps your gateway on localhost, but you still need to follow Moltbot's security guidelines:
+Private Connect keeps your gateway on localhost, but you still need to follow OpenClaw's security guidelines:
 
 **1. Gateway Authentication (Required)**
 ```json5
@@ -71,16 +70,16 @@ Private Connect keeps your gateway on localhost, but you still need to follow Mo
   }
 }
 ```
-Without authentication, anyone who can reach your gateway can access it. Generate a token: `moltbot doctor --generate-gateway-token`
+Without authentication, anyone who can reach your gateway can access it. See [OpenClaw docs](https://openclaw.ai) for token generation.
 
 **2. DM Pairing/Allowlists**
-Remote access via Private Connect doesn't bypass Moltbot's access controls. Configure:
+Remote access via Private Connect doesn't bypass OpenClaw's access controls. Configure:
 - `dmPolicy: "pairing"` (default) — requires approval for new DMs
 - `allowFrom` — restrict who can message the bot
 - Group allowlists — control which groups can trigger the bot
 
-**3. Review Moltbot Security Docs**
-See [Moltbot's full security guide](https://docs.molt.bot/gateway/security) for:
+**3. Review OpenClaw Security Docs**
+See [OpenClaw](https://openclaw.ai) for:
 - Prompt injection defenses
 - Sandboxing options
 - Tool access controls
@@ -88,18 +87,18 @@ See [Moltbot's full security guide](https://docs.molt.bot/gateway/security) for:
 
 ## Quick Start
 
-### Step 1: Install Private Connect on your Moltbot server
+### Step 1: Install Private Connect on your OpenClaw server
 
 ```bash
-# On your VPS / exe.dev VM / Mac Mini where Moltbot runs
+# On your VPS / exe.dev VM / Mac Mini where OpenClaw runs
 curl -fsSL https://privateconnect.co/install.sh | bash
 connect up
 ```
 
-### Step 2: Expose the Moltbot gateway
+### Step 2: Expose the OpenClaw gateway
 
 ```bash
-connect localhost:18789 --name moltbot
+connect localhost:18789 --name openclaw
 ```
 
 That's it on the server side. The gateway stays bound to localhost — nothing is publicly exposed.
@@ -113,24 +112,24 @@ On your laptop, phone, or any other machine:
 curl -fsSL https://privateconnect.co/install.sh | bash
 connect up
 
-# Connect to your Moltbot gateway
-connect moltbot
+# Connect to your OpenClaw gateway
+connect openclaw
 ```
 
-Now `localhost:18789` on your device tunnels to your Moltbot gateway. Your chat apps connect as if Moltbot were running locally.
+Now `localhost:18789` on your device tunnels to your OpenClaw gateway. Your chat apps connect as if OpenClaw were running locally.
 
 ## Persistent Connection (Recommended)
 
 Install the background daemon so your connection survives reboots:
 
 ```bash
-# On your Moltbot server
+# On your OpenClaw server
 connect daemon install
-connect localhost:18789 --name moltbot
+connect localhost:18789 --name openclaw
 
 # On your laptop/phone
 connect daemon install
-connect moltbot
+connect openclaw
 ```
 
 The tunnel stays up 24/7, reconnecting automatically.
@@ -141,24 +140,24 @@ Once exposed, multiple devices can connect:
 
 ```bash
 # Device 1 (laptop)
-connect moltbot
+connect openclaw
 
 # Device 2 (phone via Termux or similar)
-connect moltbot
+connect openclaw
 
 # Device 3 (work computer)
-connect moltbot
+connect openclaw
 ```
 
-All devices get secure access to the same Moltbot instance.
+All devices get secure access to the same OpenClaw instance.
 
 ## Sharing with Teammates
 
-Running a team Moltbot? Share access securely:
+Running a team OpenClaw? Share access securely:
 
 ```bash
 # Create a share link (expires in 7 days)
-connect link moltbot --expires 7d
+connect link openclaw --expires 7d
 
 # Output:
 # https://link.privateconnect.co/share/abc123
@@ -186,9 +185,9 @@ connect join x7k9m2
 | Setup time | 2 min | 10 min | 5 min | 2 min |
 | VPN overhead | No | Yes (mesh VPN) | No | No |
 | Self-hosted option | No | Headscale | Yes | Yes |
-| Moltbot recommended | No | ✅ Yes | No | Alternative |
+| OpenClaw recommended | No | ✅ Yes | No | Alternative |
 
-**Tailscale Serve** is Moltbot's recommended approach. Private Connect offers similar security with added team collaboration features.
+**Tailscale Serve** is OpenClaw's recommended approach. Private Connect offers similar security with added team collaboration features.
 
 ## Troubleshooting
 
@@ -199,7 +198,7 @@ connect status
 connect doctor  # Full diagnostics
 ```
 
-### Verify Moltbot is running
+### Verify OpenClaw is running
 
 ```bash
 # On the server - check if gateway is listening
@@ -219,7 +218,7 @@ connect daemon logs
 **Q: Is my traffic encrypted?**  
 A: Yes. All connections use TLS encryption. The hub relays your data as opaque packets without inspecting the contents.
 
-**Q: Does my Moltbot data go through your servers?**  
+**Q: Does my OpenClaw data go through your servers?**  
 A: Traffic passes through the hub as an opaque relay — the hub forwards packets without inspecting or storing payload data. For zero-trust requirements, you can self-host the hub.
 
 **Q: Can I self-host the hub?**  
@@ -228,16 +227,16 @@ A: Yes. Private Connect is open source: `docker compose up` with your own hub.
 **Q: Does this work with WhatsApp/Telegram/Discord?**  
 A: Yes. Your chat apps connect to `localhost:18789` as usual — the tunnel is transparent.
 
-**Q: Do I still need Moltbot gateway authentication?**  
-A: Yes. Private Connect provides secure remote access, but you must still configure `gateway.auth.mode: "token"` or `password` in your Moltbot config. See [Moltbot security docs](https://docs.molt.bot/gateway/security) for details.
+**Q: Do I still need OpenClaw gateway authentication?**  
+A: Yes. Private Connect provides secure remote access, but you must still configure gateway auth (token or password) in your OpenClaw config. See [OpenClaw](https://openclaw.ai) for details.
 
 **Q: How does this compare to Tailscale Serve?**  
-A: Tailscale Serve is Moltbot's recommended approach and works great if you're already using Tailscale. Private Connect offers similar security with added benefits: no Tailscale required, built-in team sharing (`connect share`), and service-level access control.
+A: Tailscale Serve is OpenClaw's recommended approach and works great if you're already using Tailscale. Private Connect offers similar security with added benefits: no Tailscale required, built-in team sharing (`connect share`), and service-level access control.
 
 ## Links
 
 - [Private Connect](https://privateconnect.co)
-- [Moltbot](https://molt.bot)
-- [Moltbot Security Guide](https://docs.molt.bot/gateway/security) — essential reading before exposing your gateway
+- [OpenClaw](https://openclaw.ai) — personal AI assistant (formerly Moltbot)
+- [OpenClaw docs](https://openclaw.ai) — essential reading before exposing your gateway
 - [GitHub](https://github.com/treadiehq/private-connect)
 - [Discord](https://discord.gg/KqdBcqRk5E)

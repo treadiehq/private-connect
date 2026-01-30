@@ -1,28 +1,26 @@
-# Private Connect Skill for Moltbot
+# Private Connect Skill for OpenClaw
 
-Access your Moltbot gateway from anywhere, and connect to private services by name.
+Access your [OpenClaw](https://openclaw.ai) gateway from anywhere, and connect to private services by name.
 
-> **Note:** Moltbot was previously called Clawdbot. This skill works with both.
+## Secure Remote Access to OpenClaw
 
-## Secure Remote Access to Moltbot
-
-**Running Moltbot on a VPS, exe.dev VM, or Mac Mini?** Access it securely from your phone, laptop, or any device — without exposing the gateway publicly.
+**Running OpenClaw on a VPS, exe.dev VM, or Mac Mini?** Access it securely from your phone, laptop, or any device — without exposing the gateway publicly.
 
 ```
-You: "Expose my Moltbot gateway for remote access"
-Molt: ✓ Gateway exposed as "moltbot"
-       On other devices, run: connect reach moltbot
+You: "Expose my OpenClaw gateway for remote access"
+Claw: ✓ Gateway exposed as "openclaw"
+       On other devices, run: connect reach openclaw
        Tunnel will persist across reboots.
 
 # Later, from your phone or laptop:
-You: "Connect to my Moltbot"
-Molt: ✓ Connected to moltbot gateway
-       WhatsApp/Telegram will work as if Moltbot were local.
+You: "Connect to my OpenClaw"
+Claw: ✓ Connected to OpenClaw gateway
+       WhatsApp/Telegram will work as if OpenClaw were local.
 ```
 
-This is the **easiest secure alternative to Tailscale/ngrok** for remote Moltbot access. No VPN setup, no public URLs, no firewall changes.
+This is the **easiest secure alternative to Tailscale/ngrok** for remote OpenClaw access. No VPN setup, no public URLs, no firewall changes.
 
-See the [full remote access guide](../../docs/moltbot-remote-access.md) for details.
+See the [full remote access guide](../../docs/openclaw-remote-access.md) for details.
 
 ---
 
@@ -34,10 +32,10 @@ This skill also lets you control Private Connect through natural language.
 
 ```
 You: "Connect me to the staging database"
-Molt: ✓ Connected to staging-db on localhost:5432
+Claw: ✓ Connected to staging-db on localhost:5432
 
 You: "What services are available?"
-Molt: Found 5 services:
+Claw: Found 5 services:
        • staging-db (online)
        • prod-api (online)  
        • redis (online)
@@ -45,7 +43,7 @@ Molt: Found 5 services:
        • jupyter-gpu (online)
 
 You: "Clone Alice's setup"
-Molt: ✓ Cloned 4 services from alice
+Claw: ✓ Cloned 4 services from alice
        • staging-db → localhost:5432
        • redis → localhost:6379
        • prod-api → localhost:8080
@@ -63,32 +61,32 @@ connect up
 
 ### 2. Install the skill
 
-Copy this skill to your Moltbot skills directory:
+Copy this skill to your OpenClaw skills directory:
 
 ```bash
-cp -r integrations/moltbot ~/molt/skills/private-connect
+cp -r integrations/openclaw ~/.openclaw/skills/private-connect
 ```
 
-Or if you're using MoltHub:
+Or if you're using ClawHub:
 
 ```bash
-moltbot skills install private-connect
+openclaw skills install private-connect
 ```
 
-### 3. Restart Moltbot
+### 3. Restart OpenClaw
 
 ```bash
-moltbot restart
+openclaw restart
 ```
 
 ## Available Commands
 
-### Gateway Access (Moltbot Remote)
+### Gateway Access (OpenClaw Remote)
 
 | Command | What it does |
 |---------|--------------|
-| `connect_expose_gateway` | Expose your Moltbot gateway for remote access |
-| `connect_reach_gateway` | Connect to a remote Moltbot gateway |
+| `connect_expose_gateway` | Expose your OpenClaw gateway for remote access |
+| `connect_reach_gateway` | Connect to a remote OpenClaw gateway |
 
 ### Service Access
 
@@ -108,25 +106,25 @@ moltbot restart
 ### Remote Gateway Access
 
 ```
-# On your VPS where Moltbot runs:
-You: "Set up remote access to this Moltbot"
-Molt: ✓ Moltbot gateway exposed as "moltbot"
+# On your VPS where OpenClaw runs:
+You: "Set up remote access to this OpenClaw"
+Claw: ✓ OpenClaw gateway exposed as "openclaw"
        Your gateway at localhost:18789 is now accessible remotely.
-       On other devices, run: connect reach moltbot
+       On other devices, run: connect reach openclaw
        Tunnel will persist across reboots.
 
 # Later, from your phone or laptop:
-You: "Connect to my Moltbot server"
-Molt: ✓ Connected to remote Moltbot gateway
+You: "Connect to my OpenClaw server"
+Claw: ✓ Connected to remote OpenClaw gateway
        Endpoint: ws://localhost:18789
-       Your chat apps will work as if Moltbot were running locally.
+       Your chat apps will work as if OpenClaw were running locally.
 ```
 
 ### Connecting to services
 
 ```
 You: "I need to access the staging database"
-Clawd: Running connect reach staging-db...
+Claw: Running connect reach staging-db...
        ✓ Connected on localhost:5432
        You can now connect with: psql -h localhost -p 5432
 ```
@@ -135,7 +133,7 @@ Clawd: Running connect reach staging-db...
 
 ```
 You: "Share my environment with the contractor for a week"
-Clawd: Created share with 7-day expiration.
+Claw: Created share with 7-day expiration.
        Share code: x7k9m2
        Send this code to your contractor.
 ```
@@ -144,7 +142,7 @@ Clawd: Created share with 7-day expiration.
 
 ```
 You: "Set up my environment like Alice"
-Clawd: Cloning alice's environment...
+Claw: Cloning alice's environment...
        ✓ staging-db → localhost:5432
        ✓ redis → localhost:6379
        ✓ prod-api → localhost:8080
@@ -153,7 +151,7 @@ Clawd: Cloning alice's environment...
 
 ## Requirements
 
-- Moltbot v2026.1.0 or later (or Clawdbot v2026.1.0+)
+- OpenClaw v2026.1.0 or later
 - Private Connect CLI installed (`connect` in PATH)
 - Authenticated with `connect up`
 
@@ -161,5 +159,4 @@ Clawd: Cloning alice's environment...
 
 - [Private Connect](https://privateconnect.co)
 - [GitHub](https://github.com/treadiehq/private-connect)
-- [Moltbot](https://docs.molt.bot)
-
+- [OpenClaw](https://openclaw.ai)

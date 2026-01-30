@@ -170,14 +170,14 @@ To connect to these, run `connect <name>` in the terminal.
 | Persistent | Yes | Yes | No | Yes |
 | Team sharing | Hard | Hard | Hard | Easy |
 
-## One-Click VM Setup (Moltbot + Private Connect)
+## One-Click VM Setup (OpenClaw + Private Connect)
 
-When creating a new VM on exe.dev, paste this prompt for automatic Moltbot + Private Connect setup:
+When creating a new VM on exe.dev, paste this prompt for automatic OpenClaw (formerly Moltbot) + Private Connect setup:
 
 ```
 PRIVATECONNECT_API_KEY=<your-api-key>
 
-Set up Moltbot (https://docs.molt.bot/install) on this VM using non-interactive mode.
+Set up OpenClaw (https://openclaw.ai) on this VM using non-interactive mode.
 Configure nginx to forward from port 18789 to the root location, enabling WebSocket support.
 
 Then install Private Connect:
@@ -185,16 +185,16 @@ curl -fsSL https://privateconnect.co/install.sh | bash -s -- \
   --non-interactive \
   --api-key=$PRIVATECONNECT_API_KEY \
   --daemon \
-  --expose-moltbot
+  --expose-openclaw
 ```
 
 After VM creation, connect from any device:
 
 ```bash
-connect reach moltbot
+connect reach openclaw
 ```
 
-See [scripts/exe-dev-moltbot.md](../scripts/exe-dev-moltbot.md) for the full template.
+See [scripts/exe-dev-openclaw.md](../scripts/exe-dev-openclaw.md) for the full template.
 
 ## Troubleshooting
 

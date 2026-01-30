@@ -14,7 +14,7 @@ INSTALL_DIR="/usr/local/bin"
 NON_INTERACTIVE=false
 API_KEY=""
 AUTO_DAEMON=false
-EXPOSE_MOLTBOT=false
+EXPOSE_OPENCLAW=false
 
 for arg in "$@"; do
   case $arg in
@@ -27,8 +27,8 @@ for arg in "$@"; do
     --daemon)
       AUTO_DAEMON=true
       ;;
-    --expose-moltbot)
-      EXPOSE_MOLTBOT=true
+    --expose-openclaw|--expose-moltbot)
+      EXPOSE_OPENCLAW=true
       ;;
     --help|-h)
       echo "Private Connect Installer"
@@ -39,7 +39,7 @@ for arg in "$@"; do
       echo "  --non-interactive, -n   Skip prompts (for scripts/automation)"
       echo "  --api-key=KEY           Set API key for authentication"
       echo "  --daemon                Install and start background daemon"
-      echo "  --expose-moltbot        Expose Moltbot gateway after install"
+      echo "  --expose-openclaw       Expose OpenClaw gateway after install"
       echo "  --help, -h              Show this help"
       echo ""
       echo "Examples:"
@@ -49,8 +49,8 @@ for arg in "$@"; do
       echo "  # Non-interactive with API key and daemon"
       echo "  curl -fsSL https://privateconnect.co/install.sh | bash -s -- --non-interactive --api-key=pc_xxx --daemon"
       echo ""
-      echo "  # Full Moltbot setup (for exe.dev VMs)"
-      echo "  curl -fsSL https://privateconnect.co/install.sh | bash -s -- -n --api-key=pc_xxx --daemon --expose-moltbot"
+      echo "  # Full OpenClaw setup (for exe.dev VMs)"
+      echo "  curl -fsSL https://privateconnect.co/install.sh | bash -s -- -n --api-key=pc_xxx --daemon --expose-openclaw"
       exit 0
       ;;
   esac
@@ -165,13 +165,13 @@ if [ "$NON_INTERACTIVE" = true ]; then
     echo "[Private Connect] ✓ Daemon installed"
   fi
 
-  # Expose Moltbot if requested
-  if [ "$EXPOSE_MOLTBOT" = true ]; then
-    echo "[Private Connect] Exposing Moltbot gateway..."
+  # Expose OpenClaw gateway if requested
+  if [ "$EXPOSE_OPENCLAW" = true ]; then
+    echo "[Private Connect] Exposing OpenClaw gateway..."
     # Wait a moment for daemon to start
     sleep 2
-    $BINARY_NAME expose localhost:18789 --name moltbot 2>/dev/null || {
-      echo "[Private Connect] Note: Moltbot gateway not found on :18789 (start Moltbot first)"
+    $BINARY_NAME expose localhost:18789 --name openclaw 2>/dev/null || {
+      echo "[Private Connect] Note: OpenClaw gateway not found on :18789 (start OpenClaw first)"
     }
     echo "[Private Connect] ✓ Setup complete"
   fi

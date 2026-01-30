@@ -76,14 +76,14 @@ Private Connect - Temporary Tunnel
 - Works with any HTTP service
 - **Shareable URLs** - The public URL shows your actual website, perfect for demos and testing
 
-### `setup-moltbot` - One-command Moltbot setup
+### `setup-openclaw` - One-command OpenClaw setup
 
 ```bash
-npx private-connect setup-moltbot
+npx private-connect setup-openclaw
 ```
 
-Quickly set up remote access to your Moltbot gateway:
-- Detects Moltbot on localhost:18789
+Quickly set up remote access to your OpenClaw (formerly Moltbot) gateway:
+- Detects OpenClaw on localhost:18789
 - Creates temporary tunnel for remote access
 - Shows next steps for permanent setup
 
@@ -137,7 +137,7 @@ Options:
 - `--non-interactive` - Skip all prompts
 - `--api-key=KEY` - Set API key for authentication
 - `--daemon` - Install and start background service
-- `--expose-moltbot` - Expose Moltbot gateway after install
+- `--expose-openclaw` - Expose OpenClaw gateway after install
 
 ## Need more?
 

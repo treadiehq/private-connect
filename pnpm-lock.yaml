@@ -174,7 +174,7 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
-  integrations/clawdbot:
+  integrations/openclaw:
     devDependencies:
       '@types/node':
         specifier: ^25.0.3
@@ -1307,7 +1307,6 @@ packages:
   '@oxc-minify/binding-darwin-arm64@0.103.0':
     resolution: {integrity: sha512-FHT8y7mS2tt4pYpi7/x4xiR+JUylzCCLTSeeaPs3cKU56Go/d7xr1igOZsGSSoPrcQ8wJUbHZgFeChza0YcSnA==}
     engines: {node: ^20.19.0 || >=22.12.0}
-    cpu: [arm64]
     os: [darwin]
 
   '@oxc-minify/binding-darwin-x64@0.102.0':
@@ -1402,7 +1401,6 @@ packages:
   '@oxc-parser/binding-darwin-arm64@0.103.0':
     resolution: {integrity: sha512-RBGHvJn8qgTeYXP0nEjwhdMVzgIMlXF4fpkBowdmLLmkz0zaHTbzztthxNpTPwt176Ci/i2Cpzox8lEPAqx2LA==}
     engines: {node: ^20.19.0 || >=22.12.0}
-    cpu: [arm64]
     os: [darwin]
 
   '@oxc-parser/binding-darwin-x64@0.102.0':
@@ -1487,7 +1485,6 @@ packages:
 
   '@oxc-resolver/binding-darwin-arm64@11.16.0':
     resolution: {integrity: sha512-eB00fkys5TX6oI3lY+1hgHl6dwfmrbhHTmInmJmfD6BysHpE+DUqSdQIRS2v5NI6+j+J9EWBmbW3hRtolr+MSg==}
-    cpu: [arm64]
     os: [darwin]
 
   '@oxc-transform/binding-android-arm64@0.102.0':
@@ -1505,7 +1502,6 @@ packages:
   '@oxc-transform/binding-darwin-arm64@0.103.0':
     resolution: {integrity: sha512-7l5ablOg7DaDW4CCfVokXfZscmRT0oVrEjA9wGSdBbAtiLCQMgiR4tMKoZ/JCUSRvYoItJJFCVi25Enu4ZJ4EA==}
     engines: {node: ^20.19.0 || >=22.12.0}
-    cpu: [arm64]
     os: [darwin]
 
   '@oxc-transform/binding-darwin-x64@0.102.0':

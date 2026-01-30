@@ -88,4 +88,3 @@ connect up
 
 - Private Connect CLI installed and authenticated
 - `connect` command available in PATH
-

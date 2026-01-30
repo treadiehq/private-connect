@@ -287,7 +287,7 @@ ${c.bold}Commands:${c.reset}
   list               List all active tunnels
   close <id>         Close a tunnel by ID
   close --all        Close all active tunnels
-  setup-moltbot      One-command Moltbot gateway setup
+  setup-openclaw      One-command OpenClaw gateway setup
   pair               Generate QR code for mobile pairing
 
 ${c.bold}Examples:${c.reset}
@@ -298,7 +298,7 @@ ${c.bold}Examples:${c.reset}
   npx private-connect tunnel 4096 --tcp
   npx private-connect list
   npx private-connect close abc123
-  npx private-connect setup-moltbot
+  npx private-connect setup-openclaw
   npx private-connect pair
 
 ${c.bold}Tunnel:${c.reset}
@@ -312,8 +312,8 @@ ${c.bold}Test:${c.reset}
   • HTTP response
   • Latency
 
-${c.bold}Moltbot:${c.reset}
-  • Detects Moltbot gateway on localhost:18789
+${c.bold}OpenClaw:${c.reset}
+  • Detects OpenClaw (formerly Moltbot) gateway on localhost:18789
   • Creates temporary tunnel for remote access
   • Shows next steps for permanent setup
 
@@ -1015,36 +1015,36 @@ async function closeAllTunnels(): Promise<void> {
 }
 
 /**
- * One-command Moltbot setup
+ * One-command OpenClaw (formerly Moltbot) setup
  */
 async function setupMoltbot(): Promise<void> {
   console.log();
-  console.log(`  ${c.cyan}${c.bold}Private Connect${c.reset} ${c.dim}Moltbot Setup${c.reset}`);
+  console.log(`  ${c.cyan}${c.bold}Private Connect${c.reset} ${c.dim}OpenClaw Setup${c.reset}`);
   console.log();
-  console.log(`  This command sets up Private Connect for remote Moltbot access.`);
+  console.log(`  This command sets up Private Connect for remote OpenClaw (formerly Moltbot) access.`);
   console.log();
   
-  // Check if Moltbot gateway is running
-  console.log(`  ${c.dim}Checking for Moltbot gateway...${c.reset}`);
+  // Check if OpenClaw gateway is running
+  console.log(`  ${c.dim}Checking for OpenClaw gateway...${c.reset}`);
   
   const gatewayRunning = await testTcp('localhost', 18789, 2000);
   
   if (!gatewayRunning.ok) {
-    console.log(`  ${warn} Moltbot gateway not found on localhost:18789`);
+    console.log(`  ${warn} OpenClaw gateway not found on localhost:18789`);
     console.log();
-    console.log(`  ${c.bold}To install Moltbot:${c.reset}`);
-    console.log(`    Visit ${c.cyan}https://docs.molt.bot/install${c.reset}`);
+    console.log(`  ${c.bold}To install OpenClaw:${c.reset}`);
+    console.log(`    Visit ${c.cyan}https://openclaw.ai${c.reset}`);
     console.log();
-    console.log(`  ${c.bold}After Moltbot is running, run this command again.${c.reset}`);
+    console.log(`  ${c.bold}After OpenClaw is running, run this command again.${c.reset}`);
     console.log();
     return;
   }
   
-  console.log(`  ${ok} Moltbot gateway detected on localhost:18789`);
+  console.log(`  ${ok} OpenClaw gateway detected on localhost:18789`);
   console.log();
   
   // Create a temporary tunnel for the gateway
-  console.log(`  ${c.dim}Exposing Moltbot gateway...${c.reset}`);
+  console.log(`  ${c.dim}Exposing OpenClaw gateway...${c.reset}`);
   console.log();
   
   await createTemporaryTunnel({ host: 'localhost', port: 18789, tcp: false });
@@ -1059,7 +1059,7 @@ async function setupMoltbot(): Promise<void> {
   console.log(`     ${c.cyan}connect up${c.reset}`);
   console.log();
   console.log(`  3. Expose gateway permanently:`);
-  console.log(`     ${c.cyan}connect expose localhost:18789 --name moltbot${c.reset}`);
+  console.log(`     ${c.cyan}connect expose localhost:18789 --name openclaw${c.reset}`);
   console.log();
 }
 
@@ -1168,7 +1168,7 @@ if (args[0] === 'test' || args[0] === 'check') {
   } else {
     closeTunnel(args[1]).catch(console.error);
   }
-} else if (args[0] === 'setup-moltbot' || args[0] === 'moltbot-setup') {
+} else if (args[0] === 'setup-openclaw' || args[0] === 'openclaw-setup' || args[0] === 'setup-moltbot' || args[0] === 'moltbot-setup') {
   setupMoltbot().catch(console.error);
 } else if (args[0] === 'pair' || args[0] === 'qr') {
   showPairingQR().catch(console.error);

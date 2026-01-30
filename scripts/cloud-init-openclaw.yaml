@@ -1,5 +1,5 @@
 #cloud-config
-# Moltbot + Private Connect Cloud-Init Script
+# OpenClaw + Private Connect Cloud-Init Script
 #
 # Use this as user-data when creating VMs on:
 # - AWS EC2
@@ -23,8 +23,8 @@ packages:
   - jq
 
 write_files:
-  # nginx config for Moltbot WebSocket proxy
-  - path: /etc/nginx/sites-available/moltbot
+  # nginx config for OpenClaw WebSocket proxy
+  - path: /etc/nginx/sites-available/openclaw
     content: |
       server {
           listen 80 default_server;
@@ -51,22 +51,22 @@ write_files:
     permissions: '0600'
 
   # Setup script
-  - path: /root/setup-moltbot.sh
+  - path: /root/setup-openclaw.sh
     permissions: '0755'
     content: |
       #!/bin/bash
       set -e
       
-      echo "=== Setting up Moltbot + Private Connect ==="
+      echo "=== Setting up OpenClaw + Private Connect ==="
       
       # Enable nginx config
-      ln -sf /etc/nginx/sites-available/moltbot /etc/nginx/sites-enabled/default
+      ln -sf /etc/nginx/sites-available/openclaw /etc/nginx/sites-enabled/default
       systemctl restart nginx
       echo "✓ nginx configured"
       
-      # Install Moltbot (adjust based on official install method)
-      # curl -fsSL https://molt.bot/install.sh | bash -s -- --non-interactive
-      echo "⚠ Install Moltbot manually: https://docs.molt.bot/install"
+      # Install OpenClaw
+      # curl -fsSL https://openclaw.ai/install.sh | bash -s -- --non-interactive
+      echo "⚠ Install OpenClaw manually: https://openclaw.ai"
       
       # Install Private Connect
       curl -fsSL https://privateconnect.co/install.sh | bash -s -- \
@@ -74,12 +74,12 @@ write_files:
         --daemon
       echo "✓ Private Connect installed"
       
-      # Wait for Moltbot to be ready, then expose
-      echo "Waiting for Moltbot gateway..."
+      # Wait for OpenClaw gateway to be ready, then expose
+      echo "Waiting for OpenClaw gateway..."
       for i in {1..30}; do
         if nc -z localhost 18789 2>/dev/null; then
-          connect expose localhost:18789 --name moltbot
-          echo "✓ Moltbot gateway exposed as 'moltbot'"
+          connect expose localhost:18789 --name openclaw
+          echo "✓ OpenClaw gateway exposed as 'openclaw'"
           break
         fi
         sleep 2
@@ -87,15 +87,15 @@ write_files:
       
       echo ""
       echo "=== Setup Complete ==="
-      echo "From any device, run: connect reach moltbot"
+      echo "From any device, run: connect reach openclaw"
 
 runcmd:
-  - /root/setup-moltbot.sh
+  - /root/setup-openclaw.sh
 
 final_message: |
-  Moltbot + Private Connect setup complete!
+  OpenClaw + Private Connect setup complete!
   
   From your phone/laptop:
     curl -fsSL https://privateconnect.co/install.sh | bash
     connect up
-    connect reach moltbot
+    connect reach openclaw

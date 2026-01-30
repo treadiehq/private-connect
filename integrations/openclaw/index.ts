@@ -1,5 +1,5 @@
 /**
- * Private Connect Skill for Moltbot
+ * Private Connect Skill for OpenClaw
  * 
  * Access private services by name, from anywhere.
  * https://privateconnect.co
@@ -30,4 +30,3 @@ export const skillInfo = {
   repository: 'https://github.com/treadiehq/private-connect',
   keywords: ['services', 'vpn', 'tunnel', 'infrastructure', 'devops'],
 };
-
