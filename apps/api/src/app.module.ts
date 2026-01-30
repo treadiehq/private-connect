@@ -19,6 +19,7 @@ import { StatusModule } from './status/status.module';
 import { EventsModule } from './events/events.module';
 import { DebugModule } from './debug/debug.module';
 import { AIModule } from './ai/ai.module';
+import { AskModule } from './ask/ask.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { AIModule } from './ai/ai.module';
     EventsModule,
     DebugModule,
     AIModule,
+    AskModule,
   ],
 })
 export class AppModule {}

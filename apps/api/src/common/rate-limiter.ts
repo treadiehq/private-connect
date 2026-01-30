@@ -82,4 +82,5 @@ export const proxySubdomainLimiter = new RateLimiter(60000, 500); // 500 req/min
 export const authRateLimiter = new RateLimiter(60000, 10); // 10 req/min per IP for auth
 export const debugPublicRateLimiter = new RateLimiter(60000, 60); // 60 req/min per IP for public debug endpoints
 export const debugAIRateLimiter = new RateLimiter(60000, 20); // 20 AI requests/min per IP (expensive)
+export const askRateLimiter = new RateLimiter(60000, 20); // 20 req/min per IP for public /ask endpoint
 

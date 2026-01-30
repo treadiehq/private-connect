@@ -4,7 +4,7 @@
 
 Private Connect is **Tailscale for services, not networks**. Access your databases, APIs, and internal services with a simple command like `connect prod-db`, no VPN configuration or SSH tunnels required.
 
-**Example:** Have a local database but need to access it from another machine? On your local machine: `connect expose localhost:5432 --name my-db`. From anywhere: `connect reach my-db`. **Yes, this solves that problem**—no port forwarding, no firewall rules, no changing localhost to 0.0.0.0. Works with Tailscale.
+> **Example:** Have a local database but need to access it from another machine? On your local machine: `connect expose localhost:5432 --name my-db`. From anywhere: `connect reach my-db`. **Yes, this solves that problem**—no port forwarding, no firewall rules, no changing localhost to 0.0.0.0. Works with Tailscale.
 
 - **Access by name:** `connect prod-db` instead of remembering IPs or ports
 - **Onboard teammates in 30 seconds:** `connect clone alice` gives them your exact setup
@@ -119,6 +119,20 @@ curl -X POST -H "x-api-key: pc_xxx" \
 ```
 
 See [DETAILED.md#control-api](DETAILED.md#control-api) for full API reference.
+
+## Ask (try any service)
+
+Paste a URL or hostname and a question; we run read-only checks (e.g. `/health`, `/status`, `/version`) and return an answer. No signup. If unreachable, you're guided to enable Private Connect.
+
+- **Web:** [http://localhost:3000/ask](http://localhost:3000/ask) · **API:** `POST /v1/ask` with `{ "service": "http://localhost:9000", "question": "Is it healthy?" }`
+- **Run:** `pnpm dev` then open `/ask`. Optional: `pnpm demo:server` for a target on :9000.
+
+- **LLM (optional):** In `apps/api/.env` set `ASK_LLM_PROVIDER`, `ASK_LLM_MODEL`, `ASK_LLM_API_KEY` (or `ASK_LLM_OLLAMA_URL` for Ollama). Falls back to stub if unset or on failure.
+
+```bash
+curl -s -X POST http://localhost:3001/v1/ask -H "Content-Type: application/json" \
+  -d '{"service":"http://localhost:9000","question":"Is it healthy?"}'
+```
 
 ## Links
 
