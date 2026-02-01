@@ -1,10 +1,12 @@
 import { io, Socket } from 'socket.io-client';
 import * as net from 'net';
+import * as readline from 'readline';
 import chalk from 'chalk';
 import { ensureConfig, AgentConfig, loadConfig, generateConfig, getConfigPath, clearConfig } from '../config';
 import { deviceAuthFlow } from '../device-auth';
 import { enforceSecureConnection, handleTokenExpiry, handleSecurityEvent, SecurityError } from '../security';
 import { runZeroTouchSetup, isSetupComplete } from '../setup';
+import { exposeCommand } from './expose';
 
 interface UpOptions {
   hub: string;
@@ -13,6 +15,94 @@ interface UpOptions {
   name?: string;
   token?: string;  // Pre-authenticated token (CI/CD)
   config?: string; // Custom config path
+}
+
+/**
+ * Prompt user to expose their first service after initial setup
+ * Returns true if they exposed something, false if they skipped
+ */
+async function promptForFirstExposure(hubUrl: string): Promise<boolean> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    console.log('');
+    rl.question(
+      chalk.cyan('  Expose a service now? ') + 
+      chalk.gray('(e.g. localhost:3306) or Enter to skip: '),
+      async (answer) => {
+        rl.close();
+        
+        const input = answer.trim();
+        
+        if (!input) {
+          // User pressed Enter - skip
+          resolve(false);
+          return;
+        }
+        
+        // Parse the input: could be "localhost:3306" or just "3306"
+        let target = input;
+        if (/^\d+$/.test(input)) {
+          target = `localhost:${input}`;
+        }
+        
+        // Validate format
+        const [host, portStr] = target.split(':');
+        const port = parseInt(portStr, 10);
+        
+        if (!host || isNaN(port)) {
+          console.log(chalk.yellow('\n  [!] Invalid format. Expected host:port (e.g. localhost:3306)'));
+          console.log(chalk.gray('      You can expose services later with: connect expose localhost:PORT --name SERVICE\n'));
+          resolve(false);
+          return;
+        }
+        
+        // Generate a default name from the port
+        const defaultName = getDefaultServiceName(port);
+        
+        console.log('');
+        
+        // Call exposeCommand - this will stay running
+        try {
+          await exposeCommand(target, {
+            name: defaultName,
+            hub: hubUrl,
+            protocol: 'tcp',
+          });
+          resolve(true);
+        } catch (err) {
+          const error = err as Error;
+          console.log(chalk.red(`\n  [x] Failed to expose: ${error.message}`));
+          console.log(chalk.gray('      You can try again with: connect expose ' + target + ' --name ' + defaultName + '\n'));
+          resolve(false);
+        }
+      }
+    );
+  });
+}
+
+/**
+ * Generate a sensible default service name based on port
+ */
+function getDefaultServiceName(port: number): string {
+  const portNames: Record<number, string> = {
+    3306: 'mysql',
+    5432: 'postgres',
+    6379: 'redis',
+    27017: 'mongodb',
+    5672: 'rabbitmq',
+    9200: 'elasticsearch',
+    8080: 'api',
+    8000: 'api',
+    3000: 'web',
+    4000: 'graphql',
+    18789: 'openclaw',
+  };
+  
+  return portNames[port] || `service-${port}`;
 }
 
 interface ConnectionState {
@@ -71,6 +161,24 @@ export async function upCommand(options: UpOptions) {
     // Skip if we're already running as a daemon
     if (!process.env.CONNECT_DAEMON) {
       await runZeroTouchSetup({ hubUrl: options.hub });
+      
+      // First-time setup: offer to expose a service right away (Option A+B)
+      const exposedService = await promptForFirstExposure(options.hub);
+      
+      if (exposedService) {
+        // User chose to expose a service - exposeCommand stays running
+        return;
+      } else {
+        // User skipped - daemon is running in background, exit gracefully
+        console.log(chalk.green('\n[ok] Setup complete! Daemon is running in the background.\n'));
+        console.log(chalk.gray('  To expose a service, run:'));
+        console.log(chalk.cyan('    connect expose localhost:PORT --name SERVICE\n'));
+        console.log(chalk.gray('  Examples:'));
+        console.log(chalk.cyan('    connect expose localhost:3306 --name mysql'));
+        console.log(chalk.cyan('    connect expose localhost:5432 --name postgres'));
+        console.log(chalk.cyan('    connect expose localhost:8080 --name api\n'));
+        process.exit(0);
+      }
     }
   }
   
