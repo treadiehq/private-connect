@@ -191,10 +191,12 @@ export class DiagnosticsService {
    */
   private shouldTestTls(port: number, protocol?: string): boolean {
     if (protocol === 'https') return true;
-    if (protocol === 'http') return false;
+    if (protocol === 'http' || protocol === 'tcp') return false;
     
-    // Common TLS ports
-    const tlsPorts = [443, 8443, 9443, 5432, 3306, 6379, 27017, 636];
+    // Only test TLS on ports that use TLS from the start of the connection.
+    // Database ports (3306, 5432, 6379, 27017) use their own protocols first
+    // and negotiate TLS via STARTTLS-like mechanisms - raw TLS handshake will fail.
+    const tlsPorts = [443, 8443, 9443, 636]; // HTTPS and LDAPS only
     return tlsPorts.includes(port);
   }
 
