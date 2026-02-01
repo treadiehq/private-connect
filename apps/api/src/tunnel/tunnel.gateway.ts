@@ -116,12 +116,19 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleDisconnect(client: Socket) {
     const agentId = this.socketToAgent.get(client.id);
     if (agentId) {
-      this.logger.log(`Agent disconnected: ${agentId}`);
-      this.tunnelService.unregisterAgent(agentId);
+      // Check if this socket is still the current one for this agent.
+      // If agent reconnected with a new socket, don't mark offline or close tunnels.
+      const isCurrentSocket = this.tunnelService.isCurrentSocket(agentId, client.id);
+      
       this.socketToAgent.delete(client.id);
       
-      // Mark agent as offline
-      await this.agentsService.setOnlineStatus(agentId, false);
+      if (isCurrentSocket) {
+        this.logger.log(`Agent disconnected: ${agentId}`);
+        this.tunnelService.unregisterAgent(agentId);
+        await this.agentsService.setOnlineStatus(agentId, false);
+      } else {
+        this.logger.log(`Stale socket disconnected for agent ${agentId}, ignoring (agent reconnected)`);
+      }
     }
   }
 

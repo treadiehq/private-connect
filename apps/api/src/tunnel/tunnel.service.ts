@@ -119,6 +119,15 @@ export class TunnelService {
     });
   }
 
+  /**
+   * Check if a socket is the current active socket for an agent.
+   * Used to prevent stale disconnects from marking agent offline after reconnection.
+   */
+  isCurrentSocket(agentId: string, socketId: string): boolean {
+    const agent = this.agents.get(agentId);
+    return agent?.socket?.id === socketId;
+  }
+
   unregisterAgent(agentId: string) {
     const agent = this.agents.get(agentId);
     if (agent) {
