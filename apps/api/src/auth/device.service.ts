@@ -153,15 +153,17 @@ export class DeviceService {
     const keyName = targetDevice.agentName || targetDevice.label || 'CLI Agent';
     const uniqueSuffix = randomBytes(3).toString('hex'); // Ensure unique name
 
-    // Create API key record
-    await this.prisma.apiKey.create({
-      data: {
-        workspaceId,
-        name: `${keyName} (${uniqueSuffix})`,
-        key: apiKey,
-        keyPrefix,
-      },
-    });
+    // Create API key record - use withWorkspace for RLS context
+    await this.prisma.withWorkspace(workspaceId, () =>
+      this.prisma.apiKey.create({
+        data: {
+          workspaceId,
+          name: `${keyName} (${uniqueSuffix})`,
+          key: apiKey,
+          keyPrefix,
+        },
+      })
+    );
 
     // Mark device code as verified
     await this.prisma.deviceCode.update({
