@@ -66,10 +66,13 @@ export class ApiKeyGuard implements CanActivate {
       throw new UnauthorizedException('Missing API key');
     }
 
-    const key = await this.prisma.apiKey.findUnique({
-      where: { key: apiKey },
-      include: { workspace: true },
-    });
+    // Use withoutRls() because we don't know the workspace yet - we're authenticating
+    const key = await this.prisma.withoutRls(() =>
+      this.prisma.apiKey.findUnique({
+        where: { key: apiKey },
+        include: { workspace: true },
+      })
+    );
 
     if (!key || key.revokedAt) {
       throw new UnauthorizedException('Invalid API key');
@@ -91,13 +94,16 @@ export class ApiKeyGuard implements CanActivate {
     }
 
     // Update last used timestamp and IP (fire and forget)
-    this.prisma.apiKey.update({
-      where: { id: key.id },
-      data: { 
-        lastUsedAt: new Date(),
-        lastUsedIp: clientIp,
-      },
-    }).catch(() => {});
+    // Use withoutRls() for the update as well
+    this.prisma.withoutRls(() =>
+      this.prisma.apiKey.update({
+        where: { id: key.id },
+        data: { 
+          lastUsedAt: new Date(),
+          lastUsedIp: clientIp,
+        },
+      })
+    ).catch(() => {});
 
     // Attach workspace to request for use in controllers
     request.workspace = key.workspace;

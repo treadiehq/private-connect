@@ -91,20 +91,25 @@ export class ApiKeysService {
 
   // Validate an API key and return the workspace
   async validateApiKey(key: string) {
-    const apiKey = await this.prisma.apiKey.findUnique({
-      where: { key },
-      include: { workspace: true },
-    });
+    // Use withoutRls() for API key validation - we don't know the workspace yet
+    const apiKey = await this.prisma.withoutRls(() =>
+      this.prisma.apiKey.findUnique({
+        where: { key },
+        include: { workspace: true },
+      })
+    );
 
     if (!apiKey || apiKey.revokedAt) {
       return null;
     }
 
     // Update last used timestamp
-    await this.prisma.apiKey.update({
-      where: { id: apiKey.id },
-      data: { lastUsedAt: new Date() },
-    });
+    await this.prisma.withoutRls(() =>
+      this.prisma.apiKey.update({
+        where: { id: apiKey.id },
+        data: { lastUsedAt: new Date() },
+      })
+    );
 
     return apiKey.workspace;
   }

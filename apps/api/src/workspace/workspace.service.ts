@@ -21,27 +21,32 @@ export class WorkspaceService {
 
   async findByApiKey(apiKey: string) {
     // Find the API key and return its workspace
-    const key = await this.prisma.apiKey.findUnique({
-      where: { key: apiKey },
-      include: {
-        workspace: {
-      include: {
-        agents: true,
-        services: true,
+    // Use withoutRls() for API key validation - we don't know the workspace yet
+    const key = await this.prisma.withoutRls(() =>
+      this.prisma.apiKey.findUnique({
+        where: { key: apiKey },
+        include: {
+          workspace: {
+            include: {
+              agents: true,
+              services: true,
+            },
           },
         },
-      },
-    });
+      })
+    );
 
     if (!key || key.revokedAt) {
       return null;
     }
 
     // Update last used timestamp
-    await this.prisma.apiKey.update({
-      where: { id: key.id },
-      data: { lastUsedAt: new Date() },
-    });
+    await this.prisma.withoutRls(() =>
+      this.prisma.apiKey.update({
+        where: { id: key.id },
+        data: { lastUsedAt: new Date() },
+      })
+    );
 
     return key.workspace;
   }

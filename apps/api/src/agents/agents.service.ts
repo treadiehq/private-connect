@@ -108,9 +108,12 @@ export class AgentsService {
     userAgent?: string,
   ): Promise<TokenValidationResult> {
     const tokenHash = this.hashToken(token);
-    const agent = await this.prisma.agent.findUnique({
-      where: { id: agentId },
-    });
+    // Use withoutRls() for token validation - we don't know the workspace yet
+    const agent = await this.prisma.withoutRls(() =>
+      this.prisma.agent.findUnique({
+        where: { id: agentId },
+      })
+    );
     
     if (!agent) {
       return { valid: false };
@@ -150,11 +153,13 @@ export class AgentsService {
       );
     }
 
-    // Update last seen IP
-    await this.prisma.agent.update({
-      where: { id: agentId },
-      data: { lastSeenIp: clientIp },
-    });
+    // Update last seen IP (still within auth context, use withoutRls)
+    await this.prisma.withoutRls(() =>
+      this.prisma.agent.update({
+        where: { id: agentId },
+        data: { lastSeenIp: clientIp },
+      })
+    );
 
     // Log successful connection
     await this.logAuditEvent(agentId, AgentAuditEvent.CONNECTED, clientIp, userAgent, {
@@ -257,10 +262,13 @@ export class AgentsService {
   }
 
   async validateWorkspaceApiKey(apiKey: string, clientIp?: string) {
-    const key = await this.prisma.apiKey.findUnique({
-      where: { key: apiKey },
-      include: { workspace: true },
-    });
+    // Use withoutRls() for API key validation - we don't know the workspace yet
+    const key = await this.prisma.withoutRls(() =>
+      this.prisma.apiKey.findUnique({
+        where: { key: apiKey },
+        include: { workspace: true },
+      })
+    );
 
     if (!key || key.revokedAt) {
       return null;
@@ -274,14 +282,16 @@ export class AgentsService {
       }
     }
 
-    // Update last used timestamp and IP
-    await this.prisma.apiKey.update({
-      where: { id: key.id },
-      data: { 
-        lastUsedAt: new Date(),
-        lastUsedIp: clientIp || undefined,
-      },
-    });
+    // Update last used timestamp and IP (still within auth context)
+    await this.prisma.withoutRls(() =>
+      this.prisma.apiKey.update({
+        where: { id: key.id },
+        data: { 
+          lastUsedAt: new Date(),
+          lastUsedIp: clientIp || undefined,
+        },
+      })
+    );
 
     return key.workspace;
   }
