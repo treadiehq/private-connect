@@ -41,16 +41,19 @@ export class TemporaryTunnelController implements OnModuleInit {
     if (!this.prisma) return;
 
     try {
-      const result = await this.prisma.debugSession.updateMany({
-        where: {
-          workspaceId: TEMP_WORKSPACE_ID,
-          status: 'active',
-        },
-        data: {
-          status: 'ended',
-          endedAt: new Date(),
-        },
-      });
+      // Use withWorkspace to properly scope the cleanup to the temp workspace
+      const result = await this.prisma.withWorkspace(TEMP_WORKSPACE_ID, () =>
+        this.prisma!.debugSession.updateMany({
+          where: {
+            workspaceId: TEMP_WORKSPACE_ID,
+            status: 'active',
+          },
+          data: {
+            status: 'ended',
+            endedAt: new Date(),
+          },
+        })
+      );
 
       if (result.count > 0) {
         console.log(`[TemporaryTunnelController] Cleaned up ${result.count} orphaned debug sessions from previous run`);
@@ -348,13 +351,16 @@ export class TemporaryTunnelController implements OnModuleInit {
     await this.ensureTemporaryWorkspace();
 
     // Create debug session with special temporary workspace
+    // Use withWorkspace to set proper RLS context for unauthenticated endpoint
     try {
-      const session = await this.debugService.createSession({
-        workspaceId: TEMP_WORKSPACE_ID,
-        name: `Temporary Tunnel: ${tunnelId}`,
-        aiEnabled: body.aiEnabled || false,
-        expiresIn: Math.ceil((tunnel.expiresAt.getTime() - Date.now()) / 60000), // Match tunnel expiry
-      });
+      const session = await this.prisma!.withWorkspace(TEMP_WORKSPACE_ID, () =>
+        this.debugService!.createSession({
+          workspaceId: TEMP_WORKSPACE_ID,
+          name: `Temporary Tunnel: ${tunnelId}`,
+          aiEnabled: body.aiEnabled || false,
+          expiresIn: Math.ceil((tunnel.expiresAt.getTime() - Date.now()) / 60000), // Match tunnel expiry
+        })
+      );
 
       // Link debug session to tunnel for packet capture
       this.tempTunnelService.linkDebugSession(tunnelId, session.id);
@@ -376,12 +382,14 @@ export class TemporaryTunnelController implements OnModuleInit {
       if (err.message?.includes('workspace') || err.code === 'P2003') {
         await this.ensureTemporaryWorkspace();
         try {
-          const session = await this.debugService.createSession({
-            workspaceId: TEMP_WORKSPACE_ID,
-            name: `Temporary Tunnel: ${tunnelId}`,
-            aiEnabled: body.aiEnabled || false,
-            expiresIn: Math.ceil((tunnel.expiresAt.getTime() - Date.now()) / 60000),
-          });
+          const session = await this.prisma!.withWorkspace(TEMP_WORKSPACE_ID, () =>
+            this.debugService!.createSession({
+              workspaceId: TEMP_WORKSPACE_ID,
+              name: `Temporary Tunnel: ${tunnelId}`,
+              aiEnabled: body.aiEnabled || false,
+              expiresIn: Math.ceil((tunnel.expiresAt.getTime() - Date.now()) / 60000),
+            })
+          );
 
           // Link debug session to tunnel for packet capture
           this.tempTunnelService.linkDebugSession(tunnelId, session.id);

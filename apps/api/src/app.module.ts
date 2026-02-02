@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ContextModule } from './context/context.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { AdminModule } from './admin/admin.module';
@@ -23,6 +24,8 @@ import { AskModule } from './ask/ask.module';
 
 @Module({
   imports: [
+    // Context module must be first for RLS to work
+    ContextModule,
     // Rate limiting configuration
     ThrottlerModule.forRoot([
       {

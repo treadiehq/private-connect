@@ -87,10 +87,11 @@ Workspace
 
 ### Isolation Guarantees
 
-1. **Database-level**: All queries are scoped by `workspaceId`
-2. **API-level**: Guards validate workspace ownership before any operation
-3. **Realtime-level**: WebSocket rooms are isolated by workspace (`workspace:{id}`)
-4. **Agent-level**: Agents can only access services within their workspace
+1. **Database-level**: PostgreSQL Row Level Security (RLS) enforces workspace isolation at the database layer. All workspace-scoped tables have RLS policies that only allow access to rows matching the current workspace context.
+2. **Application-level**: All queries are additionally scoped by `workspaceId` in the application code (defense-in-depth)
+3. **API-level**: Guards validate workspace ownership before any operation
+4. **Realtime-level**: WebSocket rooms are isolated by workspace (`workspace:{id}`)
+5. **Agent-level**: Agents can only access services within their workspace
 
 ### Who Can Access My Exposed Services?
 
