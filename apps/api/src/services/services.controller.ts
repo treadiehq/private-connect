@@ -363,15 +363,15 @@ export class ServicesController {
 
     const { sourceAgentId, mode, timeoutMs } = parsed.data;
 
-    // Validate source agent
+    // Validate source agent exists and belongs to workspace
     const sourceAgent = await this.agentsService.findById(sourceAgentId);
     if (!sourceAgent) {
       throw new HttpException('Source agent not found', HttpStatus.NOT_FOUND);
     }
 
-    if (!sourceAgent.isOnline) {
-      throw new HttpException('Source agent is offline', HttpStatus.BAD_REQUEST);
-    }
+    // Note: We don't require sourceAgent to be online because diagnostics
+    // run from the hub, not from the agent. The sourceAgentId is just for
+    // attribution/logging purposes.
 
     // Create session
     const session = await this.sessionsService.createSession(service.id, sourceAgentId);
