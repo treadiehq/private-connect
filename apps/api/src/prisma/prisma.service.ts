@@ -61,7 +61,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       // During initialization (startup), bypass RLS for setup operations
       if (this.isInitializing) {
         try {
-          await this.$executeRawUnsafe(`SET LOCAL app.current_workspace_id TO '${RLS_BYPASS_TOKEN}'`);
+          await this.$executeRawUnsafe(`SET app.current_workspace_id TO '${RLS_BYPASS_TOKEN}'`);
         } catch {
           // Ignore errors during initial connection
         }
@@ -73,7 +73,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       if (explicit) {
         if (explicit.bypass) {
           try {
-            await this.$executeRawUnsafe(`SET LOCAL app.current_workspace_id TO '${RLS_BYPASS_TOKEN}'`);
+            await this.$executeRawUnsafe(`SET app.current_workspace_id TO '${RLS_BYPASS_TOKEN}'`);
           } catch {
             // Ignore errors
           }
@@ -82,7 +82,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         if (explicit.workspaceId) {
           const sanitizedId = explicit.workspaceId.replace(/[^a-zA-Z0-9-]/g, '');
           try {
-            await this.$executeRawUnsafe(`SET LOCAL app.current_workspace_id TO '${sanitizedId}'`);
+            await this.$executeRawUnsafe(`SET app.current_workspace_id TO '${sanitizedId}'`);
           } catch {
             // Ignore errors
           }
@@ -97,7 +97,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       if (isAdmin) {
         // Admin users bypass RLS
         try {
-          await this.$executeRawUnsafe(`SET LOCAL app.current_workspace_id TO '${RLS_BYPASS_TOKEN}'`);
+          await this.$executeRawUnsafe(`SET app.current_workspace_id TO '${RLS_BYPASS_TOKEN}'`);
         } catch {
           // Ignore errors
         }
@@ -106,12 +106,12 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
       if (workspaceId) {
         try {
-          // Use SET LOCAL so it only affects the current transaction
+          // Use SET (session-level) so it persists across auto-committed queries
           // Sanitize workspaceId to prevent SQL injection (UUIDs only contain safe chars)
           const sanitizedId = workspaceId.replace(/[^a-zA-Z0-9-]/g, '');
-          await this.$executeRawUnsafe(`SET LOCAL app.current_workspace_id TO '${sanitizedId}'`);
+          await this.$executeRawUnsafe(`SET app.current_workspace_id TO '${sanitizedId}'`);
         } catch {
-          // Ignore errors during initial connection or if not in a transaction
+          // Ignore errors during initial connection
         }
       }
       // If no workspaceId and not admin, the session variable is not set
