@@ -146,6 +146,7 @@ curl -s -X POST http://localhost:3001/v1/ask -H "Content-Type: application/json"
 - **exe.dev / Mac Mini**: [docs/exe-dev-private-access.md](docs/exe-dev-private-access.md) — access private services from exe.dev VMs or Mac Mini
 - **Virtual Kubernetes**: [docs/kubernetes-virtual-clusters-and-private-connect.md](docs/kubernetes-virtual-clusters-and-private-connect.md) — multicluster API server + distributed nodes over private tunnels
 - **Use Cases**: [USE_CASES.md](USE_CASES.md) — real scenarios
+- **Family abroad**: [docs/family-abroad.md](docs/family-abroad.md) — share your home with family (Tailscale + Private Connect)
 - **Security**: [docs/security.md](docs/security.md) — architecture details
 - **SDK**: [packages/sdk](packages/sdk) — TypeScript SDK for programmatic access
 

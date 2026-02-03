@@ -164,6 +164,7 @@ connect reach jellyfin
 | "I need cross-environment access (staging + prod)" | Private Connect |
 | "I need Kubernetes services accessible from my laptop" | Private Connect |
 | "I need named, discoverable services across environments" | Private Connect |
+| "I want to share my home lab with family abroad (services + optional exit)" | Both — see [Family abroad](family-abroad.md) |
 
 They're complementary. Use both.
 
@@ -214,6 +215,8 @@ Tailscale is network infrastructure. Private Connect is developer experience.
 **For Kubernetes users**: Your internal DNS (`postgres.staging.svc.cluster.local`) works great inside the cluster. Private Connect makes those same services accessible from your laptop, CI/CD, or any environment—without VPN, SSH tunnels, or exposing services publicly.
 
 Use Tailscale for the network. Use Private Connect for cross-environment service access and team collaboration.
+
+**Share your home with family abroad:** [Family abroad](family-abroad.md) — Tailscale for the network (and optional exit node for streaming), Private Connect for named services and share/join.
 
 ---
 

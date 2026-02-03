@@ -143,6 +143,25 @@ connect reach nas
 
 No dynamic DNS. No port forwarding. No security exposure.
 
+### Share your home with family abroad
+
+Family in another country? Give them access to your home services (Jellyfin, NAS, Home Assistant) by name — and optionally let them use your home as an exit for streaming (e.g. US Netflix) via Tailscale.
+
+```bash
+# You (at home): expose services, then create a long-lived share
+connect expose localhost:8096 --name jellyfin
+connect expose 192.168.1.50:445 --name nas
+connect share --expires 90d --name "Family abroad"
+# → Share code: x7k9m2
+
+# Family (abroad): one-time setup, then join
+connect up
+connect join x7k9m2
+connect reach jellyfin   # → http://localhost:8096
+```
+
+Revoke anytime: `connect share --revoke x7k9m2`. For the full story (Tailscale exit node + Private Connect), see [Share your home with family abroad](docs/family-abroad.md).
+
 ---
 
 ## Secure Remote Access to OpenClaw
