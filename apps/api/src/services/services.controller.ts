@@ -14,7 +14,7 @@ const RegisterServiceSchema = z.object({
   name: z.string().min(1).max(100),
   targetHost: z.string().min(1).max(253), // Max DNS hostname length
   targetPort: z.number().int().min(1).max(65535),
-  protocol: z.enum(['auto', 'tcp', 'http', 'https']).optional().default('auto'),
+  protocol: z.enum(['auto', 'tcp', 'udp', 'http', 'https']).optional().default('auto'),
   isPublic: z.boolean().optional().default(false),
 });
 
@@ -28,7 +28,7 @@ const ExternalServiceSchema = z.object({
   name: z.string().min(1).max(100),
   targetHost: z.string().min(1).max(253), // Max DNS hostname length
   targetPort: z.number().int().min(1).max(65535),
-  protocol: z.enum(['auto', 'tcp', 'http', 'https']).optional().default('auto'),
+  protocol: z.enum(['auto', 'tcp', 'udp', 'http', 'https']).optional().default('auto'),
 });
 
 @ApiTags('Services')
@@ -56,7 +56,7 @@ export class ServicesController {
         name: { type: 'string', example: 'prod-db' },
         targetHost: { type: 'string', example: 'localhost' },
         targetPort: { type: 'number', example: 5432 },
-        protocol: { type: 'string', enum: ['auto', 'tcp', 'http', 'https'] },
+        protocol: { type: 'string', enum: ['auto', 'tcp', 'udp', 'http', 'https'] },
         isPublic: { type: 'boolean' },
       },
     },
@@ -122,7 +122,7 @@ export class ServicesController {
         name: { type: 'string', example: 'external-api' },
         targetHost: { type: 'string', example: 'api.example.com' },
         targetPort: { type: 'number', example: 443 },
-        protocol: { type: 'string', enum: ['auto', 'tcp', 'http', 'https'] },
+        protocol: { type: 'string', enum: ['auto', 'tcp', 'udp', 'http', 'https'] },
       },
     },
   })

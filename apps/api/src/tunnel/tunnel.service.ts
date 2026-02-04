@@ -1,5 +1,6 @@
 import { Injectable, Inject, forwardRef, Optional } from '@nestjs/common';
 import * as net from 'net';
+import * as dgram from 'dgram';
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
@@ -10,6 +11,7 @@ interface AgentConnection {
   agentId: string;
   socket: any; // WebSocket connection
   services: Map<string, TunnelListener>;
+  udpServices: Map<string, UdpTunnelListener>;
 }
 
 interface TunnelListener {
@@ -19,6 +21,17 @@ interface TunnelListener {
   server: net.Server;
   targetHost: string;
   targetPort: number;
+}
+
+interface UdpTunnelListener {
+  serviceId: string;
+  serviceName: string;
+  port: number;
+  server: dgram.Socket;
+  targetHost: string;
+  targetPort: number;
+  // Track UDP sessions for response routing
+  sessions: Map<string, { address: string; port: number; timestamp: number }>;
 }
 
 interface PendingConnection {
@@ -116,6 +129,7 @@ export class TunnelService {
       agentId,
       socket,
       services: new Map(),
+      udpServices: new Map(),
     });
   }
 
@@ -131,9 +145,9 @@ export class TunnelService {
   unregisterAgent(agentId: string) {
     const agent = this.agents.get(agentId);
     if (agent) {
-      // Close all tunnel listeners for this agent and emit disconnect webhooks
+      // Close all TCP tunnel listeners for this agent and emit disconnect webhooks
       agent.services.forEach(async (listener) => {
-        this.logger.log(`Closing tunnel listener on port ${listener.port}`);
+        this.logger.log(`Closing TCP tunnel listener on port ${listener.port}`);
         listener.server.close();
 
         // Emit tunnel.disconnected webhook
@@ -154,6 +168,12 @@ export class TunnelService {
         } catch (err) {
           this.logger.error(`Failed to emit tunnel.disconnected webhook: ${err}`);
         }
+      });
+
+      // Close all UDP tunnel listeners for this agent
+      agent.udpServices.forEach(async (listener) => {
+        this.logger.log(`Closing UDP tunnel listener on port ${listener.port}`);
+        listener.server.close();
       });
 
       // Clean up pending connections for this agent
@@ -289,6 +309,132 @@ export class TunnelService {
 
         resolve();
       });
+    });
+  }
+
+  /**
+   * Start a UDP tunnel listener for a service.
+   * When datagrams arrive, we'll forward them to the agent.
+   */
+  async startUdpTunnelListener(
+    agentId: string,
+    serviceId: string,
+    serviceName: string,
+    tunnelPort: number,
+    targetHost: string,
+    targetPort: number,
+  ): Promise<void> {
+    const agent = this.agents.get(agentId);
+    if (!agent) {
+      throw new Error(`Agent ${agentId} not connected`);
+    }
+
+    // Check if UDP listener already exists
+    if (agent.udpServices.has(serviceId)) {
+      const existing = agent.udpServices.get(serviceId)!;
+      if (existing.port === tunnelPort) {
+        this.logger.log(`UDP tunnel listener already exists for ${serviceName} on port ${tunnelPort}`);
+        return;
+      }
+      // Close old listener
+      existing.server.close();
+    }
+
+    const server = dgram.createSocket('udp4');
+    const sessions = new Map<string, { address: string; port: number; timestamp: number }>();
+
+    server.on('message', (msg, rinfo) => {
+      this.handleUdpDatagram(agentId, serviceId, serviceName, targetHost, targetPort, msg, rinfo, sessions);
+    });
+
+    server.on('error', (err) => {
+      this.logger.error(`UDP tunnel listener error on port ${tunnelPort}: ${err.message}`);
+    });
+
+    return new Promise((resolve, reject) => {
+      server.on('error', (err) => {
+        reject(err);
+      });
+
+      server.bind(tunnelPort, '127.0.0.1', async () => {
+        this.logger.log(`UDP tunnel listener started for ${serviceName} on port ${tunnelPort}`);
+        agent.udpServices.set(serviceId, {
+          serviceId,
+          serviceName,
+          port: tunnelPort,
+          server,
+          targetHost,
+          targetPort,
+          sessions,
+        });
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * Handle an incoming UDP datagram to a tunnel port.
+   * Forward to the agent via WebSocket.
+   */
+  private handleUdpDatagram(
+    agentId: string,
+    serviceId: string,
+    serviceName: string,
+    targetHost: string,
+    targetPort: number,
+    msg: Buffer,
+    rinfo: dgram.RemoteInfo,
+    sessions: Map<string, { address: string; port: number; timestamp: number }>,
+  ) {
+    const agent = this.agents.get(agentId);
+    if (!agent) {
+      this.logger.error(`Agent ${agentId} not connected, dropping UDP datagram`);
+      return;
+    }
+
+    const sessionId = `${rinfo.address}:${rinfo.port}-${Date.now()}`;
+    sessions.set(sessionId, { address: rinfo.address, port: rinfo.port, timestamp: Date.now() });
+
+    this.logger.debug(`UDP datagram from ${rinfo.address}:${rinfo.port} for ${serviceName} (${msg.length} bytes)`);
+
+    // Forward to agent
+    agent.socket.emit('udp_datagram', {
+      sessionId,
+      serviceId,
+      data: msg.toString('base64'),
+      remoteAddress: rinfo.address,
+      remotePort: rinfo.port,
+      targetHost,
+      targetPort,
+    });
+  }
+
+  /**
+   * Handle UDP response from agent - send datagram back to client
+   */
+  handleUdpResponse(agentId: string, serviceId: string, sessionId: string, data: Buffer) {
+    const agent = this.agents.get(agentId);
+    if (!agent) {
+      this.logger.warn(`Agent ${agentId} not found for UDP response`);
+      return;
+    }
+
+    const udpListener = agent.udpServices.get(serviceId);
+    if (!udpListener) {
+      this.logger.warn(`UDP listener not found for service ${serviceId}`);
+      return;
+    }
+
+    // Parse session ID to get original client address
+    const parts = sessionId.split('-');
+    const addressPort = parts.slice(0, -1).join('-');
+    const [remoteAddress, remotePortStr] = addressPort.split(':');
+    const remotePort = parseInt(remotePortStr, 10);
+
+    udpListener.server.send(data, remotePort, remoteAddress, (err) => {
+      if (err) {
+        this.logger.error(`UDP send error: ${err.message}`);
+      }
     });
   }
 

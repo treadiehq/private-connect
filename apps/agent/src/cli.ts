@@ -193,7 +193,9 @@ program
   .option('-p, --port <port>', 'Local port for reach (default: same as service)')
   .option('-t, --timeout <ms>', 'Timeout for reach', parseTimeout, 5000)
   .option('--public', 'Make exposed service publicly accessible')
-  .option('--protocol <type>', 'Protocol: auto|tcp|http|https', 'auto')
+  .option('--protocol <type>', 'Protocol: auto|tcp|udp|http|https', 'auto')
+  .option('--tcp', 'Use TCP protocol (shortcut for --protocol tcp)')
+  .option('--udp', 'Use UDP protocol (shortcut for --protocol udp)')
   .option('--check', 'Only run diagnostics, do not create tunnel')
   .option('--json', 'Output as JSON')
   .option('-c, --config <path>', 'Config file path')
@@ -201,6 +203,9 @@ program
   .option('--ttl <duration>', 'Share link TTL: 30m, 1h, 24h, 7d (default: 30m)', '30m')
   .action(async (target, options) => {
     if (options.config) setConfigPath(options.config);
+    // Handle protocol shortcuts
+    if (options.tcp) options.protocol = 'tcp';
+    if (options.udp) options.protocol = 'udp';
     await connectCommand(target, options);
   });
 
@@ -224,7 +229,9 @@ program
   .option('-n, --name <name>', 'Service name', 'default')
   .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-k, --api-key <key>', 'Workspace API key')
-  .option('-p, --protocol <protocol>', 'Protocol hint: auto|tcp|http|https', 'auto')
+  .option('-p, --protocol <protocol>', 'Protocol hint: auto|tcp|udp|http|https', 'auto')
+  .option('--tcp', 'Use TCP protocol (shortcut for --protocol tcp)')
+  .option('--udp', 'Use UDP protocol (shortcut for --protocol udp)')
   .option('--public', 'Make service publicly accessible via URL (for webhooks)')
   .option('-d, --debug', 'Enable debug mode with shareable live traffic viewer')
   .option('--ai', 'Enable AI Copilot for debug session (requires --debug)')
@@ -233,6 +240,9 @@ program
     if (options.config) setConfigPath(options.config);
     // Map --ai to aiEnabled for the expose command
     if (options.ai) options.aiEnabled = true;
+    // Handle protocol shortcuts
+    if (options.tcp) options.protocol = 'tcp';
+    if (options.udp) options.protocol = 'udp';
     exposeCommand(target, options);
   });
 

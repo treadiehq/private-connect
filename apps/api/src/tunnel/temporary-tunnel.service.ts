@@ -2,9 +2,10 @@ import { Injectable, Inject, forwardRef, OnModuleDestroy } from '@nestjs/common'
 import { SecureLogger } from '../common/security';
 import { DebugService } from '../debug/debug.service';
 import * as net from 'net';
+import * as dgram from 'dgram';
 import { randomBytes } from 'crypto';
 
-type TunnelType = 'http' | 'tcp';
+type TunnelType = 'http' | 'tcp' | 'udp';
 
 interface TemporaryTunnel {
   tunnelId: string;
@@ -20,6 +21,9 @@ interface TemporaryTunnel {
   // TCP-specific
   tcpPort?: number;
   tcpServer?: net.Server;
+  // UDP-specific
+  udpPort?: number;
+  udpServer?: dgram.Socket;
   // Debug session for packet capture
   debugSessionId?: string;
 }
@@ -99,6 +103,11 @@ export class TemporaryTunnelService implements OnModuleDestroy {
       // Close TCP server if exists
       if (tunnel.tcpServer) {
         tunnel.tcpServer.close();
+      }
+
+      // Close UDP server if exists
+      if (tunnel.udpServer) {
+        tunnel.udpServer.close();
       }
 
       // End linked debug session
@@ -212,6 +221,114 @@ export class TemporaryTunnelService implements OnModuleDestroy {
     this.logger.log(`Created TCP temporary tunnel ${tunnelId} on port ${tcpPort}, expires at ${expiresAt.toISOString()}`);
     
     return tunnel;
+  }
+
+  /**
+   * Create a new UDP temporary tunnel with dynamic port allocation
+   */
+  async createUdpTunnel(tunnelId: string, localHost: string, localPort: number, ttlMinutes: number): Promise<TemporaryTunnel> {
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + ttlMinutes * 60 * 1000);
+    
+    // Allocate a port (reuse TCP port range for UDP)
+    const udpPort = await this.allocatePort();
+    if (!udpPort) {
+      throw new Error('No available ports for UDP tunnel');
+    }
+    
+    const tunnel: TemporaryTunnel = {
+      tunnelId,
+      type: 'udp',
+      localHost,
+      localPort,
+      createdAt: now,
+      expiresAt,
+      socket: null,
+      requestCount: 0,
+      udpPort,
+    };
+    
+    this.tunnels.set(tunnelId, tunnel);
+    this.logger.log(`Created UDP temporary tunnel ${tunnelId} on port ${udpPort}, expires at ${expiresAt.toISOString()}`);
+    
+    return tunnel;
+  }
+
+  /**
+   * Start UDP server for a tunnel (called after CLI connects)
+   */
+  async startUdpServer(tunnelId: string): Promise<void> {
+    const tunnel = this.getTunnel(tunnelId);
+    if (!tunnel || tunnel.type !== 'udp' || !tunnel.udpPort) {
+      throw new Error('UDP tunnel not found');
+    }
+    
+    if (tunnel.udpServer) {
+      return; // Already running
+    }
+    
+    return new Promise((resolve, reject) => {
+      const server = dgram.createSocket('udp4');
+      
+      server.on('error', (err) => {
+        this.logger.error(`UDP server error for tunnel ${tunnelId}: ${err.message}`);
+        server.close();
+        reject(err);
+      });
+      
+      server.on('message', (msg, rinfo) => {
+        this.handleUdpDatagram(tunnelId, msg, rinfo);
+      });
+      
+      server.bind(tunnel.udpPort, '0.0.0.0', () => {
+        this.logger.log(`UDP server started for tunnel ${tunnelId} on port ${tunnel.udpPort}`);
+        tunnel.udpServer = server;
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * Handle incoming UDP datagram
+   */
+  private handleUdpDatagram(tunnelId: string, msg: Buffer, rinfo: dgram.RemoteInfo): void {
+    const tunnel = this.getTunnel(tunnelId);
+    if (!tunnel || !tunnel.socket?.connected) {
+      this.logger.warn(`UDP datagram rejected: tunnel ${tunnelId} not connected`);
+      return;
+    }
+    
+    tunnel.requestCount++;
+    
+    // Create session ID for tracking responses
+    const sessionId = `${rinfo.address}:${rinfo.port}-${Date.now()}`;
+    
+    this.logger.debug(`UDP datagram from ${rinfo.address}:${rinfo.port} for tunnel ${tunnelId} (${msg.length} bytes)`);
+    
+    // Forward to CLI
+    tunnel.socket.emit('udp_datagram', {
+      sessionId,
+      data: msg.toString('base64'),
+      remoteAddress: rinfo.address,
+      remotePort: rinfo.port,
+    });
+  }
+
+  /**
+   * Send UDP response back to client
+   */
+  sendUdpResponse(tunnelId: string, remoteAddress: string, remotePort: number, data: Buffer): void {
+    const tunnel = this.getTunnel(tunnelId);
+    if (!tunnel || !tunnel.udpServer) {
+      this.logger.warn(`Cannot send UDP response: tunnel ${tunnelId} not found or no UDP server`);
+      return;
+    }
+    
+    tunnel.udpServer.send(data, remotePort, remoteAddress, (err) => {
+      if (err) {
+        this.logger.error(`UDP send error for tunnel ${tunnelId}: ${err.message}`);
+      }
+    });
   }
 
   /**
@@ -593,6 +710,14 @@ export class TemporaryTunnelService implements OnModuleDestroy {
           this.releasePort(tunnel.tcpPort);
         }
         
+        // Close UDP server if exists
+        if (tunnel.udpServer) {
+          tunnel.udpServer.close();
+        }
+        if (tunnel.udpPort) {
+          this.releasePort(tunnel.udpPort);
+        }
+        
         // Release subdomain
         if (tunnel.subdomain) {
           this.usedSubdomains.delete(tunnel.subdomain);
@@ -639,6 +764,13 @@ export class TemporaryTunnelService implements OnModuleDestroy {
     }
     if (tunnel.tcpPort) {
       this.releasePort(tunnel.tcpPort);
+    }
+    
+    if (tunnel.udpServer) {
+      tunnel.udpServer.close();
+    }
+    if (tunnel.udpPort) {
+      this.releasePort(tunnel.udpPort);
     }
     
     // Release subdomain

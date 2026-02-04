@@ -10,6 +10,7 @@
  */
 
 import * as net from 'net';
+import * as dgram from 'dgram';
 import * as tls from 'tls';
 import * as https from 'https';
 import * as http from 'http';
@@ -296,6 +297,7 @@ ${c.bold}Examples:${c.reset}
   npx private-connect tunnel 3000
   npx private-connect tunnel localhost:8080
   npx private-connect tunnel 4096 --tcp
+  npx private-connect tunnel 27015 --udp
   npx private-connect list
   npx private-connect close abc123
   npx private-connect setup-openclaw
@@ -304,7 +306,7 @@ ${c.bold}Examples:${c.reset}
 ${c.bold}Tunnel:${c.reset}
   • No signup required
   • Auto-expires in 2 hours
-  • HTTP or raw TCP (--tcp flag)
+  • HTTP, TCP (--tcp), or UDP (--udp)
 
 ${c.bold}Test:${c.reset}
   • TCP reachability
@@ -333,29 +335,44 @@ interface TunnelOptions {
   port: number;
   ttl?: number; // minutes, default 120
   tcp?: boolean; // raw TCP mode instead of HTTP
+  udp?: boolean; // raw UDP mode instead of HTTP
 }
 
 async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
-  const { host, port, ttl = 120, tcp = false } = options;
-  const tunnelType = tcp ? 'tcp' : 'http';
+  const { host, port, ttl = 120, tcp = false, udp = false } = options;
+  const tunnelType = udp ? 'udp' : (tcp ? 'tcp' : 'http');
   
   console.log();
-  console.log(`${c.bold}Private Connect${c.reset} - Temporary ${tcp ? 'TCP ' : ''}Tunnel`);
+  console.log(`${c.bold}Private Connect${c.reset} - Temporary ${udp ? 'UDP ' : tcp ? 'TCP ' : ''}Tunnel`);
   console.log(`${c.gray}────────────────────────────────────${c.reset}`);
   console.log();
   
   // Check if local service is running
   process.stdout.write(`  Checking ${c.cyan}${host}:${port}${c.reset}... `);
-  const localCheck = await testTcp(host, port, 2000);
-  if (!localCheck.ok) {
-    console.log(`${fail}`);
-    console.log();
-    console.log(`  ${c.red}Cannot connect to ${host}:${port}${c.reset}`);
-    console.log(`  ${c.gray}Make sure your service is running${c.reset}`);
-    console.log();
-    process.exit(1);
+  
+  if (udp) {
+    // For UDP, we can't really test connectivity without sending data
+    // Just verify it's a valid port
+    if (port < 1 || port > 65535) {
+      console.log(`${fail}`);
+      console.log();
+      console.log(`  ${c.red}Invalid port: ${port}${c.reset}`);
+      console.log();
+      process.exit(1);
+    }
+    console.log(`${ok} ${c.dim}(UDP - assuming service is ready)${c.reset}`);
+  } else {
+    const localCheck = await testTcp(host, port, 2000);
+    if (!localCheck.ok) {
+      console.log(`${fail}`);
+      console.log();
+      console.log(`  ${c.red}Cannot connect to ${host}:${port}${c.reset}`);
+      console.log(`  ${c.gray}Make sure your service is running${c.reset}`);
+      console.log();
+      process.exit(1);
+    }
+    console.log(`${ok}`);
   }
-  console.log(`${ok}`);
   
   // Generate a temporary tunnel ID
   const tunnelId = randomBytes(6).toString('hex');
@@ -399,7 +416,7 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
     const data = JSON.parse(response.body) as { 
       tunnel: { 
         tunnelId: string; 
-        type: 'http' | 'tcp';
+        type: 'http' | 'tcp' | 'udp';
         publicUrl: string; 
         subdomain?: string;
         wsUrl: string; 
@@ -407,6 +424,8 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
         ttlMinutes: number;
         tcpHost?: string;
         tcpPort?: number;
+        udpHost?: string;
+        udpPort?: number;
       } 
     };
     
@@ -457,6 +476,9 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
     if (data.tunnel.type === 'tcp' && data.tunnel.tcpHost && data.tunnel.tcpPort) {
       console.log(`  ${c.bold}Connect:${c.reset} ${c.cyan}${data.tunnel.tcpHost}:${data.tunnel.tcpPort}${c.reset}`);
     }
+    if (data.tunnel.type === 'udp' && data.tunnel.udpHost && data.tunnel.udpPort) {
+      console.log(`  ${c.bold}Connect:${c.reset} ${c.cyan}${data.tunnel.udpHost}:${data.tunnel.udpPort}${c.reset} ${c.dim}(UDP)${c.reset}`);
+    }
     console.log(`  ${c.bold}Expires:${c.reset} ${data.tunnel.ttlMinutes} minutes`);
     console.log();
     console.log(`${c.gray}────────────────────────────────────${c.reset}`);
@@ -465,7 +487,9 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
     console.log();
     
     // Keep connection alive and handle incoming requests
-    if (data.tunnel.type === 'tcp') {
+    if (data.tunnel.type === 'udp') {
+      await runUdpTunnelProxy(data.tunnel.tunnelId, wsUrl, host, port);
+    } else if (data.tunnel.type === 'tcp') {
       await runTcpTunnelProxy(data.tunnel.tunnelId, wsUrl, host, port);
     } else {
       await runTunnelProxy(data.tunnel.tunnelId, wsUrl, host, port);
@@ -824,6 +848,129 @@ async function runTcpTunnelProxy(tunnelId: string, wsUrl: string, localHost: str
   });
 }
 
+/**
+ * Run UDP tunnel proxy - forward UDP datagrams
+ */
+async function runUdpTunnelProxy(tunnelId: string, wsUrl: string, localHost: string, localPort: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const url = new URL(wsUrl.replace('ws://', 'http://').replace('wss://', 'https://'));
+    const baseUrl = `${url.protocol}//${url.host}`;
+    const namespace = url.pathname || '/temp-tunnel';
+    
+    const socket = io(`${baseUrl}${namespace}`, {
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+    });
+
+    // Create local UDP socket for forwarding to local service
+    const localUdpSocket = dgram.createSocket('udp4');
+    
+    // Track UDP "sessions" by remote address for response routing
+    // sessionId -> { remoteInfo from server }
+    const sessions = new Map<string, { address: string; port: number }>();
+    
+    let packetCount = 0;
+
+    socket.on('connect', () => {
+      socket.emit('register', { tunnelId }, (response: { success: boolean; error?: string }) => {
+        if (!response.success) {
+          console.log(`  ${c.red}Failed to register: ${response.error}${c.reset}`);
+          socket.disconnect();
+          resolve();
+        }
+      });
+    });
+
+    socket.on('disconnect', (reason) => {
+      localUdpSocket.close();
+      if (reason === 'io server disconnect') {
+        console.log(`  ${c.yellow}Tunnel expired or closed by server${c.reset}`);
+      }
+    });
+
+    socket.on('tunnel_expired', () => {
+      console.log();
+      console.log(`  ${c.yellow}Tunnel expired${c.reset}`);
+      console.log();
+      localUdpSocket.close();
+      socket.disconnect();
+      resolve();
+    });
+
+    socket.on('server_shutdown', (data: { reason?: string; message?: string; reconnectIn?: number }) => {
+      console.log();
+      console.log(`  ${c.yellow}⚠ Server shutting down${c.reset}`);
+      if (data.message) {
+        console.log(`  ${c.dim}${data.message}${c.reset}`);
+      }
+      if (data.reconnectIn) {
+        console.log(`  ${c.dim}Reconnect in ${data.reconnectIn} seconds...${c.reset}`);
+      }
+      console.log();
+    });
+
+    // Handle incoming UDP datagram from server (from remote client)
+    socket.on('udp_datagram', (data: { 
+      sessionId: string; 
+      data: string; 
+      remoteAddress: string; 
+      remotePort: number;
+    }) => {
+      packetCount++;
+      const timestamp = new Date().toLocaleTimeString();
+      console.log(`  ${c.gray}[${timestamp}]${c.reset} ${c.cyan}UDP${c.reset} ← ${data.remoteAddress}:${data.remotePort} (${Buffer.from(data.data, 'base64').length} bytes)`);
+
+      // Store session info for response routing
+      sessions.set(data.sessionId, { address: data.remoteAddress, port: data.remotePort });
+
+      // Forward to local UDP service
+      const buffer = Buffer.from(data.data, 'base64');
+      localUdpSocket.send(buffer, localPort, localHost, (err) => {
+        if (err) {
+          console.log(`  ${c.red}UDP send error: ${err.message}${c.reset}`);
+        }
+      });
+    });
+
+    // Handle response from local UDP service
+    localUdpSocket.on('message', (msg: Buffer, rinfo: dgram.RemoteInfo) => {
+      const timestamp = new Date().toLocaleTimeString();
+      console.log(`  ${c.gray}[${timestamp}]${c.reset} ${c.cyan}UDP${c.reset} → response (${msg.length} bytes)`);
+
+      // Find the most recent session to send response to
+      // In practice, you might need more sophisticated session tracking
+      const lastSession = Array.from(sessions.entries()).pop();
+      if (lastSession) {
+        socket.emit('udp_response', {
+          sessionId: lastSession[0],
+          data: msg.toString('base64'),
+        });
+      }
+    });
+
+    localUdpSocket.on('error', (err) => {
+      console.log(`  ${c.red}Local UDP socket error: ${err.message}${c.reset}`);
+    });
+
+    // Bind local socket to receive responses
+    localUdpSocket.bind();
+
+    // Handle shutdown
+    process.on('SIGINT', () => {
+      console.log();
+      console.log(`  ${c.yellow}Tunnel closed${c.reset}`);
+      console.log(`  ${c.gray}Handled ${packetCount} UDP packets${c.reset}`);
+      console.log();
+      
+      localUdpSocket.close();
+      socket.disconnect();
+      resolve();
+    });
+  });
+}
+
 function parseTunnelTarget(target: string): { host: string; port: number } {
   // Handle just port number
   if (/^\d+$/.test(target)) {
@@ -1149,11 +1296,19 @@ if (args[0] === 'test' || args[0] === 'check') {
     console.error(`Usage: npx private-connect tunnel <port>`);
     console.error(`       npx private-connect tunnel localhost:3000`);
     console.error(`       npx private-connect tunnel 4096 --tcp`);
+    console.error(`       npx private-connect tunnel 27015 --udp`);
     process.exit(1);
   }
   const { host, port } = parseTunnelTarget(args[1]);
   const tcp = args.includes('--tcp') || args.includes('-t');
-  createTemporaryTunnel({ host, port, tcp }).catch(console.error);
+  const udp = args.includes('--udp') || args.includes('-u');
+  
+  if (tcp && udp) {
+    console.error(`${c.red}Error: Cannot use both --tcp and --udp${c.reset}`);
+    process.exit(1);
+  }
+  
+  createTemporaryTunnel({ host, port, tcp, udp }).catch(console.error);
 } else if (args[0] === 'list' || args[0] === 'ls') {
   listTunnels().catch(console.error);
 } else if (args[0] === 'close' || args[0] === 'kill') {

@@ -32,7 +32,7 @@ const CreateTunnelSchema = z.object({
     }),
   ]),
   name: z.string().min(1).max(100).optional(),
-  protocol: z.enum(['auto', 'tcp', 'http', 'https']).optional(),
+  protocol: z.enum(['auto', 'tcp', 'udp', 'http', 'https']).optional(),
   agentId: z.string().uuid(),
   isPublic: z.boolean().optional(),
 });
@@ -117,7 +117,7 @@ export class TunnelsController {
           description: 'Target service to expose',
         },
         name: { type: 'string', example: 'prod-db', description: 'Optional name (auto-generated if not provided)' },
-        protocol: { type: 'string', enum: ['auto', 'tcp', 'http', 'https'], default: 'auto' },
+        protocol: { type: 'string', enum: ['auto', 'tcp', 'udp', 'http', 'https'], default: 'auto' },
         agentId: { type: 'string', format: 'uuid', description: 'Agent that will expose this service' },
         isPublic: { type: 'boolean', default: false, description: 'Make publicly accessible via URL' },
       },

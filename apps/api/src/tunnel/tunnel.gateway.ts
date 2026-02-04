@@ -147,7 +147,7 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('expose')
   async handleExpose(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { serviceId: string; serviceName: string; tunnelPort: number; targetHost: string; targetPort: number },
+    @MessageBody() data: { serviceId: string; serviceName: string; tunnelPort: number; targetHost: string; targetPort: number; protocol?: string },
   ) {
     const agentId = this.socketToAgent.get(client.id);
     if (!agentId) {
@@ -155,15 +155,28 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      await this.tunnelService.startTunnelListener(
-        agentId,
-        data.serviceId,
-        data.serviceName,
-        data.tunnelPort,
-        data.targetHost,
-        data.targetPort,
-      );
-      this.logger.log(`Started tunnel for ${data.serviceName} on port ${data.tunnelPort}`);
+      // Use UDP listener for UDP protocol, TCP listener for everything else
+      if (data.protocol === 'udp') {
+        await this.tunnelService.startUdpTunnelListener(
+          agentId,
+          data.serviceId,
+          data.serviceName,
+          data.tunnelPort,
+          data.targetHost,
+          data.targetPort,
+        );
+        this.logger.log(`Started UDP tunnel for ${data.serviceName} on port ${data.tunnelPort}`);
+      } else {
+        await this.tunnelService.startTunnelListener(
+          agentId,
+          data.serviceId,
+          data.serviceName,
+          data.tunnelPort,
+          data.targetHost,
+          data.targetPort,
+        );
+        this.logger.log(`Started TCP tunnel for ${data.serviceName} on port ${data.tunnelPort}`);
+      }
       return { success: true };
     } catch (error: unknown) {
       const err = error as Error;
@@ -223,6 +236,28 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     this.tunnelService.handleAgentClose(data.connectionId, agentId);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // UDP Tunnel Events
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Handle UDP response from agent - forward datagram back to original client
+   */
+  @SubscribeMessage('udp_response')
+  handleUdpResponse(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { sessionId: string; serviceId: string; data: string },
+  ) {
+    const agentId = this.socketToAgent.get(client.id);
+    if (!agentId) {
+      this.logger.warn('UDP response from unregistered socket');
+      return;
+    }
+
+    const buffer = Buffer.from(data.data, 'base64');
+    this.tunnelService.handleUdpResponse(agentId, data.serviceId, data.sessionId, buffer);
   }
 
   /**

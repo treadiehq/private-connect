@@ -6,7 +6,7 @@ import { SharesService } from '../shares/shares.service';
 export interface CreateTunnelDto {
   target: string | { host: string; port: number };
   name?: string;
-  protocol?: 'auto' | 'tcp' | 'http' | 'https';
+  protocol?: 'auto' | 'tcp' | 'udp' | 'http' | 'https';
   agentId: string;
   isPublic?: boolean;
 }

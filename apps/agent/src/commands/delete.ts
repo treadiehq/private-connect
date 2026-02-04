@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { getConfig } from '../config';
+import { loadConfig } from '../config';
 import inquirer from 'inquirer';
 
 const HUB_URL = process.env.CONNECT_HUB_URL || 'https://api.privateconnect.co';
@@ -11,9 +11,9 @@ interface DeleteOptions {
 
 export async function deleteCommand(serviceName: string, options: DeleteOptions) {
   const hubUrl = options.hub || HUB_URL;
-  const config = getConfig();
+  const config = loadConfig();
 
-  if (!config.apiKey) {
+  if (!config || !config.apiKey) {
     console.log(chalk.red('\n  Not authenticated. Run: connect up\n'));
     process.exit(1);
   }

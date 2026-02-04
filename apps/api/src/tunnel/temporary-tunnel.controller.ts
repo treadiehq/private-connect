@@ -14,7 +14,7 @@ interface CreateTunnelDto {
   localHost: string;
   localPort: number;
   ttlMinutes?: number;
-  type?: 'http' | 'tcp';
+  type?: 'http' | 'tcp' | 'udp';
 }
 
 @Controller()
@@ -153,6 +153,33 @@ export class TemporaryTunnelController implements OnModuleInit {
           tcpHost: hubHost,
           tcpPort: tunnel.tcpPort,
           publicUrl: `tcp://${hubHost}:${tunnel.tcpPort}`,
+          wsUrl: `${HUB_URL.replace('http', 'ws')}/temp-tunnel`,
+          expiresAt: tunnel.expiresAt.toISOString(),
+          ttlMinutes,
+        },
+      };
+    }
+    
+    if (tunnelType === 'udp') {
+      // Create UDP tunnel with dynamic port
+      const tunnel = await this.tempTunnelService.createUdpTunnel(
+        tunnelId,
+        body.localHost,
+        body.localPort,
+        ttlMinutes,
+      );
+      
+      // Get the hub host for UDP connection
+      const hubHost = new URL(HUB_URL).hostname;
+      
+      return {
+        success: true,
+        tunnel: {
+          tunnelId: tunnel.tunnelId,
+          type: 'udp',
+          udpHost: hubHost,
+          udpPort: tunnel.udpPort,
+          publicUrl: `udp://${hubHost}:${tunnel.udpPort}`,
           wsUrl: `${HUB_URL.replace('http', 'ws')}/temp-tunnel`,
           expiresAt: tunnel.expiresAt.toISOString(),
           ttlMinutes,

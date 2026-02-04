@@ -536,7 +536,7 @@ export class AgentsController {
           properties: {
             target: { type: 'string', description: 'For expose/reach: target host:port or service name' },
             name: { type: 'string', description: 'For expose: service name' },
-            protocol: { type: 'string', enum: ['auto', 'tcp', 'http', 'https'] },
+            protocol: { type: 'string', enum: ['auto', 'tcp', 'udp', 'http', 'https'] },
             isPublic: { type: 'boolean' },
           },
         },

@@ -48,3 +48,7 @@ apps/agent/bin/
 ME.md
 HN.md
 archived
+
+scripts/demo-server.js
+scripts/test-udp-server.js
+scripts/test-udp-client.js

@@ -67,6 +67,17 @@ export class TemporaryTunnelGateway implements OnGatewayConnection, OnGatewayDis
         }
       }
       
+      // Start UDP server if this is a UDP tunnel
+      if (tunnel?.type === 'udp') {
+        try {
+          await this.tempTunnelService.startUdpServer(data.tunnelId);
+          return { success: true, udpServerStarted: true };
+        } catch (err: any) {
+          this.logger.error(`Failed to start UDP server: ${err.message}`);
+          return { success: true, udpServerStarted: false, error: err.message };
+        }
+      }
+      
       return { success: true };
     }
     
@@ -150,6 +161,38 @@ export class TemporaryTunnelGateway implements OnGatewayConnection, OnGatewayDis
     @MessageBody() data: { connectionId: string },
   ) {
     this.tempTunnelService.handleTcpClose(data.connectionId);
+    return { success: true };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // UDP Tunnel Events
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * CLI sends UDP response back (response from local service)
+   */
+  @SubscribeMessage('udp_response')
+  handleUdpResponse(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { sessionId: string; data: string },
+  ) {
+    // sessionId format: "address:port-timestamp"
+    const parts = data.sessionId.split('-');
+    const addressPort = parts.slice(0, -1).join('-');
+    const [remoteAddress, remotePortStr] = addressPort.split(':');
+    const remotePort = parseInt(remotePortStr, 10);
+    
+    // Get tunnel ID from socket
+    const tunnelId = this.socketToTunnel.get(client.id);
+    if (!tunnelId) {
+      this.logger.warn(`Socket ${client.id} sent UDP response without registered tunnel`);
+      return { success: false, error: 'Not registered' };
+    }
+    
+    // Decode and send response
+    const buffer = Buffer.from(data.data, 'base64');
+    this.tempTunnelService.sendUdpResponse(tunnelId, remoteAddress, remotePort, buffer);
+    
     return { success: true };
   }
 }

@@ -1,5 +1,6 @@
 import { io } from 'socket.io-client';
 import chalk from 'chalk';
+import * as dgram from 'dgram';
 import { loadConfig, ensureConfig } from '../config';
 import { enforceSecureConnection, handleTokenExpiry, handleSecurityEvent, SecurityError } from '../security';
 
@@ -190,6 +191,7 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
       tunnelPort: service.tunnelPort,
       targetHost: host,
       targetPort: port,
+      protocol: options.protocol,
     }, async (response: { success: boolean; error?: string }) => {
       if (response.success) {
         console.log(chalk.green('[ok] Tunnel established'));
@@ -260,8 +262,69 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
     }
   });
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // UDP handling
+  // ─────────────────────────────────────────────────────────────────────────────
+  
+  // Create a local UDP socket for forwarding to the local service
+  let udpSocket: dgram.Socket | null = null;
+  const udpSessions = new Map<string, { remoteAddress: string; remotePort: number }>();
+  
+  // Only create UDP socket if protocol is UDP
+  if (options.protocol === 'udp') {
+    udpSocket = dgram.createSocket('udp4');
+    
+    udpSocket.on('error', (err) => {
+      console.log(chalk.red(`   UDP socket error: ${err.message}`));
+    });
+    
+    // Handle responses from local UDP service
+    udpSocket.on('message', (msg: Buffer, rinfo: dgram.RemoteInfo) => {
+      // Find the most recent session to route response
+      const lastSession = Array.from(udpSessions.entries()).pop();
+      if (lastSession) {
+        socket.emit('udp_response', {
+          sessionId: lastSession[0],
+          data: msg.toString('base64'),
+        });
+        console.log(chalk.gray(`   → UDP response (${msg.length} bytes)`));
+      }
+    });
+    
+    udpSocket.bind(); // Bind to random port for sending
+  }
+  
+  // Handle incoming UDP datagrams from hub
+  socket.on('udp_datagram', (data: { 
+    sessionId: string; 
+    data: string; 
+    remoteAddress: string; 
+    remotePort: number;
+  }) => {
+    if (!udpSocket) {
+      console.log(chalk.yellow('   [!] Received UDP datagram but no UDP socket initialized'));
+      return;
+    }
+    
+    const buffer = Buffer.from(data.data, 'base64');
+    console.log(chalk.gray(`   ← UDP datagram from ${data.remoteAddress}:${data.remotePort} (${buffer.length} bytes)`));
+    
+    // Store session for response routing
+    udpSessions.set(data.sessionId, { remoteAddress: data.remoteAddress, remotePort: data.remotePort });
+    
+    // Forward to local UDP service
+    udpSocket.send(buffer, port, host, (err) => {
+      if (err) {
+        console.log(chalk.red(`   UDP send error: ${err.message}`));
+      }
+    });
+  });
+
   socket.on('disconnect', () => {
     console.log(chalk.yellow('[!] Disconnected from hub'));
+    if (udpSocket) {
+      udpSocket.close();
+    }
   });
 
   // Handle process signals

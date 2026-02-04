@@ -2,6 +2,15 @@
 
 Zero-friction connectivity tools. No signup required.
 
+## Installation
+
+```bash
+npm i private-connect          # add to your project
+npm i -g private-connect       # install globally
+```
+
+**Run it:** after a global install use `private-connect`; after a local install use `npx private-connect`. Or run without installing: `npx private-connect <command>`.
+
 ## Quick Start
 
 ```bash
@@ -53,7 +62,7 @@ Private Connect - Temporary Tunnel
 ────────────────────────────────────
 
   Local:   localhost:3000
-  Public:  https://privateconnect.co/w/abc12345
+  Public:  https://abc12345.privateconnect.co
            Anyone can access this URL
   Inspector: https://privateconnect.co/debug/s-xyz789
            Live traffic monitoring & request replay
@@ -62,6 +71,20 @@ Private Connect - Temporary Tunnel
 ────────────────────────────────────
 
   Press Ctrl+C to stop
+```
+
+**TCP/UDP Tunnels:**
+```bash
+npx private-connect tunnel 5432 --tcp    # TCP tunnel (databases, etc.)
+npx private-connect tunnel 27015 --udp   # UDP tunnel (game servers, etc.)
+```
+
+TCP/UDP output shows connection details:
+```
+  Local:   localhost:5432
+  Public:  tcp://api.privateconnect.co:40001
+  Connect: api.privateconnect.co:40001
+  Expires: 120 minutes
 ```
 
 **Sharing:**
@@ -73,7 +96,7 @@ Private Connect - Temporary Tunnel
 - No signup or account required
 - Auto-expires in 2 hours
 - Real-time request logging
-- Works with any HTTP service
+- Works with HTTP, TCP, and UDP services
 - **Shareable URLs** - The public URL shows your actual website, perfect for demos and testing
 
 ### `setup-openclaw` - One-command OpenClaw setup
