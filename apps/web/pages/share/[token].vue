@@ -206,12 +206,11 @@
           <!-- Response Body -->
           <div class="bg-gray-500/5 rounded-xl border border-gray-500/10 overflow-hidden">
             <pre v-if="httpResponse.isJSON" class="p-4 text-sm text-gray-300 font-mono overflow-x-auto">{{ JSON.stringify(httpResponse.body, null, 2) }}</pre>
-            <div v-else-if="httpResponse.isHTML" class="p-4">
-              <div class="text-xs text-gray-500 mb-2">HTML Preview</div>
+            <div v-else-if="httpResponse.isHTML" class="p-0">
               <iframe 
-                :srcdoc="httpResponse.body" 
-                class="w-full h-96 bg-white rounded-lg"
-                sandbox=""
+                :src="getProxyUrl()"
+                class="w-full h-[600px] bg-white rounded-lg"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
               ></iframe>
             </div>
             <pre v-else class="p-4 text-sm text-gray-300 font-mono overflow-x-auto">{{ httpResponse.body }}</pre>
@@ -448,9 +447,13 @@ const formatSize = (body: any): string => {
   return `${(size / 1024 / 1024).toFixed(1)} MB`;
 };
 
-const openInNewTab = () => {
+const getProxyUrl = () => {
   const config = useRuntimeConfig();
-  window.open(`${config.public.apiBase}/shared/${token.value}${httpPath.value}`, '_blank');
+  return `${config.public.apiBase}/shared/${token.value}${httpPath.value}`;
+};
+
+const openInNewTab = () => {
+  window.open(getProxyUrl(), '_blank');
 };
 
 onMounted(async () => {
