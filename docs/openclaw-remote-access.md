@@ -160,7 +160,7 @@ Running a team OpenClaw? Share access securely:
 connect link openclaw --expires 7d
 
 # Output:
-# https://link.privateconnect.co/share/abc123
+# https://abc123xyz.privateconnect.co
 # Share this link with your team
 ```
 

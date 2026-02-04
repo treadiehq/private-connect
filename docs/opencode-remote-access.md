@@ -133,7 +133,7 @@ Running a team OpenCode server? Share access securely:
 connect link opencode --expires 7d
 
 # Output:
-# https://link.privateconnect.co/share/abc123
+# https://abc123xyz.privateconnect.co
 # Share this link with your team
 ```
 

@@ -316,13 +316,13 @@ Contributors need to run your frontend locally, but it requires your production 
 ```bash
 # Maintainer creates a public link
 connect link api --expires 30d --methods GET,POST --paths /api/v1
-# → https://link.privateconnect.co/share_abc123...
+# → https://abc123xyz.privateconnect.co
 ```
 
 **Contributor just uses it:**
 ```bash
 # .env.local (no secrets!)
-API_URL=https://link.privateconnect.co/share_abc123...
+API_URL=https://abc123xyz.privateconnect.co
 
 # Run frontend
 bun dev

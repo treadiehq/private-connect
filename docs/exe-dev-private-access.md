@@ -142,7 +142,7 @@ Or create a shareable link:
 
 ```bash
 connect link prod-db --expires 7d
-# → https://link.privateconnect.co/share/abc123
+# → https://abc123xyz.privateconnect.co
 ```
 
 ## Integration with exe.dev AGENTS.md

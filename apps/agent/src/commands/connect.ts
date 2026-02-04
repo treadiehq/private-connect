@@ -318,11 +318,11 @@ async function createShareLink(
     }
     
     const share = await response.json() as { token: string; shareUrl?: string };
-    // Use the shareUrl from API if provided, otherwise construct from LINK_BASE_URL or default
-    const linkBase = process.env.LINK_BASE_URL || 'https://link.privateconnect.co';
+    // Use ngrok-style subdomain URL: {token}.privateconnect.co
+    const baseDomain = process.env.BASE_DOMAIN || 'privateconnect.co';
     const shareUrl = share.shareUrl?.startsWith('http') 
       ? share.shareUrl 
-      : `${linkBase}/share/${share.token}`;
+      : `https://${share.token}.${baseDomain}`;
     
     // Calculate human-readable TTL
     const minutes = Math.round((expiresAt.getTime() - Date.now()) / 60000);

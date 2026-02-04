@@ -23,6 +23,7 @@ npx private-connect test db.internal:5432
 
 # Quick tunnel (no signup, 2hr expiry)
 npx private-connect tunnel 3000
+# → https://abc123.privateconnect.co
 
 # Install for permanent tunnels
 curl -fsSL https://privateconnect.co/install.sh | bash

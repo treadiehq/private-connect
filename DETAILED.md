@@ -148,7 +148,7 @@ connect localhost:5432 --share --ttl=1h
 Output:
 ```
 Secure link created:
-https://link.privateconnect.co/share/abc123
+https://abc123xyz.privateconnect.co
 
 Expires in 1 hour
 ```
@@ -178,7 +178,7 @@ connect clone alice           # Clone their environment
 
 ```bash
 connect link api --expires 7d --methods GET
-# → https://link.privateconnect.co/share_abc123
+# → https://abc123xyz.privateconnect.co
 ```
 
 With restrictions:

@@ -248,7 +248,7 @@ export class SharesController {
 
   /**
    * Redirect /share/:token to the web app
-   * This allows link.privateconnect.co/share/:token to work
+   * Legacy route for backwards compatibility
    */
   @Get('share/:token')
   @ApiOperation({ summary: 'Redirect to share page', description: 'Redirects to the web app share page.' })
