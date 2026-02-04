@@ -312,7 +312,7 @@
                   Cancel
                 </button>
                 <button
-                  @click="deleteService"
+                  @click="handleDeleteService"
                   :disabled="deleting"
                   class="px-4 py-2 text-sm bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
                 >
@@ -920,19 +920,17 @@ const saveRename = async () => {
 };
 
 // Delete service
-const deleteService = async () => {
+const handleDeleteService = async () => {
   deleting.value = true;
   try {
-    const { $api } = useNuxtApp();
-    await $api(`/v1/services/${route.params.id}`, {
-      method: 'DELETE',
-    });
+    const { deleteService } = useApi();
+    await deleteService(route.params.id as string);
     success('Service deleted');
     showDeleteModal.value = false;
     // Navigate back to services list
     navigateTo('/services');
   } catch (err: any) {
-    showError(err?.data?.message || 'Failed to delete service');
+    showError(err?.message || 'Failed to delete service');
   } finally {
     deleting.value = false;
   }
