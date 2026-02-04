@@ -47,6 +47,7 @@ connect 5432 --share             # Get a shareable link
 | Access a service | `connect prod-db` |
 | Share with a teammate | `connect 5432 --share` |
 | Clone a teammate's setup | `connect clone alice` |
+| Delete a service | `connect delete my-service` |
 | Check status | `connect status` |
 
 Everything is automatic: auto-naming, background daemon, local DNS.

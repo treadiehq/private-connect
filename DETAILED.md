@@ -187,6 +187,16 @@ With restrictions:
 connect link api --paths /api/v1,/health --rate-limit 60
 ```
 
+### Delete Services
+
+```bash
+# Delete with confirmation
+connect delete my-old-service
+
+# Delete without confirmation
+connect delete my-old-service --force
+```
+
 ---
 
 ## CLI Reference
@@ -202,6 +212,7 @@ connect share                 # Share environment with teammates
 connect join <code>           # Join shared environment
 connect clone <teammate>      # Clone teammate's environment
 connect link <service>        # Create public URL
+connect delete <service>      # Delete a service
 connect proxy                 # Subdomain proxy (my-api.localhost:3000)
 connect daemon <action>       # Background daemon (install|status|logs)
 connect dev                   # Project dev mode (pconnect.yml)
@@ -246,6 +257,9 @@ connect logout                # Clear credentials
 -m, --methods <list>   GET,POST,PUT,DELETE
 -p, --paths <list>     /api,/health
 -r, --rate-limit <n>   Requests per minute
+
+# connect delete
+-f, --force            Skip confirmation prompt
 
 # connect daemon
 -r, --replace          Replace existing
