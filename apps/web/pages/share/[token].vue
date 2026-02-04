@@ -120,106 +120,44 @@
       </div>
     </div>
 
-    <!-- HTTP Service Preview -->
-    <div v-else-if="shareInfo && isHTTP" class="min-h-screen">
-      <!-- Top Bar -->
-      <div class="flex items-center justify-between px-6 py-3 bg-gray-500/5 border-b border-gray-500/10">
-        <div class="flex items-center gap-4">
-          <NuxtLink to="/" class="text-gray-500 hover:text-white transition-colors">
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-          </NuxtLink>
-          <div class="h-6 w-px bg-gray-500/20"></div>
-          <div>
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-medium text-white">{{ shareInfo.name }}</span>
-              <span class="text-xs bg-blue-300/10 text-blue-300 px-2 py-0.5 rounded-full border border-blue-300/20">
-                HTTP
-              </span>
-            </div>
-            <p class="text-xs text-gray-500">Shared by {{ shareInfo.workspaceName }}</p>
-          </div>
+    <!-- HTTP Service - Full Page View (ngrok-style) -->
+    <div v-else-if="shareInfo && isHTTP" class="h-screen w-screen overflow-hidden relative">
+      <!-- Full-page iframe -->
+      <iframe 
+        :src="getProxyUrl()"
+        class="absolute inset-0 w-full h-full border-0"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
+        allow="accelerometer; camera; encrypted-media; geolocation; gyroscope; microphone; midi; payment"
+      ></iframe>
+      
+      <!-- Minimal floating banner -->
+      <div 
+        v-if="showBanner"
+        class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2 bg-gray-900/95 backdrop-blur-sm rounded-full border border-gray-700/50 shadow-2xl"
+      >
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></div>
+          <span class="text-xs text-gray-300">{{ shareInfo.name }}</span>
         </div>
-        <div class="flex items-center gap-3">
-          <button 
-            @click="openInNewTab"
-            class="flex items-center gap-2 text-xs text-gray-500 hover:text-white transition-colors"
-          >
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-            <span>Open in new tab</span>
-          </button>
-          <a href="/" class="text-xs text-blue-300 hover:text-blue-400 transition-colors hidden sm:block">
-            Powered by Private Connect
-          </a>
-        </div>
-      </div>
-
-      <!-- URL Bar -->
-      <div class="px-6 py-3 bg-gray-500/5 border-b border-gray-500/10">
-        <div class="flex items-center gap-3 max-w-4xl mx-auto">
-          <div class="flex-1 flex items-center gap-2 bg-black/50 rounded-lg px-4 py-2 border border-gray-500/10">
-            <svg class="w-4 h-4 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-            <input 
-              v-model="httpPath"
-              @keydown.enter="loadPath"
-              class="flex-1 bg-transparent text-sm text-gray-300 focus:outline-none font-mono"
-              placeholder="/"
-            />
-          </div>
-          <button 
-            @click="loadPath"
-            :disabled="httpLoading"
-            class="px-4 py-2 bg-blue-300 text-black text-sm font-medium rounded-lg hover:bg-blue-200 disabled:opacity-50 transition-colors"
-          >
-            Go
-          </button>
-        </div>
-      </div>
-
-      <!-- Content Area -->
-      <div class="p-6">
-        <div v-if="httpLoading" class="flex items-center justify-center py-20">
-          <svg class="animate-spin h-6 w-6 text-blue-300" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        <div class="w-px h-4 bg-gray-700"></div>
+        <button 
+          @click="openInNewTab"
+          class="text-xs text-gray-400 hover:text-white transition-colors"
+        >
+          Open in new tab
+        </button>
+        <div class="w-px h-4 bg-gray-700"></div>
+        <a href="/" target="_blank" class="text-xs text-blue-300 hover:text-blue-400 transition-colors">
+          Private Connect
+        </a>
+        <button 
+          @click="showBanner = false"
+          class="text-gray-500 hover:text-white transition-colors ml-1"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
-        </div>
-
-        <div v-else-if="httpResponse" class="max-w-4xl mx-auto">
-          <!-- Response Header -->
-          <div class="flex items-center gap-3 mb-4">
-            <span 
-              class="text-xs font-medium px-2.5 py-1 rounded-full border"
-              :class="httpResponse.status < 400 ? 'bg-emerald-300/10 text-emerald-300 border-emerald-300/10' : 'bg-red-400/10 text-red-400 border-red-400/10'"
-            >
-              {{ httpResponse.status }} {{ httpResponse.statusText }}
-            </span>
-            <span class="text-xs text-gray-500">{{ httpResponse.contentType }}</span>
-            <span class="text-xs text-gray-500">{{ httpResponse.size }}</span>
-          </div>
-
-          <!-- Response Body -->
-          <div class="bg-gray-500/5 rounded-xl border border-gray-500/10 overflow-hidden">
-            <pre v-if="httpResponse.isJSON" class="p-4 text-sm text-gray-300 font-mono overflow-x-auto">{{ JSON.stringify(httpResponse.body, null, 2) }}</pre>
-            <div v-else-if="httpResponse.isHTML" class="p-0">
-              <iframe 
-                :src="getProxyUrl()"
-                class="w-full h-[600px] bg-white rounded-lg"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-              ></iframe>
-            </div>
-            <pre v-else class="p-4 text-sm text-gray-300 font-mono overflow-x-auto">{{ httpResponse.body }}</pre>
-          </div>
-        </div>
-
-        <div v-else class="text-center py-20 text-gray-500">
-          <p>Enter a path and click Go to load content</p>
-        </div>
+        </button>
       </div>
     </div>
 
@@ -337,6 +275,7 @@ const isConnected = ref(false);
 const httpPath = ref('/');
 const httpLoading = ref(false);
 const httpResponse = ref<HTTPResponse | null>(null);
+const showBanner = ref(true);
 
 // Database ports
 const DB_PORTS = [5432, 3306, 27017, 6379, 9200, 5984, 8529, 7687, 9042];
@@ -456,12 +395,8 @@ const openInNewTab = () => {
   window.open(getProxyUrl(), '_blank');
 };
 
-onMounted(async () => {
-  await loadShareInfo();
-  // Auto-load content for HTTP services
-  if (isHTTP.value && !error.value) {
-    loadPath();
-  }
+onMounted(() => {
+  loadShareInfo();
 });
 
 useHead({
