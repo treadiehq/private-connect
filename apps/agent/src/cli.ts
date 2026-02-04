@@ -15,6 +15,7 @@ import { mapCommand, mapStatusCommand } from './commands/map';
 import { daemonCommand } from './commands/daemon';
 import { devCommand, devInitCommand } from './commands/dev';
 import { linkCommand } from './commands/link';
+import { deleteCommand } from './commands/delete';
 import { doctorCommand, cleanupCommand, statusCommand } from './commands/doctor';
 import { shellInitCommand, shellSetupCommand } from './commands/shell';
 import { dnsCommand, serveDns } from './commands/dns';
@@ -274,6 +275,17 @@ program
   .action((service, options) => {
     if (options.config) setConfigPath(options.config);
     linkCommand(service, options);
+  });
+
+program
+  .command('delete <service>')
+  .description('Delete a service and stop all its tunnels')
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-f, --force', 'Skip confirmation prompt')
+  .option('-c, --config <path>', 'Config file path (for multiple agents)')
+  .action((service, options) => {
+    if (options.config) setConfigPath(options.config);
+    deleteCommand(service, options);
   });
 
 program

@@ -45,6 +45,17 @@
         </div>
         
         <div class="flex items-center gap-3">
+          <!-- Delete button -->
+          <button
+            @click="showDeleteModal = true"
+            class="flex items-center text-sm gap-2 px-4 py-2.5 bg-gray-500/10 hover:bg-red-500/20 border border-gray-500/10 hover:border-red-500/30 text-gray-400 hover:text-red-400 rounded-lg font-medium transition-all"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Delete
+          </button>
+
           <!-- Share button -->
           <button
             @click="showShareModal = true"
@@ -265,6 +276,47 @@
                   class="px-4 py-2 text-sm bg-blue-300 hover:bg-blue-400 disabled:opacity-50 disabled:cursor-not-allowed text-black rounded-lg font-medium transition-colors"
                 >
                   {{ savingRename ? 'Saving...' : 'Rename' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
+
+      <!-- Delete Confirmation Modal -->
+      <Teleport to="body">
+        <Transition name="modal">
+          <div 
+            v-if="showDeleteModal" 
+            class="fixed inset-0 z-50 flex items-center justify-center p-4"
+            @click.self="showDeleteModal = false"
+          >
+            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+            <div class="relative bg-black border border-gray-500/20 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+              <h3 class="text-lg font-semibold text-white mb-2">Delete Service</h3>
+              <p class="text-sm text-gray-400 mb-4">
+                Are you sure you want to delete <span class="text-white font-medium">{{ service.name }}</span>? This will stop all tunnels and remove the service permanently.
+              </p>
+              
+              <div class="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-6">
+                <p class="text-sm text-red-400">
+                  This action cannot be undone. All shares and diagnostics will also be deleted.
+                </p>
+              </div>
+              
+              <div class="flex items-center justify-end gap-3">
+                <button
+                  @click="showDeleteModal = false"
+                  class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  @click="deleteService"
+                  :disabled="deleting"
+                  class="px-4 py-2 text-sm bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+                >
+                  {{ deleting ? 'Deleting...' : 'Delete Service' }}
                 </button>
               </div>
             </div>
@@ -562,6 +614,10 @@ const renameError = ref('');
 const renameAvailable = ref(false);
 const checkingRename = ref(false);
 const savingRename = ref(false);
+
+// Delete modal state
+const showDeleteModal = ref(false);
+const deleting = ref(false);
 let renameDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Dynamic page title
@@ -860,6 +916,25 @@ const saveRename = async () => {
     }
   } finally {
     savingRename.value = false;
+  }
+};
+
+// Delete service
+const deleteService = async () => {
+  deleting.value = true;
+  try {
+    const { $api } = useNuxtApp();
+    await $api(`/v1/services/${route.params.id}`, {
+      method: 'DELETE',
+    });
+    success('Service deleted');
+    showDeleteModal.value = false;
+    // Navigate back to services list
+    navigateTo('/services');
+  } catch (err: any) {
+    showError(err?.data?.message || 'Failed to delete service');
+  } finally {
+    deleting.value = false;
   }
 };
 </script>
