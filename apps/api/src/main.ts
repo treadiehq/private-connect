@@ -67,39 +67,27 @@ async function bootstrap() {
   // Cookie parser for session handling
   app.use(cookieParser());
   
-  // Rewrite paths for link.privateconnect.co domain (ngrok-style)
-  // Supports two URL formats:
-  // 1. Subdomain style: {token}.link.privateconnect.co/* -> /shared/{token}/*
-  // 2. Path style: link.privateconnect.co/{token}/* -> /shared/{token}/*
+  // Rewrite paths for share subdomains (ngrok-style)
+  // Subdomain style: {token}.privateconnect.co/* -> /shared/{token}/*
+  // Known subdomains (api, www, link, app) are excluded
   app.use((req: any, res: any, next: any) => {
     const host = req.headers.host || '';
-    const linkDomain = process.env.LINK_DOMAIN || 'link.privateconnect.co';
+    const baseDomain = process.env.BASE_DOMAIN || 'privateconnect.co';
+    const knownSubdomains = ['api', 'www', 'link', 'app', 'mail', 'admin'];
     
-    // Check for subdomain-style URL: {token}.link.privateconnect.co
-    const subdomainMatch = host.match(new RegExp(`^([^.]+)\\.${linkDomain.replace('.', '\\.')}$`));
+    // Check for subdomain-style URL: {token}.privateconnect.co
+    const subdomainMatch = host.match(new RegExp(`^([^.]+)\\.${baseDomain.replace(/\./g, '\\.')}$`));
     if (subdomainMatch) {
-      const token = subdomainMatch[1];
-      // Rewrite all paths to include the token
-      const originalUrl = req.url;
-      req.url = `/shared/${token}${originalUrl}`;
-      req.originalUrl = req.url;
-      // Store token for later use (e.g., in base tag injection)
-      req.shareToken = token;
-      req.isSubdomainShare = true;
-    }
-    // Check for path-style URL on link domain
-    else if (host.includes(linkDomain)) {
-      // Handle /share/{token} -> /shared/{token}
-      if (req.url.startsWith('/share/')) {
-        req.url = req.url.replace('/share/', '/shared/');
-        req.originalUrl = req.url;
-      }
-      // Handle /{token} -> /shared/{token} (but not /shared/, /v1/, /docs, /health)
-      else if (!req.url.startsWith('/shared/') && !req.url.startsWith('/v1/') && 
-               !req.url.startsWith('/docs') && !req.url.startsWith('/health')) {
+      const subdomain = subdomainMatch[1];
+      // Only treat as share token if not a known subdomain
+      if (!knownSubdomains.includes(subdomain.toLowerCase())) {
+        // Rewrite all paths to include the token
         const originalUrl = req.url;
-        req.url = '/shared' + (originalUrl === '/' ? '' : originalUrl);
+        req.url = `/shared/${subdomain}${originalUrl}`;
         req.originalUrl = req.url;
+        // Store token for later use
+        req.shareToken = subdomain;
+        req.isSubdomainShare = true;
       }
     }
     next();

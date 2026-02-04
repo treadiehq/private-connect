@@ -130,8 +130,8 @@ export async function linkCommand(service: string, options: LinkOptions) {
     const token = share.token;
     const webDomain = 'https://privateconnect.co';
     
-    // ngrok-style subdomain URL: {token}.link.privateconnect.co
-    const proxyUrl = `https://${token}.link.privateconnect.co`;
+    // ngrok-style subdomain URL: {token}.privateconnect.co
+    const proxyUrl = `https://${token}.privateconnect.co`;
     // Web UI URL (for databases with SQL client)
     const webUrl = `${webDomain}/share/${token}`;
 
