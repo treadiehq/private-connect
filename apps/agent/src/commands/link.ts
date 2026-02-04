@@ -157,8 +157,8 @@ export async function linkCommand(service: string, options: LinkOptions) {
     } else {
       // HTTP service output
       console.log(chalk.gray('  ┌─────────────────────────────────────────────────────────────┐'));
-      console.log(chalk.gray('  │') + chalk.white('  Share URL                                                   ') + chalk.gray('│'));
-      console.log(chalk.gray('  │') + chalk.cyan(`  ${shareUrl}`) + chalk.gray('        │'));
+      console.log(chalk.gray('  │') + chalk.white('  Share URL (browser)                                         ') + chalk.gray('│'));
+      console.log(chalk.gray('  │') + chalk.cyan(`  ${webUrl}`) + chalk.gray('        │'));
       console.log(chalk.gray('  └─────────────────────────────────────────────────────────────┘\n'));
 
       console.log(chalk.gray('  Settings:'));
@@ -175,10 +175,9 @@ export async function linkCommand(service: string, options: LinkOptions) {
       console.log();
 
       console.log(chalk.gray('  Usage:'));
-      console.log(chalk.gray('    Anyone with this URL can access the service.'));
-      console.log(chalk.gray('    No account or CLI installation required.\n'));
+      console.log(chalk.gray('    Open in browser or use the API proxy URL:\n'));
 
-      console.log(chalk.gray('  Example:'));
+      console.log(chalk.gray('  API proxy (for curl/scripts):'));
       console.log(chalk.cyan(`    curl ${shareUrl}/health\n`));
     }
 
