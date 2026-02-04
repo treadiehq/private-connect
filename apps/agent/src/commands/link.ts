@@ -125,14 +125,13 @@ export async function linkCommand(service: string, options: LinkOptions) {
     const isDbService = targetService.targetPort && isDatabase(targetService.targetPort);
     
     // Build share URLs
-    // For HTTP services: use link.privateconnect.co for direct proxy access
+    // For HTTP services: use subdomain-style URL (ngrok-style)
     // For databases: use privateconnect.co/share/ for web UI
     const token = share.token;
-    const linkDomain = 'https://link.privateconnect.co';
     const webDomain = 'https://privateconnect.co';
     
-    // Direct proxy URL (ngrok-style, with branding injected)
-    const proxyUrl = `${linkDomain}/${token}`;
+    // ngrok-style subdomain URL: {token}.link.privateconnect.co
+    const proxyUrl = `https://${token}.link.privateconnect.co`;
     // Web UI URL (for databases with SQL client)
     const webUrl = `${webDomain}/share/${token}`;
 

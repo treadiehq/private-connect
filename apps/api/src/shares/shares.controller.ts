@@ -596,27 +596,11 @@ export class SharesController {
         res.status(proxyRes.statusCode || 200);
 
         if (isHtml) {
-          // Buffer HTML response to inject base tag and branding banner
+          // Buffer HTML response to inject branding banner
           const chunks: Buffer[] = [];
           proxyRes.on('data', (chunk) => chunks.push(chunk));
           proxyRes.on('end', () => {
             let html = Buffer.concat(chunks).toString('utf-8');
-            
-            // Build the base URL for this share (so relative paths work)
-            const linkDomain = process.env.LINK_DOMAIN || 'link.privateconnect.co';
-            const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-            const baseUrl = `${protocol}://${linkDomain}/${token}/`;
-            
-            // Inject <base> tag in <head> to fix relative paths
-            const baseTag = `<base href="${baseUrl}">`;
-            if (html.includes('<head>')) {
-              html = html.replace('<head>', '<head>' + baseTag);
-            } else if (html.includes('<HEAD>')) {
-              html = html.replace('<HEAD>', '<HEAD>' + baseTag);
-            } else {
-              // No head tag, prepend it
-              html = baseTag + html;
-            }
             
             // Inject floating banner before </body>
             const banner = `
