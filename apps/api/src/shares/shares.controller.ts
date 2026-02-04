@@ -589,12 +589,55 @@ export class SharesController {
           latencyMs,
         });
 
-        // Forward response
+        // Check if response is HTML - we'll inject branding
+        const contentType = proxyRes.headers['content-type'] || '';
+        const isHtml = contentType.includes('text/html');
+
         res.status(proxyRes.statusCode || 200);
-        Object.entries(proxyRes.headers).forEach(([key, value]) => {
-          if (value) res.setHeader(key, value);
-        });
-        proxyRes.pipe(res);
+
+        if (isHtml) {
+          // Buffer HTML response to inject branding banner
+          const chunks: Buffer[] = [];
+          proxyRes.on('data', (chunk) => chunks.push(chunk));
+          proxyRes.on('end', () => {
+            let html = Buffer.concat(chunks).toString('utf-8');
+            
+            // Inject floating banner before </body>
+            const banner = `
+<div id="pc-banner" style="position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:999999;display:flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(17,17,17,0.95);backdrop-filter:blur(8px);border-radius:999px;border:1px solid rgba(255,255,255,0.1);font-family:-apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,0.4);">
+  <span style="width:6px;height:6px;border-radius:50%;background:#34d399;animation:pc-pulse 2s infinite;"></span>
+  <span style="font-size:12px;color:#d1d5db;">${share.name}</span>
+  <span style="width:1px;height:12px;background:rgba(255,255,255,0.2);"></span>
+  <a href="https://privateconnect.co" target="_blank" style="font-size:12px;color:#60a5fa;text-decoration:none;">Private Connect</a>
+  <button onclick="document.getElementById('pc-banner').remove()" style="background:none;border:none;padding:0;margin-left:4px;cursor:pointer;color:#6b7280;font-size:14px;">&times;</button>
+</div>
+<style>@keyframes pc-pulse{0%,100%{opacity:1}50%{opacity:0.5}}</style>
+`;
+            
+            // Inject before </body> or at the end
+            if (html.includes('</body>')) {
+              html = html.replace('</body>', banner + '</body>');
+            } else {
+              html += banner;
+            }
+            
+            // Update content-length and send
+            res.setHeader('content-length', Buffer.byteLength(html, 'utf-8'));
+            // Copy other headers except content-length (we set it above)
+            Object.entries(proxyRes.headers).forEach(([key, value]) => {
+              if (value && key.toLowerCase() !== 'content-length') {
+                res.setHeader(key, value);
+              }
+            });
+            res.send(html);
+          });
+        } else {
+          // Non-HTML: stream directly
+          Object.entries(proxyRes.headers).forEach(([key, value]) => {
+            if (value) res.setHeader(key, value);
+          });
+          proxyRes.pipe(res);
+        }
       },
     );
 

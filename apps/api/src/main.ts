@@ -67,6 +67,22 @@ async function bootstrap() {
   // Cookie parser for session handling
   app.use(cookieParser());
   
+  // Rewrite paths for link.privateconnect.co domain
+  // This allows short URLs like link.privateconnect.co/{token} to work
+  app.use((req: any, res: any, next: any) => {
+    const host = req.headers.host || '';
+    const linkDomain = process.env.LINK_DOMAIN || 'link.privateconnect.co';
+    
+    // If request is to link domain and path doesn't already start with /shared/
+    if (host.includes(linkDomain) && !req.url.startsWith('/shared/') && !req.url.startsWith('/v1/')) {
+      // Rewrite /{token} to /shared/{token}
+      const originalUrl = req.url;
+      req.url = '/shared' + (originalUrl === '/' ? '' : originalUrl);
+      req.originalUrl = req.url;
+    }
+    next();
+  });
+  
   // Security headers including CSP to prevent XSS attacks
   app.use((req: any, res: any, next: any) => {
     // Skip strict CSP for Swagger UI routes

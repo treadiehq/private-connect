@@ -133,20 +133,20 @@
       <!-- Minimal floating banner -->
       <div 
         v-if="showBanner"
-        class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2 bg-gray-900/95 backdrop-blur-sm rounded-full border border-gray-700/50 shadow-2xl"
+        class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2 bg-black/80 backdrop-blur-sm rounded-full border border-gray-700/50 shadow-2xl"
       >
         <div class="flex items-center gap-2">
           <div class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></div>
           <span class="text-xs text-gray-300">{{ shareInfo.name }}</span>
         </div>
-        <div class="w-px h-4 bg-gray-700"></div>
+        <div class="w-px h-4 bg-gray-500/30"></div>
         <button 
           @click="openInNewTab"
           class="text-xs text-gray-400 hover:text-white transition-colors"
         >
           Open in new tab
         </button>
-        <div class="w-px h-4 bg-gray-700"></div>
+        <div class="w-px h-4 bg-gray-500/30"></div>
         <a href="/" target="_blank" class="text-xs text-blue-300 hover:text-blue-400 transition-colors">
           Private Connect
         </a>

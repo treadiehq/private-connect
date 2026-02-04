@@ -122,14 +122,19 @@ export async function linkCommand(service: string, options: LinkOptions) {
 
     const share = data.share;
     const expiresAt = new Date(share.expiresAt);
-    // Use absolute URL from API if provided, otherwise prepend hubUrl
-    const shareUrl = share.shareUrl.startsWith('http') 
-      ? share.shareUrl 
-      : `${hubUrl}${share.shareUrl}`;
-    
-    // Convert /shared/ to /share/ for the web UI route
-    const webUrl = shareUrl.replace('/shared/', '/share/');
     const isDbService = targetService.targetPort && isDatabase(targetService.targetPort);
+    
+    // Build share URLs
+    // For HTTP services: use link.privateconnect.co for direct proxy access
+    // For databases: use privateconnect.co/share/ for web UI
+    const token = share.token;
+    const linkDomain = 'https://link.privateconnect.co';
+    const webDomain = 'https://privateconnect.co';
+    
+    // Direct proxy URL (ngrok-style, with branding injected)
+    const proxyUrl = `${linkDomain}/${token}`;
+    // Web UI URL (for databases with SQL client)
+    const webUrl = `${webDomain}/share/${token}`;
 
     // Success output
     console.log(chalk.green('[ok] Public link created\n'));
@@ -155,10 +160,10 @@ export async function linkCommand(service: string, options: LinkOptions) {
       console.log(chalk.gray('    • Export results as CSV or JSON'));
       console.log(chalk.gray('    • Query history preserved in session\n'));
     } else {
-      // HTTP service output
+      // HTTP service output - use direct proxy URL (ngrok-style)
       console.log(chalk.gray('  ┌─────────────────────────────────────────────────────────────┐'));
-      console.log(chalk.gray('  │') + chalk.white('  Share URL (browser)                                         ') + chalk.gray('│'));
-      console.log(chalk.gray('  │') + chalk.cyan(`  ${webUrl}`) + chalk.gray('        │'));
+      console.log(chalk.gray('  │') + chalk.white('  Public URL                                                  ') + chalk.gray('│'));
+      console.log(chalk.gray('  │') + chalk.cyan(`  ${proxyUrl}`) + chalk.gray('                             │'));
       console.log(chalk.gray('  └─────────────────────────────────────────────────────────────┘\n'));
 
       console.log(chalk.gray('  Settings:'));
@@ -175,10 +180,10 @@ export async function linkCommand(service: string, options: LinkOptions) {
       console.log();
 
       console.log(chalk.gray('  Usage:'));
-      console.log(chalk.gray('    Open in browser or use the API proxy URL:\n'));
+      console.log(chalk.gray('    Share the URL - visitors see your app directly.\n'));
 
-      console.log(chalk.gray('  API proxy (for curl/scripts):'));
-      console.log(chalk.cyan(`    curl ${shareUrl}/health\n`));
+      console.log(chalk.gray('  curl example:'));
+      console.log(chalk.cyan(`    curl ${proxyUrl}/api/health\n`));
     }
 
   } catch (error) {
