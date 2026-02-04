@@ -21,6 +21,80 @@ const MAX_HEADER_SIZE = 8192;
 const PROXY_CONNECT_TIMEOUT_MS = 10000;
 const PROXY_REQUEST_TIMEOUT_MS = 30000;
 
+/**
+ * Generate the Private Connect floating widget HTML
+ * Injected into HTML responses for temporary tunnels
+ */
+function generateTunnelWidget(subdomain: string, debugSessionId?: string): string {
+  const inspectorUrl = debugSessionId 
+    ? `https://privateconnect.co/debug/${debugSessionId}` 
+    : 'https://privateconnect.co';
+  
+  return `
+<!-- Private Connect Tunnel Widget -->
+<div id="pc-tunnel-widget" style="
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 9999px;
+  border: 1px solid rgba(107, 114, 128, 0.3);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+">
+  <div style="display: flex; align-items: center; gap: 8px;">
+    <div style="width: 8px; height: 8px; border-radius: 50%; background: #6ee7b7; animation: pc-pulse 2s infinite;"></div>
+    <span style="color: #d1d5db;">${subdomain}</span>
+  </div>
+  <div style="width: 1px; height: 16px; background: rgba(107, 114, 128, 0.3);"></div>
+  <a href="${inspectorUrl}" target="_blank" style="color: #93c5fd; text-decoration: none; transition: color 0.15s;" onmouseover="this.style.color='#bfdbfe'" onmouseout="this.style.color='#93c5fd'">
+    Inspector
+  </a>
+  <div style="width: 1px; height: 16px; background: rgba(107, 114, 128, 0.3);"></div>
+  <a href="https://privateconnect.co" target="_blank" style="color: #6b7280; text-decoration: none; transition: color 0.15s;" onmouseover="this.style.color='#9ca3af'" onmouseout="this.style.color='#6b7280'">
+    Private Connect
+  </a>
+  <button onclick="this.parentElement.remove()" style="margin-left: 4px; background: none; border: none; cursor: pointer; color: #6b7280; padding: 0; display: flex; transition: color 0.15s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#6b7280'">
+    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  </button>
+</div>
+<style>
+  @keyframes pc-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+</style>
+<!-- End Private Connect Tunnel Widget -->
+`;
+}
+
+/**
+ * Inject widget into HTML response body
+ */
+function injectWidgetIntoHtml(body: string, widget: string): string {
+  // Try to inject before </body>
+  if (body.includes('</body>')) {
+    return body.replace('</body>', widget + '</body>');
+  }
+  // Try to inject before </html>
+  if (body.includes('</html>')) {
+    return body.replace('</html>', widget + '</html>');
+  }
+  // Fallback: append to end
+  return body + widget;
+}
+
 @Controller('w')
 export class ProxyController {
   private readonly logger = new SecureLogger('ProxyController');
@@ -156,13 +230,23 @@ export class ProxyController {
 
         // Set response headers
         for (const [key, value] of Object.entries(response.headers)) {
-          if (value && !['transfer-encoding', 'connection'].includes(key.toLowerCase())) {
+          if (value && !['transfer-encoding', 'connection', 'content-length'].includes(key.toLowerCase())) {
             res.setHeader(key, value);
           }
         }
         
         res.setHeader('X-RateLimit-Remaining', proxyRateLimiter.getRemaining(clientIp).toString());
-        res.status(response.status).send(response.body);
+        
+        // Inject widget into HTML responses
+        const contentType = response.headers['content-type'] || '';
+        let responseBody = response.body;
+        
+        if (contentType.includes('text/html') && typeof responseBody === 'string') {
+          const widget = generateTunnelWidget(subdomain, debugSessionId);
+          responseBody = injectWidgetIntoHtml(responseBody, widget);
+        }
+        
+        res.status(response.status).send(responseBody);
         return;
       } catch (err: any) {
         // Check for body size limit error
