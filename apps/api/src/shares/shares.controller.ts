@@ -519,7 +519,7 @@ export class SharesController {
 
   @All('shared/:token')
   @UseGuards(ThrottlerGuard)
-  @Throttle({ medium: { limit: 100, ttl: 60000 } })
+  @Throttle({ long: { limit: 10000, ttl: 60000 } }) // High limit for proxy routes - web apps load many assets
   @ApiOperation({ summary: 'Proxy shared request (root)', description: 'Proxies HTTP requests through a shared service connection.' })
   @ApiResponse({ status: 200, description: 'Proxied response' })
   @ApiResponse({ status: 403, description: 'Access denied' })
@@ -534,7 +534,7 @@ export class SharesController {
 
   @All('shared/:token/*')
   @UseGuards(ThrottlerGuard)
-  @Throttle({ medium: { limit: 100, ttl: 60000 } })
+  @Throttle({ long: { limit: 10000, ttl: 60000 } }) // High limit for proxy routes - web apps load many assets
   @ApiOperation({ summary: 'Proxy shared request (path)', description: 'Proxies HTTP requests through a shared service connection.' })
   @ApiResponse({ status: 200, description: 'Proxied response' })
   @ApiResponse({ status: 403, description: 'Access denied' })
