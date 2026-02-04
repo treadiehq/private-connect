@@ -6,6 +6,7 @@ import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { AgentsService } from '../agents/agents.service';
 import { SessionsService } from './sessions.service';
 import { ApiKeyGuard } from '../auth/api-key.guard';
+import { CombinedAuthGuard } from '../auth/combined-auth.guard';
 import { z } from 'zod';
 
 const RegisterServiceSchema = z.object({
@@ -569,7 +570,7 @@ export class ServicesController {
   }
 
   @Delete(':id')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Delete service', description: 'Deletes a service from the workspace.' })
   @ApiResponse({ status: 200, description: 'Service deleted' })
