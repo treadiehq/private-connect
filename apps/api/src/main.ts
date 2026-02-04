@@ -73,12 +73,18 @@ async function bootstrap() {
     const host = req.headers.host || '';
     const linkDomain = process.env.LINK_DOMAIN || 'link.privateconnect.co';
     
-    // If request is to link domain and path doesn't already start with /shared/
-    if (host.includes(linkDomain) && !req.url.startsWith('/shared/') && !req.url.startsWith('/v1/')) {
-      // Rewrite /{token} to /shared/{token}
-      const originalUrl = req.url;
-      req.url = '/shared' + (originalUrl === '/' ? '' : originalUrl);
-      req.originalUrl = req.url;
+    if (host.includes(linkDomain)) {
+      // Handle /share/{token} -> /shared/{token} (web app style URLs)
+      if (req.url.startsWith('/share/')) {
+        req.url = req.url.replace('/share/', '/shared/');
+        req.originalUrl = req.url;
+      }
+      // Handle /{token} -> /shared/{token} (short URLs)
+      else if (!req.url.startsWith('/shared/') && !req.url.startsWith('/v1/')) {
+        const originalUrl = req.url;
+        req.url = '/shared' + (originalUrl === '/' ? '' : originalUrl);
+        req.originalUrl = req.url;
+      }
     }
     next();
   });
