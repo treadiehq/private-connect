@@ -389,8 +389,9 @@ export class TemporaryTunnelController implements OnModuleInit {
         })
       );
 
-      // Link debug session to tunnel for packet capture
-      this.tempTunnelService.linkDebugSession(tunnelId, session.id);
+      // Link debug session token to tunnel for packet capture and widget inspector URL
+      // Use token (s-xxxxx format) not id (UUID) - the debug page expects the token
+      this.tempTunnelService.linkDebugSession(tunnelId, session.token);
 
       const publicUrl = process.env.PUBLIC_URL || 'https://privateconnect.co';
       
@@ -418,8 +419,8 @@ export class TemporaryTunnelController implements OnModuleInit {
             })
           );
 
-          // Link debug session to tunnel for packet capture
-          this.tempTunnelService.linkDebugSession(tunnelId, session.id);
+          // Link debug session token to tunnel for packet capture and widget inspector URL
+          this.tempTunnelService.linkDebugSession(tunnelId, session.token);
 
           const publicUrl = process.env.PUBLIC_URL || 'https://privateconnect.co';
           
