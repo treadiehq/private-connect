@@ -96,7 +96,7 @@ export async function linkCommand(service: string, options: LinkOptions) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.apiKey}`,
+        'x-api-key': config.apiKey,
       },
       body: JSON.stringify({
         name: options.name || `${service}-link`,

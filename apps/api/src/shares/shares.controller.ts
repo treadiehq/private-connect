@@ -13,12 +13,13 @@ import {
   All,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiSecurity } from '@nestjs/swagger';
 import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { SharesService } from './shares.service';
 import { ServicesService } from '../services/services.service';
 import { AuthService } from '../auth/auth.service';
+import { ApiKeyGuard } from '../auth/api-key.guard';
 import * as http from 'http';
 import * as https from 'https';
 import * as net from 'net';
@@ -51,7 +52,8 @@ export class SharesController {
   ) {}
 
   @Post('v1/services/:serviceId/shares')
-  @ApiBearerAuth('bearer')
+  @UseGuards(ApiKeyGuard)
+  @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Create share', description: 'Creates a shareable link for a service.' })
   @ApiBody({
     schema: {
@@ -73,18 +75,16 @@ export class SharesController {
   async createShare(
     @Param('serviceId') serviceId: string,
     @Body() body: unknown,
-    @Headers('authorization') authHeader: string,
+    @Req() req: any,
   ) {
     const parsed = CreateShareSchema.safeParse(body);
     if (!parsed.success) {
       throw new HttpException(parsed.error.message, HttpStatus.BAD_REQUEST);
     }
 
-    // Validate auth and get user
-    const session = await this.authService.validateSession(
-      authHeader?.replace('Bearer ', ''),
-    );
-    if (!session) {
+    // Get workspace from ApiKeyGuard
+    const workspace = req.workspace;
+    if (!workspace) {
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
 
@@ -95,7 +95,7 @@ export class SharesController {
     }
 
     // Verify service belongs to user's workspace
-    if (!session.workspace || service.workspaceId !== session.workspace.id) {
+    if (service.workspaceId !== workspace.id) {
       throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
     }
 
@@ -120,7 +120,7 @@ export class SharesController {
       allowedPaths: parsed.data.allowedPaths,
       allowedMethods: parsed.data.allowedMethods,
       rateLimitPerMin: parsed.data.rateLimitPerMin,
-      createdBy: session.user.id,
+      // createdBy is optional - not available when using API key auth
     });
 
     // Use LINK_BASE_URL env var, or fall back to relative path
