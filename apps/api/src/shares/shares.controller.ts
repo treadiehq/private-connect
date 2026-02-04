@@ -513,17 +513,39 @@ export class SharesController {
   }
 
   @All('shared/:token')
-  @All('shared/:token/*')
   @UseGuards(ThrottlerGuard)
-  @Throttle({ medium: { limit: 100, ttl: 60000 } }) // 100 requests per minute for shared access
-  @ApiOperation({ summary: 'Proxy shared request', description: 'Proxies HTTP requests through a shared service connection.' })
+  @Throttle({ medium: { limit: 100, ttl: 60000 } })
+  @ApiOperation({ summary: 'Proxy shared request (root)', description: 'Proxies HTTP requests through a shared service connection.' })
   @ApiResponse({ status: 200, description: 'Proxied response' })
   @ApiResponse({ status: 403, description: 'Access denied' })
   @ApiResponse({ status: 502, description: 'Service unavailable' })
-  async proxySharedRequest(
+  async proxySharedRequestRoot(
     @Param('token') token: string,
     @Req() req: Request,
     @Res() res: Response,
+  ) {
+    return this.proxySharedRequest(token, req, res);
+  }
+
+  @All('shared/:token/*')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ medium: { limit: 100, ttl: 60000 } })
+  @ApiOperation({ summary: 'Proxy shared request (path)', description: 'Proxies HTTP requests through a shared service connection.' })
+  @ApiResponse({ status: 200, description: 'Proxied response' })
+  @ApiResponse({ status: 403, description: 'Access denied' })
+  @ApiResponse({ status: 502, description: 'Service unavailable' })
+  async proxySharedRequestPath(
+    @Param('token') token: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    return this.proxySharedRequest(token, req, res);
+  }
+
+  private async proxySharedRequest(
+    token: string,
+    req: Request,
+    res: Response,
   ) {
     const startTime = Date.now();
 
