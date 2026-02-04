@@ -241,6 +241,17 @@ export class SharesController {
     return { logs };
   }
 
+  /**
+   * Redirect /share/:token to the web app
+   * This allows link.privateconnect.co/share/:token to work
+   */
+  @Get('share/:token')
+  @ApiOperation({ summary: 'Redirect to share page', description: 'Redirects to the web app share page.' })
+  async redirectToSharePage(@Param('token') token: string, @Res() res: Response) {
+    const webAppUrl = process.env.WEB_URL || 'https://privateconnect.co';
+    res.redirect(302, `${webAppUrl}/share/${token}`);
+  }
+
   @Get('v1/shared/:token/info')
   @ApiOperation({ summary: 'Get share info', description: 'Returns public info about a share. No authentication required.' })
   @ApiResponse({ status: 200, description: 'Share info' })
