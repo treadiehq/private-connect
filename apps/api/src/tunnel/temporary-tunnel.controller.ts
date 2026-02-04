@@ -168,10 +168,9 @@ export class TemporaryTunnelController implements OnModuleInit {
       ttlMinutes,
     );
     
-    // Generate public subdomain URL
-    const publicUrlBase = process.env.PUBLIC_URL_BASE || 'https://privateconnect.co';
+    // Generate public subdomain URL (uses API domain since /w/ routes are on API)
     const publicUrl = tunnel.subdomain 
-      ? `${publicUrlBase}/w/${tunnel.subdomain}`
+      ? `${HUB_URL}/w/${tunnel.subdomain}`
       : `${HUB_URL}/t/${tunnel.tunnelId}`;
     
     return {
