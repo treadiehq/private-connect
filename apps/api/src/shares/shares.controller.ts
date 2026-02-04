@@ -12,6 +12,8 @@ import {
   Res,
   All,
   UseGuards,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiSecurity } from '@nestjs/swagger';
 import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
@@ -19,6 +21,7 @@ import { Request, Response } from 'express';
 import { SharesService } from './shares.service';
 import { ServicesService } from '../services/services.service';
 import { AuthService } from '../auth/auth.service';
+import { TemporaryTunnelService } from '../tunnel/temporary-tunnel.service';
 import { ApiKeyGuard } from '../auth/api-key.guard';
 import * as http from 'http';
 import * as https from 'https';
@@ -49,6 +52,8 @@ export class SharesController {
     private sharesService: SharesService,
     private servicesService: ServicesService,
     private authService: AuthService,
+    @Inject(forwardRef(() => TemporaryTunnelService))
+    private tempTunnelService: TemporaryTunnelService,
   ) {}
 
   @Post('v1/services/:serviceId/shares')
@@ -554,6 +559,13 @@ export class SharesController {
     const validation = await this.sharesService.validateShare(token, path, req.method);
 
     if (!validation.valid || !validation.share) {
+      // Fallback: Check if this is a temporary tunnel subdomain
+      const tempTunnel = this.tempTunnelService.getTunnelBySubdomain(token);
+      if (tempTunnel) {
+        // Delegate to temporary tunnel proxy logic
+        return this.proxyTemporaryTunnel(tempTunnel, path, req, res);
+      }
+      
       res.status(403).json({ error: validation.reason || 'Access denied' });
       return;
     }
@@ -724,6 +736,64 @@ export class SharesController {
       req.pipe(proxyReq);
     } else {
       proxyReq.end();
+    }
+  }
+
+  /**
+   * Proxy request through a temporary tunnel (fallback for subdomain shares)
+   */
+  private async proxyTemporaryTunnel(
+    tunnel: any,
+    path: string,
+    req: Request,
+    res: Response,
+  ) {
+    if (!tunnel.socket?.connected) {
+      return res.status(503).json({ 
+        error: 'Tunnel disconnected',
+        message: 'The tunnel client is not connected',
+      });
+    }
+
+    try {
+      // Get request body
+      const chunks: Buffer[] = [];
+      for await (const chunk of req) {
+        chunks.push(chunk);
+      }
+      const requestBody = Buffer.concat(chunks).toString('utf-8');
+
+      // Filter headers
+      const requestHeaders: Record<string, string> = {};
+      for (const [key, value] of Object.entries(req.headers)) {
+        if (typeof value === 'string' && !['host', 'connection', 'keep-alive'].includes(key.toLowerCase())) {
+          requestHeaders[key] = value;
+        }
+      }
+
+      const requestPath = path + (req.url.includes('?') ? '?' + req.url.split('?')[1] : '');
+
+      const response = await this.tempTunnelService.forwardRequest(tunnel.tunnelId, {
+        method: req.method,
+        path: requestPath,
+        headers: requestHeaders,
+        body: requestBody,
+      });
+
+      // Set response headers
+      for (const [key, value] of Object.entries(response.headers)) {
+        if (value && !['transfer-encoding', 'connection'].includes(key.toLowerCase())) {
+          res.setHeader(key, value);
+        }
+      }
+      
+      res.status(response.status).send(response.body);
+    } catch (err: any) {
+      this.logger.error(`Temporary tunnel proxy error: ${err.message}`);
+      res.status(502).json({ 
+        error: 'Bad gateway',
+        message: 'Failed to forward request through tunnel',
+      });
     }
   }
 }
