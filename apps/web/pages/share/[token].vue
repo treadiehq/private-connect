@@ -453,8 +453,12 @@ const openInNewTab = () => {
   window.open(`${config.public.apiBase}/shared/${token.value}${httpPath.value}`, '_blank');
 };
 
-onMounted(() => {
-  loadShareInfo();
+onMounted(async () => {
+  await loadShareInfo();
+  // Auto-load content for HTTP services
+  if (isHTTP.value && !error.value) {
+    loadPath();
+  }
 });
 
 useHead({
