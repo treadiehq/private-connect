@@ -41,7 +41,7 @@ export class CombinedAuthGuard implements CanActivate {
     const token = request.cookies?.session;
     if (token) {
       const session = await this.authService.validateSession(token);
-      if (session) {
+      if (session && session.workspace) {
         request.user = session.user;
         request.workspace = session.workspace;
         request.workspaceId = session.workspace.id;
