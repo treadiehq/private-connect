@@ -57,6 +57,14 @@
       </div>
     </section>
 
+    <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
+      <div class="relative overflow-hidden bg-blue-300 rounded-xl">
+        <div class="p-1 rounded-lg">
+          <img src="/img/screenshot.png" alt="Private Connect" class="w-full h-full object-cover rounded-lg">
+        </div>
+      </div>
+    </section>
+
     <!-- What It Is Section -->
     <section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
       <div class="text-center mb-10">
