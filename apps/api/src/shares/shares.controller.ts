@@ -120,7 +120,8 @@ export class SharesController {
       allowedPaths: parsed.data.allowedPaths,
       allowedMethods: parsed.data.allowedMethods,
       rateLimitPerMin: parsed.data.rateLimitPerMin,
-      // createdBy is optional - not available when using API key auth
+      // Track which API key created this share for audit purposes
+      createdBy: req.apiKeyId ? `apikey:${req.apiKeyId}` : undefined,
     });
 
     // Use LINK_BASE_URL env var, or fall back to relative path
