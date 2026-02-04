@@ -24,10 +24,11 @@ export class SharesService {
   /**
    * Generate a secure share token
    * Uses 8 bytes (64 bits) with base64url encoding for short, URL-safe tokens
-   * Result: ~11 character tokens like "a1B2c3D4e5F"
+   * Lowercase because DNS subdomains are case-insensitive
+   * Result: ~11 character tokens like "a1b2c3d4e5f"
    */
   private generateToken(): string {
-    return crypto.randomBytes(8).toString('base64url');
+    return crypto.randomBytes(8).toString('base64url').toLowerCase();
   }
 
   /**
