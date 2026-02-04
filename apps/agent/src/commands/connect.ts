@@ -91,10 +91,10 @@ async function handleExpose(target: string, port: number, options: ConnectOption
     process.exit(1);
   }
 
-  // Auto-detect service name if not provided
+  // Use provided name or auto-detect
   let serviceName = options.name;
   
-  if (!serviceName || serviceName === 'default') {
+  if (!serviceName) {
     const detected = await detectService(port, host);
     
     // Get existing service names to avoid conflicts
@@ -102,7 +102,7 @@ async function handleExpose(target: string, port: number, options: ConnectOption
     serviceName = makeNameUnique(detected.name, port, existingNames);
     
     if (detected.confidence === 'low') {
-      console.log(chalk.gray(`\n  Auto-naming as "${serviceName}" (use --name to override)`));
+      console.log(chalk.gray(`\n  Auto-naming as "${serviceName}" (use -n <name> to override)`));
     } else {
       console.log(chalk.gray(`\n  Detected: ${detected.source} → "${serviceName}"`));
     }

@@ -153,27 +153,23 @@ ensure_postgres() {
         COMPOSE_CMD="docker-compose"
     fi
 
-    # Check if postgres container is running
-    if ! $COMPOSE_CMD ps postgres 2>/dev/null | grep -q "running\|Up"; then
-        print_status "Starting PostgreSQL..."
-        $COMPOSE_CMD up -d postgres
-        
-        # Wait for PostgreSQL to be ready
-        print_status "Waiting for PostgreSQL to be ready..."
-        local retries=30
-        while [ $retries -gt 0 ]; do
-            if $COMPOSE_CMD exec -T postgres pg_isready -U privateconnect >/dev/null 2>&1; then
-                print_success "PostgreSQL is ready"
-                return
-            fi
-            retries=$((retries - 1))
-            sleep 1
-        done
-        print_error "PostgreSQL failed to start"
-        exit 1
-    else
-        print_success "PostgreSQL is already running"
-    fi
+    # Always run 'up -d' - it's idempotent and will recreate only if config changed
+    print_status "Starting PostgreSQL..."
+    $COMPOSE_CMD up -d postgres
+    
+    # Wait for PostgreSQL to be ready
+    print_status "Waiting for PostgreSQL to be ready..."
+    local retries=30
+    while [ $retries -gt 0 ]; do
+        if $COMPOSE_CMD exec -T postgres pg_isready -U privateconnect >/dev/null 2>&1; then
+            print_success "PostgreSQL is ready"
+            return
+        fi
+        retries=$((retries - 1))
+        sleep 1
+    done
+    print_error "PostgreSQL failed to start"
+    exit 1
 }
 
 # Start in development mode

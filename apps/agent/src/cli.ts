@@ -185,7 +185,8 @@ program
 // All explicit commands (expose, reach, etc.) remain available for power users.
 
 program
-  .argument('[target]', 'Service to expose (host:port) or reach (name)')
+  .command('run [target]', { isDefault: true, hidden: true })
+  .description('Smart connect - expose or reach based on target')
   .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-n, --name <name>', 'Service name (auto-detected if not provided)')
   .option('-p, --port <port>', 'Local port for reach (default: same as service)')

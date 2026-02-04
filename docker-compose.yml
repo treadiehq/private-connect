@@ -1,10 +1,10 @@
-version: '3.8'
+# version is obsolete in Compose V2; removed to avoid warning
 
 services:
   postgres:
     image: postgres:16-alpine
     ports:
-      - "5432:5432"
+      - "5433:5432"   # host 5433 to avoid conflict with local Postgres on 5432
     environment:
       POSTGRES_USER: privateconnect
       POSTGRES_PASSWORD: privateconnect
