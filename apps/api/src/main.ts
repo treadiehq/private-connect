@@ -99,6 +99,8 @@ async function bootstrap() {
     const isSwaggerRoute = req.url.startsWith('/docs') || req.url === '/openapi.json';
     // Shared routes proxy user content and need to be embeddable
     const isSharedRoute = req.url.startsWith('/shared/') || req.url.startsWith('/v1/shared/');
+    // Proxy routes (/w/ and /t/) forward user content - don't set CSP (let origin control it)
+    const isProxyRoute = req.url.startsWith('/w/') || req.url.startsWith('/t/');
     
     if (isSwaggerRoute) {
       // Relaxed CSP for Swagger UI
@@ -113,6 +115,9 @@ async function bootstrap() {
         'Content-Security-Policy',
         `frame-ancestors 'self' ${webUrl} http://localhost:3000`
       );
+    } else if (isProxyRoute) {
+      // Proxy routes: don't override CSP - let the proxied content's headers pass through
+      // This allows the origin server to control its own security policy
     } else {
       // Strict CSP for API responses
       res.setHeader(
@@ -122,8 +127,8 @@ async function bootstrap() {
     }
     // Prevent MIME type sniffing
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    // Prevent clickjacking (allow for Swagger UI and shared routes)
-    if (!isSwaggerRoute && !isSharedRoute) {
+    // Prevent clickjacking (allow for Swagger UI, shared routes, and proxy routes)
+    if (!isSwaggerRoute && !isSharedRoute && !isProxyRoute) {
       res.setHeader('X-Frame-Options', 'DENY');
     }
     // Enable XSS filter in older browsers
