@@ -71,12 +71,21 @@ async function bootstrap() {
   app.use((req: any, res: any, next: any) => {
     // Skip strict CSP for Swagger UI routes
     const isSwaggerRoute = req.url.startsWith('/docs') || req.url === '/openapi.json';
+    // Shared routes proxy user content and need to be embeddable
+    const isSharedRoute = req.url.startsWith('/shared/') || req.url.startsWith('/v1/shared/');
     
     if (isSwaggerRoute) {
       // Relaxed CSP for Swagger UI
       res.setHeader(
         'Content-Security-Policy',
         "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:"
+      );
+    } else if (isSharedRoute) {
+      // Allow shared routes to be embedded from privateconnect.co
+      const webUrl = process.env.WEB_URL || 'https://privateconnect.co';
+      res.setHeader(
+        'Content-Security-Policy',
+        `frame-ancestors 'self' ${webUrl} http://localhost:3000`
       );
     } else {
       // Strict CSP for API responses
@@ -87,8 +96,8 @@ async function bootstrap() {
     }
     // Prevent MIME type sniffing
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    // Prevent clickjacking (allow for Swagger UI)
-    if (!isSwaggerRoute) {
+    // Prevent clickjacking (allow for Swagger UI and shared routes)
+    if (!isSwaggerRoute && !isSharedRoute) {
       res.setHeader('X-Frame-Options', 'DENY');
     }
     // Enable XSS filter in older browsers
