@@ -285,6 +285,7 @@ ${c.bold}Commands:${c.reset}
   check <target>     Test connectivity to any service
   test <target>      Alias for check
   tunnel <port>      Create a temporary public tunnel
+  <provider> <port>  Webhook tunnel with provider-specific setup
   list               List all active tunnels
   close <id>         Close a tunnel by ID
   close --all        Close all active tunnels
@@ -298,6 +299,10 @@ ${c.bold}Examples:${c.reset}
   npx private-connect tunnel localhost:8080
   npx private-connect tunnel 4096 --tcp
   npx private-connect tunnel 27015 --udp
+  npx private-connect polar 3000
+  npx private-connect stripe 3000
+  npx private-connect github 8080
+  npx private-connect myapp 3000
   npx private-connect list
   npx private-connect close abc123
   npx private-connect setup-openclaw
@@ -307,6 +312,11 @@ ${c.bold}Tunnel:${c.reset}
   • No signup required
   • Auto-expires in 2 hours
   • HTTP, TCP (--tcp), or UDP (--udp)
+
+${c.bold}Webhooks:${c.reset}
+  • Use any provider name: polar, stripe, github, shopify, or your own
+  • Known providers get tailored setup instructions
+  • Unknown providers get generic webhook guidance
 
 ${c.bold}Test:${c.reset}
   • TCP reachability
@@ -324,6 +334,81 @@ ${c.dim}For permanent tunnels: https://privateconnect.co${c.reset}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Webhook Providers
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface WebhookProvider {
+  name: string;           // Display name
+  dashboardUrl: string;   // Where to add the webhook URL
+  docsUrl: string;        // Docs link
+  secretEnvVar?: string;  // e.g. POLAR_WEBHOOK_SECRET
+  instructions: string[]; // Step-by-step lines printed after public URL
+}
+
+const WEBHOOK_PROVIDERS: Record<string, WebhookProvider> = {
+  polar: {
+    name: 'Polar',
+    dashboardUrl: 'https://polar.sh',
+    docsUrl: 'https://polar.sh/docs/integrate/webhooks',
+    secretEnvVar: 'POLAR_WEBHOOK_SECRET',
+    instructions: [
+      'Go to ${dashboardUrl} → Settings → Webhooks',
+      'Add the public URL above as your webhook endpoint',
+      'Copy the signing secret and set it as ${secretEnvVar}',
+      'Docs: ${docsUrl}',
+    ],
+  },
+  stripe: {
+    name: 'Stripe',
+    dashboardUrl: 'https://dashboard.stripe.com',
+    docsUrl: 'https://docs.stripe.com/webhooks',
+    secretEnvVar: 'STRIPE_WEBHOOK_SECRET',
+    instructions: [
+      'Go to ${dashboardUrl} → Developers → Webhooks',
+      'Add the public URL above as your webhook endpoint',
+      'Copy the signing secret (whsec_...) and set it as ${secretEnvVar}',
+      'Docs: ${docsUrl}',
+    ],
+  },
+  github: {
+    name: 'GitHub',
+    dashboardUrl: 'https://github.com',
+    docsUrl: 'https://docs.github.com/en/webhooks',
+    secretEnvVar: 'GITHUB_WEBHOOK_SECRET',
+    instructions: [
+      'Go to your repo → Settings → Webhooks → Add webhook',
+      'Set the Payload URL to the public URL above',
+      'Set a secret and store it as ${secretEnvVar}',
+      'Docs: ${docsUrl}',
+    ],
+  },
+  shopify: {
+    name: 'Shopify',
+    dashboardUrl: 'https://admin.shopify.com',
+    docsUrl: 'https://shopify.dev/docs/apps/build/webhooks',
+    secretEnvVar: 'SHOPIFY_WEBHOOK_SECRET',
+    instructions: [
+      'Go to ${dashboardUrl} → Settings → Notifications → Webhooks',
+      'Add the public URL above as your webhook endpoint',
+      'Use the signing secret from your app settings as ${secretEnvVar}',
+      'Docs: ${docsUrl}',
+    ],
+  },
+};
+
+// Reserved CLI commands that should NOT be treated as provider names
+const RESERVED_COMMANDS = ['test', 'check', 'tunnel', 'list', 'ls', 'close', 'kill', 'setup-openclaw', 'openclaw-setup', 'setup-moltbot', 'moltbot-setup', 'pair', 'qr', '--help', '-h'];
+
+function getProviderInstructions(provider: WebhookProvider): string[] {
+  return provider.instructions.map(line =>
+    line
+      .replace('${dashboardUrl}', provider.dashboardUrl)
+      .replace('${docsUrl}', provider.docsUrl)
+      .replace('${secretEnvVar}', provider.secretEnvVar || 'WEBHOOK_SECRET')
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Temporary Tunnel
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -336,14 +421,23 @@ interface TunnelOptions {
   ttl?: number; // minutes, default 120
   tcp?: boolean; // raw TCP mode instead of HTTP
   udp?: boolean; // raw UDP mode instead of HTTP
+  provider?: string; // webhook provider name (e.g. 'polar', 'stripe')
 }
 
 async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
-  const { host, port, ttl = 120, tcp = false, udp = false } = options;
+  const { host, port, ttl = 120, tcp = false, udp = false, provider: providerName } = options;
   const tunnelType = udp ? 'udp' : (tcp ? 'tcp' : 'http');
+  const provider = providerName ? WEBHOOK_PROVIDERS[providerName.toLowerCase()] : undefined;
   
   console.log();
-  console.log(`${c.bold}Private Connect${c.reset} - Temporary ${udp ? 'UDP ' : tcp ? 'TCP ' : ''}Tunnel`);
+  if (provider) {
+    console.log(`${c.bold}Private Connect${c.reset} - ${provider.name} Webhooks → localhost:${port}`);
+  } else if (providerName) {
+    // Unknown provider — generic webhook mode
+    console.log(`${c.bold}Private Connect${c.reset} - ${providerName} Webhooks → localhost:${port}`);
+  } else {
+    console.log(`${c.bold}Private Connect${c.reset} - Temporary ${udp ? 'UDP ' : tcp ? 'TCP ' : ''}Tunnel`);
+  }
   console.log(`${c.gray}────────────────────────────────────${c.reset}`);
   console.log();
   
@@ -480,10 +574,36 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
       console.log(`  ${c.bold}Connect:${c.reset} ${c.cyan}${data.tunnel.udpHost}:${data.tunnel.udpPort}${c.reset} ${c.dim}(UDP)${c.reset}`);
     }
     console.log(`  ${c.bold}Expires:${c.reset} ${data.tunnel.ttlMinutes} minutes`);
+    
+    // Show provider-specific webhook instructions
+    if (provider) {
+      console.log();
+      console.log(`${c.gray}────────────────────────────────────${c.reset}`);
+      console.log();
+      console.log(`  ${c.bold}${provider.name} Setup:${c.reset}`);
+      const lines = getProviderInstructions(provider);
+      lines.forEach((line, i) => {
+        console.log(`  ${c.dim}${i + 1}.${c.reset} ${line}`);
+      });
+    } else if (providerName) {
+      // Generic webhook instructions for unknown providers
+      console.log();
+      console.log(`${c.gray}────────────────────────────────────${c.reset}`);
+      console.log();
+      console.log(`  ${c.bold}Webhook Setup:${c.reset}`);
+      console.log(`  ${c.dim}1.${c.reset} Add the public URL above as your webhook endpoint in ${providerName}`);
+      console.log(`  ${c.dim}2.${c.reset} Copy the signing secret from your ${providerName} dashboard`);
+      console.log(`  ${c.dim}3.${c.reset} Verify webhook signatures in your local handler`);
+    }
+    
     console.log();
     console.log(`${c.gray}────────────────────────────────────${c.reset}`);
     console.log();
-    console.log(`  ${c.dim}Press Ctrl+C to stop${c.reset}`);
+    if (providerName) {
+      console.log(`  ${c.dim}Waiting for webhooks... Press Ctrl+C to stop${c.reset}`);
+    } else {
+      console.log(`  ${c.dim}Press Ctrl+C to stop${c.reset}`);
+    }
     console.log();
     
     // Keep connection alive and handle incoming requests
@@ -1327,6 +1447,11 @@ if (args[0] === 'test' || args[0] === 'check') {
   setupMoltbot().catch(console.error);
 } else if (args[0] === 'pair' || args[0] === 'qr') {
   showPairingQR().catch(console.error);
+} else if (!RESERVED_COMMANDS.includes(args[0]) && args[1] && /^\d+$/.test(args[1].split(':').pop() || '')) {
+  // <product-name> <port|host:port> — webhook tunnel for a specific provider
+  const providerName = args[0];
+  const { host, port } = parseTunnelTarget(args[1]);
+  createTemporaryTunnel({ host, port, provider: providerName }).catch(console.error);
 } else {
   // Default to test if just a target is provided
   runTest(args[0]).catch(console.error);

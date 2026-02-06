@@ -19,6 +19,10 @@ npx private-connect test db.internal:5432
 
 # Create a temporary public tunnel
 npx private-connect tunnel 3000
+
+# Test webhooks locally (Polar, Stripe, GitHub, or any provider)
+npx private-connect polar 3000
+npx private-connect stripe 3000
 ```
 
 ## Commands
@@ -98,6 +102,30 @@ TCP/UDP output shows connection details:
 - Real-time request logging
 - Works with HTTP, TCP, and UDP services
 - **Shareable URLs** - The public URL shows your actual website, perfect for demos and testing
+
+### `<provider> <port>` - Webhook tunnel with provider setup
+
+```bash
+npx private-connect <provider> <port>
+```
+
+Create a tunnel and get provider-specific webhook setup instructions.
+
+**Known providers** (with tailored instructions):
+- `polar` — [Polar](https://polar.sh) webhooks
+- `stripe` — [Stripe](https://stripe.com) webhooks
+- `github` — [GitHub](https://github.com) webhooks
+- `shopify` — [Shopify](https://shopify.dev) webhooks
+
+**Any provider name works** — unknown names get generic webhook guidance.
+
+**Examples:**
+```bash
+npx private-connect polar 3000              # Polar webhooks → localhost:3000
+npx private-connect stripe 3000             # Stripe webhooks → localhost:3000
+npx private-connect github 8080             # GitHub webhooks → localhost:8080
+npx private-connect myapp 3000              # Generic webhooks → localhost:3000
+```
 
 ### `setup-openclaw` - One-command OpenClaw setup
 
