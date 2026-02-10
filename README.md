@@ -1,14 +1,12 @@
 # Private Connect
 
-**Access private services by name from anywhere. No VPN setup, no firewall rules, no port forwarding.**
+**Reach your database and private services from anywhere. Cursor, exe.dev, on the road—one command. No VPN, no open ports.**
 
-Private Connect is **Tailscale for services, not networks**. Access your databases, APIs, and internal services with a simple command like `connect prod-db`, no VPN configuration or SSH tunnels required.
+Private Connect lets you and your AI agent reach databases, APIs, and internal services from another machine, a cloud IDE, or a second device without changing bind addresses or opening firewall ports. **Tailscale for services, not networks.**
 
-**Who is this for?** Private Connect is for **developers**, **DevOps/platform**, and **QA/test**, anyone who needs to reach or expose private services without VPNs or port forwarding. Developers use it day to day; DevOps automates it in CI and infra; QA uses it to hit staging by name.
+**Who is this for?** Private Connect is for **developers**, **DevOps/platform**, and **QA/test**, anyone who needs to reach or expose private services without VPNs or port forwarding. From remote dev (exe.dev, Codespaces), from Cursor/agents, or on the road; Developers use it day to day; DevOps automates it in CI and infra; QA uses it to hit staging by name.
 
-- **Developers** — Daily access to prod/staging DBs and APIs, onboard with `connect clone`, share envs, test webhooks and demos with `tunnel`.
-- **DevOps / platform** — Run the agent in CI, on VMs, or in Kubernetes; automate with the Control API and non-interactive install; multicluster/virtual K8s over private tunnels.
-- **QA / test** — Reach staging and internal services by name from anywhere; no VPN or port-forward setup.
+
 
 > **Example:** Have a local database but need to access it from another machine? On your local machine: `connect expose localhost:5432 --name my-db`. From anywhere: `connect reach my-db`. **Yes, this solves that problem**—no port forwarding, no firewall rules, no changing localhost to 0.0.0.0. Works with Tailscale.
 
@@ -23,25 +21,27 @@ Private Connect is **Tailscale for services, not networks**. Access your databas
 
 ## Quick Start
 
+**Reach your DB from anywhere (recommended path):**
+
 ```bash
-# Test connectivity (no signup)
-npx private-connect test db.internal:5432
-
-# Quick tunnel (no signup, 2hr expiry)
-npx private-connect tunnel 3000
-# → https://abc123.privateconnect.co
-
-# Install for permanent tunnels
+# Install once
 curl -fsSL https://privateconnect.co/install.sh | bash
-
-# Authenticate once
 connect up
 
-# Use
-connect 5432                     # Expose a service
-connect prod-db                  # Access a service
-connect 5432 --share             # Get a shareable link
+# On the machine with the DB: expose it by name
+connect expose localhost:5432 --name my-db
 
+# From anywhere (other laptop, exe.dev, Cursor): reach it
+connect reach my-db
+# → localhost:5432 now points at my-db. Same connection string, works everywhere.
+```
+
+```bash
+# Quick tunnel (no signup, 2hr expiry)
+npx private-connect tunnel 3000
+
+# Test connectivity (no signup)
+npx private-connect test db.internal:5432
 ```
 
 ## What It Does
@@ -145,6 +145,7 @@ curl -s -X POST http://localhost:3001/v1/ask -H "Content-Type: application/json"
 ## Links
 
 - **Live**: [privateconnect.co](https://privateconnect.co)
+- **DB + Cursor (2 min)**: [docs/database-and-cursor.md](docs/database-and-cursor.md) — expose local DB, reach from anywhere, use with Cursor
 - **Docs**: [DETAILED.md](DETAILED.md) — full CLI reference, all features
 - **API Reference**: [DETAILED.md#control-api](DETAILED.md#control-api) — REST API documentation
 - **Debugging**: [docs/debugging.md](docs/debugging.md) — live traffic inspection, AI copilot
