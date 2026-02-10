@@ -509,7 +509,7 @@
               <li class="flex items-start gap-2"><span class="text-blue-300">✓</span> <span><strong class="text-white">Invisible to outsiders:</strong> Someone outside your workspace can't discover, list, or connect to your services.</span></li>
               <li class="flex items-start gap-2"><span class="text-blue-300">✓</span> <span><strong class="text-white">Public is opt-in:</strong> Use <code class="bg-black/40 px-1.5 py-0.5 rounded text-blue-300">--public</code> only when you explicitly need external access (like webhooks).</span></li>
             </ul>
-            <p class="text-gray-500 text-xs">Think of it like a private Tailnet — only members can see what's inside.</p>
+            <p class="text-gray-500 text-xs">Think of it like a private Tailnet, only members can see what's inside.</p>
           </div>
         </details>
 
