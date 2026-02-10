@@ -1,12 +1,10 @@
 # Private Connect
 
-**Reach your database and private services from anywhere. Cursor, exe.dev, on the road—one command. No VPN, no open ports.**
+**Reach your database and private services from anywhere. Cursor, exe.dev, on the road with one command. No VPN, no open ports.**
 
 Private Connect lets you and your AI agent reach databases, APIs, and internal services from another machine, a cloud IDE, or a second device without changing bind addresses or opening firewall ports. **Tailscale for services, not networks.**
 
 **Who is this for?** Private Connect is for **developers**, **DevOps/platform**, and **QA/test**, anyone who needs to reach or expose private services without VPNs or port forwarding. From remote dev (exe.dev, Codespaces), from Cursor/agents, or on the road; Developers use it day to day; DevOps automates it in CI and infra; QA uses it to hit staging by name.
-
-
 
 > **Example:** Have a local database but need to access it from another machine? On your local machine: `connect expose localhost:5432 --name my-db`. From anywhere: `connect reach my-db`. **Yes, this solves that problem**—no port forwarding, no firewall rules, no changing localhost to 0.0.0.0. Works with Tailscale.
 
