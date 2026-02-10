@@ -4,6 +4,12 @@
 
 Private Connect is **Tailscale for services, not networks**. Access your databases, APIs, and internal services with a simple command like `connect prod-db`, no VPN configuration or SSH tunnels required.
 
+**Who is this for?** Private Connect is for **developers**, **DevOps/platform**, and **QA/test**—anyone who needs to reach or expose private services without VPNs or port forwarding. Developers use it day to day; DevOps automates it in CI and infra; QA uses it to hit staging by name.
+
+- **Developers** — Daily access to prod/staging DBs and APIs, onboard with `connect clone`, share envs, test webhooks and demos with `tunnel`.
+- **DevOps / platform** — Run the agent in CI, on VMs, or in Kubernetes; automate with the Control API and non-interactive install; multicluster/virtual K8s over private tunnels.
+- **QA / test** — Reach staging and internal services by name from anywhere; no VPN or port-forward setup.
+
 > **Example:** Have a local database but need to access it from another machine? On your local machine: `connect expose localhost:5432 --name my-db`. From anywhere: `connect reach my-db`. **Yes, this solves that problem**—no port forwarding, no firewall rules, no changing localhost to 0.0.0.0. Works with Tailscale.
 
 - **Access by name:** `connect prod-db` instead of remembering IPs or ports
