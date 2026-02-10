@@ -52,10 +52,10 @@ Everything is outbound to the hub; no open ports. Works with [kplane-dev/apiserv
    ```bash
    # Install kplane: curl -fsSL https://raw.githubusercontent.com/kplane-dev/kplane/main/scripts/install.sh | sh
    kplane up
-   kplane create cluster demo1
-   kplane get-credentials demo1
+   kplane create cluster demo
+   kplane get-credentials demo
    kubectl get ns   # verify
-   kubectl cluster-info   # shows apiserver URL, e.g. https://127.0.0.1:8443/clusters/demo1/control-plane
+   kubectl cluster-info   # shows apiserver URL, e.g. https://127.0.0.1:8443/clusters/demo/control-plane
    ```
 
 2. **Expose the API server by name** so nodes (or your laptop) can reach it from anywhere:
@@ -70,14 +70,14 @@ Everything is outbound to the hub; no open ports. Works with [kplane-dev/apiserv
 
    ```bash
    connect up
-   connect expose localhost:8443 --name demo1
+   connect expose localhost:8443 --name demo
    ```
 
 3. **Reach from elsewhere** (another machine, region, or future worker node):
 
    ```bash
-   connect reach demo1
-   # Point kubeconfig at https://127.0.0.1:<reached-port>/clusters/demo1/control-plane (same path as cluster-info)
+   connect reach demo
+   # Point kubeconfig at https://127.0.0.1:<reached-port>/clusters/demo/control-plane (same path as cluster-info)
    ```
 
 When kplane adds **worker node management (join/leave)**, nodes will need to reach the control plane. Private Connect (or WireGuard, Tailscale, Datum) can be the transport: each node runs `connect reach <cluster-name>` and talks to the API over the tunnel. No VPN, no open ports.
