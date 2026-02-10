@@ -792,9 +792,27 @@ export function loadPolicy(workingDir: string): Policy {
 /**
  * Evaluate a file write against the policy
  */
-export function evaluateFileWrite(policy: Policy, filePath: string): PolicyEvaluation {
-  // Normalize the path
-  const normalizedPath = filePath.replace(/\\/g, '/');
+export function evaluateFileWrite(
+  policy: Policy,
+  filePath: string,
+  workingDir: string = process.cwd()
+): PolicyEvaluation {
+  const workspaceRoot = path.resolve(workingDir);
+  const absolutePath = path.resolve(workspaceRoot, filePath);
+  const relativePath = path.relative(workspaceRoot, absolutePath);
+  const isOutsideWorkspace =
+    relativePath === '..' ||
+    relativePath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativePath);
+
+  if (isOutsideWorkspace) {
+    return {
+      action: 'block',
+      reason: 'Path is outside of the workspace boundary',
+    };
+  }
+
+  const normalizedPath = relativePath.replace(/\\/g, '/');
 
   // Check rules in order (first match wins)
   for (const rule of policy.rules) {

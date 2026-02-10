@@ -1,4 +1,4 @@
-import { Injectable, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Inject, forwardRef, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { createHash, randomBytes } from 'crypto';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
@@ -56,6 +56,9 @@ export class AgentsService {
     
     // Check if this is a new agent (for webhook event)
     const existingAgent = await this.prisma.agent.findUnique({ where: { id: agentId } });
+    if (existingAgent && existingAgent.workspaceId !== workspaceId) {
+      throw new HttpException('Agent ID already exists in another workspace', HttpStatus.CONFLICT);
+    }
     const isNewAgent = !existingAgent;
     
     const agent = await this.prisma.agent.upsert({
@@ -66,6 +69,8 @@ export class AgentsService {
         name: name || undefined,
         label: label || undefined,
         isOnline: true,
+        tokenHash,
+        tokenExpiresAt,
       },
       create: {
         id: agentId,

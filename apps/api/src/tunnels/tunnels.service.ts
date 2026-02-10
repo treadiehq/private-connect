@@ -27,6 +27,7 @@ export interface TunnelResponse {
   protocol: string;
   isPublic: boolean;
   publicUrl: string | null;
+  metadata: Record<string, unknown> | null;
   agentId: string | null;
   agentLabel: string | null;
   agentOnline: boolean;
@@ -157,11 +158,35 @@ export class TunnelsService {
       throw new HttpException('Tunnel not found', HttpStatus.NOT_FOUND);
     }
 
+    let nextName = service.name;
+    if (dto.name !== undefined) {
+      const validation = this.servicesService.validateName(dto.name);
+      if (!validation.valid) {
+        throw new HttpException(validation.error || 'Invalid name', HttpStatus.BAD_REQUEST);
+      }
+
+      const normalizedName = dto.name.toLowerCase();
+      const isAvailable = await this.servicesService.isNameAvailable(workspaceId, normalizedName, service.id);
+      if (!isAvailable) {
+        throw new HttpException('A service with this name already exists', HttpStatus.CONFLICT);
+      }
+
+      nextName = normalizedName;
+    }
+
+    const updateData: any = {
+      name: nextName,
+      status: dto.status ?? service.status,
+    };
+
+    if (dto.metadata !== undefined) {
+      updateData.metadata = JSON.stringify(dto.metadata);
+    }
+
     const updated = await this.prisma.service.update({
       where: { id },
       data: {
-        name: dto.name ?? service.name,
-        status: dto.status ?? service.status,
+        ...updateData,
       },
       include: {
         agent: {
@@ -272,6 +297,7 @@ export class TunnelsService {
       publicUrl: service.publicSubdomain
         ? `https://${service.publicSubdomain}.privateconnect.co`
         : null,
+      metadata: service.metadata ? JSON.parse(service.metadata) : null,
       agentId: service.agentId,
       agentLabel: service.agent?.label || null,
       agentOnline: service.agent?.isOnline || false,

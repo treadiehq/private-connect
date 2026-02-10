@@ -31,16 +31,24 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   ) {
     super();
 
-    // Add middleware to set RLS context before each query
+    // Add middleware to set RLS context before each query.
+    // We SET the session variable before the query and RESET it after,
+    // so that pooled connections never carry stale tenant context.
     this.$use(async (params, next) => {
       // Prevent infinite recursion: don't run RLS context for the SET command itself
       const ctx = this.middlewareContext.getStore();
       if (ctx?.settingRls) {
         return next(params);
       }
-      
+
       await this.setRlsContext();
-      return next(params);
+      try {
+        return await next(params);
+      } finally {
+        // Always reset after query to prevent stale context leaking
+        // to the next request that reuses this pooled connection.
+        await this.resetRlsContext();
+      }
     });
   }
 
@@ -52,70 +60,70 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   /**
-   * Set the PostgreSQL session variable for RLS
-   * This must be called before each query to ensure proper tenant isolation
+   * Resolve the RLS workspace ID for the current request context.
+   * ALWAYS returns a value — never leaves the session variable unset.
+   * Empty string means "no context" which will be denied by RLS policies.
+   */
+  private resolveRlsWorkspaceId(): string {
+    // During initialization (startup), bypass RLS for setup operations
+    if (this.isInitializing) {
+      return RLS_BYPASS_TOKEN;
+    }
+
+    // Check for explicit context override (from withWorkspace/withoutRls)
+    const explicit = this.explicitContext.getStore();
+    if (explicit) {
+      if (explicit.bypass) {
+        return RLS_BYPASS_TOKEN;
+      }
+      if (explicit.workspaceId) {
+        return explicit.workspaceId.replace(/[^a-zA-Z0-9-]/g, '');
+      }
+    }
+
+    // Fall back to request context (from ContextService/interceptor)
+    const isAdmin = this.contextService?.isAdmin();
+    if (isAdmin) {
+      return RLS_BYPASS_TOKEN;
+    }
+
+    const workspaceId = this.contextService?.getWorkspaceId();
+    if (workspaceId) {
+      return workspaceId.replace(/[^a-zA-Z0-9-]/g, '');
+    }
+
+    // No context — return empty string so RLS denies access (deny-by-default).
+    // This prevents stale session variables from leaking across pooled connections.
+    return '';
+  }
+
+  /**
+   * Set the PostgreSQL session variable for RLS before a query.
+   * ALWAYS sets a value — empty string when no context, which RLS will deny.
+   * This prevents stale workspace IDs from leaking across pooled connections.
    */
   private async setRlsContext(): Promise<void> {
-    // Wrap in context to prevent recursion
     return this.middlewareContext.run({ settingRls: true }, async () => {
-      // During initialization (startup), bypass RLS for setup operations
-      if (this.isInitializing) {
-        try {
-          await this.$executeRawUnsafe(`SET app.current_workspace_id TO '${RLS_BYPASS_TOKEN}'`);
-        } catch {
-          // Ignore errors during initial connection
-        }
-        return;
+      const rlsId = this.resolveRlsWorkspaceId();
+      try {
+        await this.$executeRawUnsafe(`SET app.current_workspace_id TO '${rlsId}'`);
+      } catch {
+        // Ignore errors during initial connection
       }
+    });
+  }
 
-      // Check for explicit context override (from withWorkspace/withoutRls)
-      const explicit = this.explicitContext.getStore();
-      if (explicit) {
-        if (explicit.bypass) {
-          try {
-            await this.$executeRawUnsafe(`SET app.current_workspace_id TO '${RLS_BYPASS_TOKEN}'`);
-          } catch {
-            // Ignore errors
-          }
-          return;
-        }
-        if (explicit.workspaceId) {
-          const sanitizedId = explicit.workspaceId.replace(/[^a-zA-Z0-9-]/g, '');
-          try {
-            await this.$executeRawUnsafe(`SET app.current_workspace_id TO '${sanitizedId}'`);
-          } catch {
-            // Ignore errors
-          }
-          return;
-        }
+  /**
+   * Reset the RLS session variable after a query completes.
+   * Ensures pooled connections are returned in a clean state.
+   */
+  private async resetRlsContext(): Promise<void> {
+    return this.middlewareContext.run({ settingRls: true }, async () => {
+      try {
+        await this.$executeRawUnsafe(`RESET app.current_workspace_id`);
+      } catch {
+        // Ignore errors — best-effort cleanup
       }
-
-      // Fall back to request context (from ContextService/interceptor)
-      const workspaceId = this.contextService?.getWorkspaceId();
-      const isAdmin = this.contextService?.isAdmin();
-
-      if (isAdmin) {
-        // Admin users bypass RLS
-        try {
-          await this.$executeRawUnsafe(`SET app.current_workspace_id TO '${RLS_BYPASS_TOKEN}'`);
-        } catch {
-          // Ignore errors
-        }
-        return;
-      }
-
-      if (workspaceId) {
-        try {
-          // Use SET (session-level) so it persists across auto-committed queries
-          // Sanitize workspaceId to prevent SQL injection (UUIDs only contain safe chars)
-          const sanitizedId = workspaceId.replace(/[^a-zA-Z0-9-]/g, '');
-          await this.$executeRawUnsafe(`SET app.current_workspace_id TO '${sanitizedId}'`);
-        } catch {
-          // Ignore errors during initial connection
-        }
-      }
-      // If no workspaceId and not admin, the session variable is not set
-      // RLS will deny access (deny-by-default policy)
     });
   }
 

@@ -63,6 +63,8 @@ async function bootstrap() {
   console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
   
   const app = await NestFactory.create(AppModule);
+
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
   
   // Cookie parser for session handling
   app.use(cookieParser());
@@ -302,4 +304,3 @@ async function main() {
 }
 
 main();
-

@@ -126,6 +126,7 @@ model Service {
   tunnelPort      Int?
   protocol        String             @default("auto") // auto | tcp | http | https
   status          String             @default("UNKNOWN")
+  metadata        String?            // JSON: additional details
   isExternal      Boolean            @default(false)  // true = external target, reached directly
   isPublic        Boolean            @default(false)  // true = publicly accessible via subdomain
   publicSubdomain String?            @unique          // e.g., "abc123" -> abc123.privateconnect.co

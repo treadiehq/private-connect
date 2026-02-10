@@ -277,6 +277,19 @@ export class ServicesService implements OnModuleInit {
       }
     }
 
+    const agent = await this.prisma.agent.findUnique({
+      where: { id: agentId },
+      select: { workspaceId: true },
+    });
+
+    if (!agent) {
+      throw new HttpException('Agent not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (agent.workspaceId !== workspaceId) {
+      throw new HttpException('Forbidden: Agent belongs to another workspace', HttpStatus.FORBIDDEN);
+    }
+
     // Reuse existing port if updating, otherwise allocate new port
     // This prevents port leaks when services are updated
     const tunnelPort = existing?.tunnelPort || this.allocatePort();
@@ -338,19 +351,24 @@ export class ServicesService implements OnModuleInit {
     targetPort: number,
     protocol: string = 'auto',
   ) {
+    const existing = await this.prisma.service.findUnique({
+      where: { workspaceId_name: { workspaceId, name } },
+    });
+
     // Check plan limits
     const usage = await this.workspaceService.getUsage(workspaceId);
     if (!usage?.canAddService) {
       // Check if this is an update (existing service)
-      const existing = await this.prisma.service.findUnique({
-        where: { workspaceId_name: { workspaceId, name } },
-      });
       if (!existing) {
         throw new HttpException(
           `Service limit reached. Upgrade to PRO for more services.`,
           HttpStatus.PAYMENT_REQUIRED,
         );
       }
+    }
+
+    if (existing?.tunnelPort) {
+      this.releasePort(existing.tunnelPort);
     }
 
     // External services don't get a tunnel port - they're reached directly

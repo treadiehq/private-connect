@@ -663,7 +663,7 @@ export async function mcpServeCommand(options: McpOptions) {
           const filePath = args.path as string;
           const workingDir = process.cwd();
           const policy = loadPolicy(workingDir);
-          const evaluation = evaluateFileWrite(policy, filePath);
+          const evaluation = evaluateFileWrite(policy, filePath, workingDir);
           
           result = {
             path: filePath,
@@ -698,7 +698,7 @@ export async function mcpServeCommand(options: McpOptions) {
           const content = args.content as string;
           const workingDir = process.cwd();
           const policy = loadPolicy(workingDir);
-          const evaluation = evaluateFileWrite(policy, filePath);
+          const evaluation = evaluateFileWrite(policy, filePath, workingDir);
           
           if (evaluation.action === 'block') {
             logFileWrite(filePath, 'block', {
@@ -1403,4 +1403,3 @@ export async function mcpCommand(action: string | undefined, options: McpOptions
       return mcpSetupCommand(options);
   }
 }
-

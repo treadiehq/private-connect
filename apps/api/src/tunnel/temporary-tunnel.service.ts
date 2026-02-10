@@ -24,6 +24,7 @@ interface TemporaryTunnel {
   // UDP-specific
   udpPort?: number;
   udpServer?: dgram.Socket;
+  udpSessions?: Map<string, { address: string; port: number; timestamp: number }>;
   // Debug session for packet capture
   debugSessionId?: string;
 }
@@ -246,6 +247,7 @@ export class TemporaryTunnelService implements OnModuleDestroy {
       socket: null,
       requestCount: 0,
       udpPort,
+      udpSessions: new Map(),
     };
     
     this.tunnels.set(tunnelId, tunnel);
@@ -302,6 +304,11 @@ export class TemporaryTunnelService implements OnModuleDestroy {
     
     // Create session ID for tracking responses
     const sessionId = `${rinfo.address}:${rinfo.port}-${Date.now()}`;
+    tunnel.udpSessions?.set(sessionId, {
+      address: rinfo.address,
+      port: rinfo.port,
+      timestamp: Date.now(),
+    });
     
     this.logger.debug(`UDP datagram from ${rinfo.address}:${rinfo.port} for tunnel ${tunnelId} (${msg.length} bytes)`);
     
@@ -317,18 +324,26 @@ export class TemporaryTunnelService implements OnModuleDestroy {
   /**
    * Send UDP response back to client
    */
-  sendUdpResponse(tunnelId: string, remoteAddress: string, remotePort: number, data: Buffer): void {
+  sendUdpResponseForSession(tunnelId: string, sessionId: string, data: Buffer): boolean {
     const tunnel = this.getTunnel(tunnelId);
     if (!tunnel || !tunnel.udpServer) {
       this.logger.warn(`Cannot send UDP response: tunnel ${tunnelId} not found or no UDP server`);
-      return;
+      return false;
     }
-    
-    tunnel.udpServer.send(data, remotePort, remoteAddress, (err) => {
+
+    const session = tunnel.udpSessions?.get(sessionId);
+    if (!session) {
+      this.logger.warn(`Cannot send UDP response: session ${sessionId} not found for tunnel ${tunnelId}`);
+      return false;
+    }
+
+    tunnel.udpServer.send(data, session.port, session.address, (err) => {
       if (err) {
         this.logger.error(`UDP send error for tunnel ${tunnelId}: ${err.message}`);
       }
     });
+
+    return true;
   }
 
   /**
@@ -717,6 +732,9 @@ export class TemporaryTunnelService implements OnModuleDestroy {
         if (tunnel.udpPort) {
           this.releasePort(tunnel.udpPort);
         }
+        if (tunnel.udpSessions) {
+          tunnel.udpSessions.clear();
+        }
         
         // Release subdomain
         if (tunnel.subdomain) {
@@ -771,6 +789,9 @@ export class TemporaryTunnelService implements OnModuleDestroy {
     }
     if (tunnel.udpPort) {
       this.releasePort(tunnel.udpPort);
+    }
+    if (tunnel.udpSessions) {
+      tunnel.udpSessions.clear();
     }
     
     // Release subdomain

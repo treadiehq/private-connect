@@ -302,7 +302,7 @@ export async function brokerCheckFileCommand(filePath: string, options: BrokerOp
     relativePath = path.relative(workingDir, filePath);
   }
   
-  const evaluation = evaluateFileWrite(policy, relativePath);
+  const evaluation = evaluateFileWrite(policy, relativePath, workingDir);
   
   if (evaluation.action === 'block') {
     console.error(chalk.red(`\n[x] File write blocked: ${relativePath}`));
@@ -537,7 +537,7 @@ export async function brokerGitCheckCommand(hookType: 'pre-commit' | 'pre-push',
     for (const file of stagedFiles) {
       let evaluation;
       try {
-        evaluation = evaluateFileWrite(policy, file);
+        evaluation = evaluateFileWrite(policy, file, workingDir);
       } catch (err) {
         // SECURITY: Fail closed on evaluation errors
         console.error(chalk.red(`[x] Policy evaluation failed for: ${file}`));
@@ -1074,4 +1074,3 @@ export async function brokerCommand(
       return brokerStatusCommand(options);
   }
 }
-

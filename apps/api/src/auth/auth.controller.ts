@@ -40,7 +40,7 @@ export class AuthController {
   @ApiResponse({ status: 429, description: 'Too many requests' })
   async register(@Body() body: RegisterDto, @Req() req: Request) {
     // Rate limit by IP
-    const clientIp = req.ip || req.headers['x-forwarded-for']?.toString().split(',')[0] || 'unknown';
+    const clientIp = this.getClientIp(req);
     if (!authRateLimiter.isAllowed(`register:${clientIp}`)) {
       throw new HttpException(
         { error: 'Too many requests', message: 'Please wait before trying again.', retryAfter: authRateLimiter.getResetTime(`register:${clientIp}`) },
@@ -74,7 +74,7 @@ export class AuthController {
   @ApiResponse({ status: 429, description: 'Too many requests' })
   async login(@Body() body: LoginDto, @Req() req: Request) {
     // Rate limit by IP
-    const clientIp = req.ip || req.headers['x-forwarded-for']?.toString().split(',')[0] || 'unknown';
+    const clientIp = this.getClientIp(req);
     if (!authRateLimiter.isAllowed(`login:${clientIp}`)) {
       throw new HttpException(
         { error: 'Too many requests', message: 'Please wait before trying again.', retryAfter: authRateLimiter.getResetTime(`login:${clientIp}`) },
@@ -117,7 +117,7 @@ export class AuthController {
     }
 
     const userAgent = req.headers['user-agent'];
-    const ipAddress = req.ip || req.headers['x-forwarded-for']?.toString();
+    const ipAddress = this.getClientIp(req);
 
     const result = await this.authService.verifyMagicLink(token, userAgent, ipAddress);
 
@@ -181,5 +181,17 @@ export class AuthController {
     }
     return this.authService.getCurrentUser(token);
   }
-}
 
+  private getClientIp(req: Request): string {
+    const forwarded =
+      req.headers['x-forwarded-for'] ||
+      req.headers['x-real-ip'] ||
+      req.ip ||
+      req.connection?.remoteAddress ||
+      req.socket?.remoteAddress ||
+      'unknown';
+
+    const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded.toString();
+    return raw.split(',')[0].trim();
+  }
+}

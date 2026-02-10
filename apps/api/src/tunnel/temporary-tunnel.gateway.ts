@@ -26,6 +26,14 @@ export class TemporaryTunnelGateway implements OnGatewayConnection, OnGatewayDis
   private readonly logger = new SecureLogger(TemporaryTunnelGateway.name);
   private socketToTunnel = new Map<string, string>();
 
+  private extractTunnelIdFromConnectionId(connectionId: string): string | null {
+    const parts = connectionId.split('-');
+    if (parts.length < 3) {
+      return null;
+    }
+    return parts.slice(0, -2).join('-');
+  }
+
   constructor(private tempTunnelService: TemporaryTunnelService) {}
 
   handleConnection(client: Socket) {
@@ -136,6 +144,14 @@ export class TemporaryTunnelGateway implements OnGatewayConnection, OnGatewayDis
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { connectionId: string },
   ) {
+    const tunnelId = this.extractTunnelIdFromConnectionId(data.connectionId);
+    const registeredTunnelId = this.socketToTunnel.get(client.id);
+
+    if (!tunnelId || registeredTunnelId !== tunnelId) {
+      this.logger.warn(`Socket ${client.id} attempted TCP dial success for tunnel ${tunnelId || 'unknown'}`);
+      return { success: false, error: 'Unauthorized' };
+    }
+
     this.tempTunnelService.handleTcpDialSuccess(data.connectionId);
     return { success: true };
   }
@@ -148,6 +164,14 @@ export class TemporaryTunnelGateway implements OnGatewayConnection, OnGatewayDis
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { connectionId: string; data: string },
   ) {
+    const tunnelId = this.extractTunnelIdFromConnectionId(data.connectionId);
+    const registeredTunnelId = this.socketToTunnel.get(client.id);
+
+    if (!tunnelId || registeredTunnelId !== tunnelId) {
+      this.logger.warn(`Socket ${client.id} attempted TCP data for tunnel ${tunnelId || 'unknown'}`);
+      return { success: false, error: 'Unauthorized' };
+    }
+
     this.tempTunnelService.handleTcpData(data.connectionId, data.data);
     return { success: true };
   }
@@ -160,6 +184,14 @@ export class TemporaryTunnelGateway implements OnGatewayConnection, OnGatewayDis
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { connectionId: string },
   ) {
+    const tunnelId = this.extractTunnelIdFromConnectionId(data.connectionId);
+    const registeredTunnelId = this.socketToTunnel.get(client.id);
+
+    if (!tunnelId || registeredTunnelId !== tunnelId) {
+      this.logger.warn(`Socket ${client.id} attempted TCP close for tunnel ${tunnelId || 'unknown'}`);
+      return { success: false, error: 'Unauthorized' };
+    }
+
     this.tempTunnelService.handleTcpClose(data.connectionId);
     return { success: true };
   }
@@ -176,23 +208,19 @@ export class TemporaryTunnelGateway implements OnGatewayConnection, OnGatewayDis
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { sessionId: string; data: string },
   ) {
-    // sessionId format: "address:port-timestamp"
-    const parts = data.sessionId.split('-');
-    const addressPort = parts.slice(0, -1).join('-');
-    const [remoteAddress, remotePortStr] = addressPort.split(':');
-    const remotePort = parseInt(remotePortStr, 10);
-    
-    // Get tunnel ID from socket
     const tunnelId = this.socketToTunnel.get(client.id);
     if (!tunnelId) {
       this.logger.warn(`Socket ${client.id} sent UDP response without registered tunnel`);
       return { success: false, error: 'Not registered' };
     }
-    
-    // Decode and send response
+
     const buffer = Buffer.from(data.data, 'base64');
-    this.tempTunnelService.sendUdpResponse(tunnelId, remoteAddress, remotePort, buffer);
-    
+    const sent = this.tempTunnelService.sendUdpResponseForSession(tunnelId, data.sessionId, buffer);
+
+    if (!sent) {
+      return { success: false, error: 'Unauthorized or unknown session' };
+    }
+
     return { success: true };
   }
 }
