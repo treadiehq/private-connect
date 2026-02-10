@@ -1,6 +1,6 @@
 # Virtual Kubernetes Clusters with Private Connect
 
-Use Private Connect to give a multicluster Kubernetes API server and distributed nodes secure, bidirectional connectivity, no VPN, no same-network requirement.
+Use Private Connect to give a multicluster Kubernetes API server and distributed nodes secure, bidirectional connectivity, no VPN, no same-network requirement. Works with **[kplane](https://github.com/kplane-dev/kplane)** (CLI for virtual control planes) and the **[kplane apiserver](https://github.com/kplane-dev/apiserver)** (shared, path-scoped API server).
 
 ---
 
@@ -38,6 +38,49 @@ Private Connect gives you **service-level tunnels by name**. Run an agent on the
 - **Control plane → nodes**: If the API server needs to reach node endpoints (e.g. kubelet), run an agent on each node, expose those endpoints by name, and reach them from the API server host.
 
 Everything is outbound to the hub; no open ports. Works with [kplane-dev/apiserver](https://github.com/kplane-dev/apiserver) or any multicluster/virtual Kubernetes API server.
+
+---
+
+## With kplane (recommended)
+
+**[kplane](https://github.com/kplane-dev/kplane)** is a CLI for creating virtual Kubernetes control planes (VCPs). Each VCP is served by a shared API server with path-based isolation (`/clusters/<name>/control-plane`). The flow is kind-like: bring up the management plane, create a cluster, get credentials.
+
+**kplane + Private Connect:**
+
+1. **Create a virtual cluster** (local management plane + VCP):
+
+   ```bash
+   # Install kplane: curl -fsSL https://raw.githubusercontent.com/kplane-dev/kplane/main/scripts/install.sh | sh
+   kplane up
+   kplane create cluster demo1
+   kplane get-credentials demo1
+   kubectl get ns   # verify
+   kubectl cluster-info   # shows apiserver URL, e.g. https://127.0.0.1:8443/clusters/demo1/control-plane
+   ```
+
+2. **Expose the API server by name** so nodes (or your laptop) can reach it from anywhere:
+
+   On the machine where kplane is running, get the apiserver port from `kubectl cluster-info`:
+
+   ```text
+   Kubernetes control plane is running at https://127.0.0.1:8443/clusters/demo1/control-plane
+   ```
+
+   Expose that port (e.g. `8443`), then reach by name from elsewhere:
+
+   ```bash
+   connect up
+   connect expose localhost:8443 --name demo1
+   ```
+
+3. **Reach from elsewhere** (another machine, region, or future worker node):
+
+   ```bash
+   connect reach demo1
+   # Point kubeconfig at https://127.0.0.1:<reached-port>/clusters/demo1/control-plane (same path as cluster-info)
+   ```
+
+When kplane adds **worker node management (join/leave)**, nodes will need to reach the control plane. Private Connect (or WireGuard, Tailscale, Datum) can be the transport: each node runs `connect reach <cluster-name>` and talks to the API over the tunnel. No VPN, no open ports.
 
 ---
 
@@ -144,6 +187,7 @@ Use the same workspace API key so all agents can see the same services.
 
 ## See also
 
+- [kplane-dev/kplane](https://github.com/kplane-dev/kplane) — CLI for creating virtual Kubernetes control planes (kind-like)
 - [kplane-dev/apiserver](https://github.com/kplane-dev/apiserver) — multicluster Kubernetes API server with path-based cluster routing
 - [Tailscale and Private Connect](tailscale-and-private-connect.md) — K8s service access from outside the cluster
 - [exe.dev and Private Connect](exe-dev-private-access.md) — private access from exe.dev VMs
