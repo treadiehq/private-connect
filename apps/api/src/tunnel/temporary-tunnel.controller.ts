@@ -15,6 +15,7 @@ interface CreateTunnelDto {
   localPort: number;
   ttlMinutes?: number;
   type?: 'http' | 'tcp' | 'udp';
+  slug?: string; // Optional slug prefix for subdomain (e.g. "stripe" → "stripe-a1b2")
 }
 
 @Controller()
@@ -193,6 +194,7 @@ export class TemporaryTunnelController implements OnModuleInit {
       body.localHost,
       body.localPort,
       ttlMinutes,
+      body.slug,
     );
     
     // Generate public subdomain URL (ngrok-style: subdomain.privateconnect.co)
@@ -389,9 +391,8 @@ export class TemporaryTunnelController implements OnModuleInit {
         })
       );
 
-      // Link debug session token to tunnel for packet capture and widget inspector URL
-      // Use token (s-xxxxx format) not id (UUID) - the debug page expects the token
-      this.tempTunnelService.linkDebugSession(tunnelId, session.token);
+      // Link debug session ID (UUID for packet capture) and token (s-xxxxx for widget URL)
+      this.tempTunnelService.linkDebugSession(tunnelId, session.id, session.token);
 
       const publicUrl = process.env.PUBLIC_URL || 'https://privateconnect.co';
       
@@ -419,8 +420,8 @@ export class TemporaryTunnelController implements OnModuleInit {
             })
           );
 
-          // Link debug session token to tunnel for packet capture and widget inspector URL
-          this.tempTunnelService.linkDebugSession(tunnelId, session.token);
+          // Link debug session ID (UUID for packet capture) and token (s-xxxxx for widget URL)
+          this.tempTunnelService.linkDebugSession(tunnelId, session.id, session.token);
 
           const publicUrl = process.env.PUBLIC_URL || 'https://privateconnect.co';
           

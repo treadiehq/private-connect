@@ -27,12 +27,47 @@ const c = {
   red: '\x1b[31m',
   yellow: '\x1b[33m',
   cyan: '\x1b[36m',
+  magenta: '\x1b[35m',
   gray: '\x1b[90m',
 };
 
 const ok = `${c.green}✓${c.reset}`;
 const fail = `${c.red}✗${c.reset}`;
 const warn = `${c.yellow}⚠${c.reset}`;
+
+// Color helpers for request logging
+function colorForStatus(status: number): string {
+  if (status >= 500) return c.red;
+  if (status >= 400) return c.yellow;
+  if (status >= 300) return c.cyan;
+  return c.green;
+}
+
+function colorForDuration(ms: number): string {
+  if (ms > 500) return c.red;
+  if (ms > 100) return c.yellow;
+  return c.green;
+}
+
+function colorForMethod(method: string): string {
+  switch (method.toUpperCase()) {
+    case 'GET': return c.cyan;
+    case 'POST': return c.magenta;
+    case 'PUT':
+    case 'PATCH': return c.yellow;
+    case 'DELETE': return c.red;
+    default: return c.dim;
+  }
+}
+
+function formatStats(durations: number[]): string {
+  if (durations.length === 0) return 'No requests';
+  const avg = Math.round(durations.reduce((a, b) => a + b, 0) / durations.length);
+  const sorted = [...durations].sort((a, b) => a - b);
+  const p50 = sorted[Math.floor(sorted.length * 0.5)] || 0;
+  const p95 = sorted[Math.floor(sorted.length * 0.95)] || 0;
+  return `${durations.length} requests | avg ${avg}ms | p50 ${p50}ms | p95 ${p95}ms`;
+}
 
 // Track usage (fire and forget, don't block)
 function trackUsage(command: string): void {
@@ -484,6 +519,7 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
         localPort: port,
         ttlMinutes: ttl,
         type: tunnelType,
+        ...(providerName && { slug: providerName }),
       }),
     });
     
@@ -686,6 +722,7 @@ async function runTunnelProxy(tunnelId: string, wsUrl: string, localHost: string
     });
 
     let requestCount = 0;
+    const requestDurations: number[] = [];
 
     socket.on('connect', () => {
       // Register this tunnel
@@ -737,13 +774,20 @@ async function runTunnelProxy(tunnelId: string, wsUrl: string, localHost: string
       body: string;
     }) => {
       requestCount++;
+      const start = Date.now();
       const timestamp = new Date().toLocaleTimeString();
-      console.log(`  ${c.gray}[${timestamp}]${c.reset} ${c.cyan}${data.method}${c.reset} ${data.path}`);
 
       try {
         // Forward request to local service
         const response = await forwardToLocal(localHost, localPort, data);
-        
+        const duration = Date.now() - start;
+        requestDurations.push(duration);
+
+        const sc = colorForStatus(response.status);
+        const dc = colorForDuration(duration);
+        const mc = colorForMethod(data.method);
+        console.log(`  ${c.gray}[${timestamp}]${c.reset} ${mc}${data.method}${c.reset} ${data.path} ${sc}${response.status}${c.reset} ${dc}${duration}ms${c.reset}`);
+
         // Send response back to hub
         socket.emit('http_response', {
           requestId: data.requestId,
@@ -752,6 +796,10 @@ async function runTunnelProxy(tunnelId: string, wsUrl: string, localHost: string
           body: response.body,
         });
       } catch (err: any) {
+        const duration = Date.now() - start;
+        requestDurations.push(duration);
+        console.log(`  ${c.gray}[${timestamp}]${c.reset} ${colorForMethod(data.method)}${data.method}${c.reset} ${data.path} ${c.red}502${c.reset} ${c.red}${duration}ms${c.reset}`);
+
         // Send error response
         socket.emit('http_response', {
           requestId: data.requestId,
@@ -766,7 +814,7 @@ async function runTunnelProxy(tunnelId: string, wsUrl: string, localHost: string
     process.on('SIGINT', () => {
       console.log();
       console.log(`  ${c.yellow}Tunnel closed${c.reset}`);
-      console.log(`  ${c.gray}Handled ${requestCount} requests${c.reset}`);
+      console.log(`  ${c.gray}${formatStats(requestDurations)}${c.reset}`);
       console.log();
       socket.disconnect();
       resolve();

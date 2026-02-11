@@ -141,7 +141,13 @@ Your code can use `localhost:5432` and `connect reach staging-db` makes it work�
 - `connect share` — generate invite links for teammates
 - Workspace-level access control
 
-### 4. One-way vs Bidirectional
+### 4. Auto-reconnect
+
+**ngrok** requires you to restart the process if the connection drops (free tier).
+
+**Private Connect** tunnels automatically reconnect if the connection drops, up to 10 retries with exponential backoff. No manual restart needed.
+
+### 5. One-way vs Bidirectional
 
 **ngrok** only exposes (local → internet).
 
@@ -186,13 +192,31 @@ Benefits:
 
 ---
 
+## Quick tunnels (no signup)
+
+Private Connect also handles the quick, no-signup use cases:
+
+```bash
+# Webhook testing with named subdomain
+npx private-connect stripe 3000
+# → https://stripe-a1b2.privateconnect.co (readable URL, 2hr expiry)
+
+# Quick demo
+npx private-connect myapp 3000
+# → https://myapp-f3d9.privateconnect.co
+
+# Anonymous tunnel
+npx private-connect tunnel 3000
+# → https://abc12345.privateconnect.co
+```
+
+Features: color-coded request log, live stats, auto-reconnect, web inspector.
+
 ## Still use ngrok for...
 
-- **External demos**: Client outside your team needs to see something
-- **Webhook testing**: Stripe/GitHub needs to hit your local server
-- **Quick public access**: You need a public URL right now
+- **Custom domains on free tier**: ngrok supports this, Private Connect quick tunnels are random or slug-prefixed
 
-Private Connect is for **team collaboration** and **cross-environment access**. ngrok is for **quick public exposure**.
+Private Connect covers **team collaboration**, **cross-environment access**, and **quick public tunnels** (webhooks, demos).
 
 ---
 
@@ -224,6 +248,7 @@ connect reach my-api
 | **Direction** | Expose only | Expose + Reach |
 | **Team features** | None | Clone, share, workspaces |
 | **Persistence** | URLs change (free tier) | Names are permanent |
+| **Reconnect** | Manual restart | Automatic (with backoff) |
 
 **Use ngrok** when you need a public URL fast.
 

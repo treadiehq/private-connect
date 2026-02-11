@@ -25,8 +25,9 @@ interface TemporaryTunnel {
   udpPort?: number;
   udpServer?: dgram.Socket;
   udpSessions?: Map<string, { address: string; port: number; timestamp: number }>;
-  // Debug session for packet capture
+  // Debug session for packet capture (UUID) and widget URL (token)
   debugSessionId?: string;
+  debugSessionToken?: string;
 }
 
 interface PendingRequest {
@@ -166,14 +167,39 @@ export class TemporaryTunnelService implements OnModuleDestroy {
   }
 
   /**
+   * Get a unique subdomain with a user-provided prefix (e.g. "stripe" → "stripe-a1b2")
+   */
+  private getUniqueSubdomainWithPrefix(prefix: string): string {
+    // Sanitize: lowercase, alphanumeric + hyphens only, max 20 chars
+    const sanitized = prefix.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 20);
+    if (!sanitized) return this.getUniqueSubdomain();
+
+    let subdomain: string;
+    let attempts = 0;
+    do {
+      const suffix = randomBytes(2).toString('hex');
+      subdomain = `${sanitized}-${suffix}`;
+      attempts++;
+      if (attempts > 10) {
+        throw new Error('Failed to generate unique subdomain');
+      }
+    } while (this.usedSubdomains.has(subdomain));
+
+    this.usedSubdomains.add(subdomain);
+    return subdomain;
+  }
+
+  /**
    * Create a new HTTP temporary tunnel
    */
-  createTunnel(tunnelId: string, localHost: string, localPort: number, ttlMinutes: number): TemporaryTunnel {
+  createTunnel(tunnelId: string, localHost: string, localPort: number, ttlMinutes: number, slug?: string): TemporaryTunnel {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + ttlMinutes * 60 * 1000);
     
-    // Generate a unique subdomain for public access
-    const subdomain = this.getUniqueSubdomain();
+    // Generate a unique subdomain for public access (with optional slug prefix)
+    const subdomain = slug
+      ? this.getUniqueSubdomainWithPrefix(slug)
+      : this.getUniqueSubdomain();
     
     const tunnel: TemporaryTunnel = {
       tunnelId,
@@ -609,21 +635,30 @@ export class TemporaryTunnelService implements OnModuleDestroy {
   /**
    * Link a debug session to a tunnel for packet capture
    */
-  linkDebugSession(tunnelId: string, debugSessionId: string): boolean {
+  linkDebugSession(tunnelId: string, debugSessionId: string, debugSessionToken?: string): boolean {
     const tunnel = this.getTunnel(tunnelId);
     if (!tunnel) return false;
     
     tunnel.debugSessionId = debugSessionId;
+    tunnel.debugSessionToken = debugSessionToken;
     this.logger.log(`Linked debug session ${debugSessionId} to tunnel ${tunnelId}`);
     return true;
   }
 
   /**
-   * Get the debug session ID for a tunnel
+   * Get the debug session ID (UUID) for a tunnel
    */
   getDebugSessionId(tunnelId: string): string | undefined {
     const tunnel = this.getTunnel(tunnelId);
     return tunnel?.debugSessionId;
+  }
+
+  /**
+   * Get the debug session token (s-xxxxx) for a tunnel (used in widget URLs)
+   */
+  getDebugSessionToken(tunnelId: string): string | undefined {
+    const tunnel = this.getTunnel(tunnelId);
+    return tunnel?.debugSessionToken;
   }
 
   /**

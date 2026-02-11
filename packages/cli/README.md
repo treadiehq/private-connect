@@ -60,13 +60,21 @@ npx private-connect tunnel 3000              # Expose localhost:3000
 npx private-connect tunnel localhost:8080    # Specify host and port
 ```
 
+**Named subdomains:** When you use a provider or app name, it becomes the subdomain prefix:
+
+```bash
+npx private-connect stripe 3000    # → https://stripe-a1b2.privateconnect.co
+npx private-connect myapp 3000     # → https://myapp-f3d9.privateconnect.co
+npx private-connect tunnel 3000    # → https://abc12345.privateconnect.co (random)
+```
+
 **Output:**
 ```
 Private Connect - Temporary Tunnel
 ────────────────────────────────────
 
   Local:   localhost:3000
-  Public:  https://abc12345.privateconnect.co
+  Public:  https://stripe-a1b2.privateconnect.co
            Anyone can access this URL
   Inspector: https://privateconnect.co/debug/s-xyz789
            Live traffic monitoring & request replay
@@ -75,6 +83,23 @@ Private Connect - Temporary Tunnel
 ────────────────────────────────────
 
   Press Ctrl+C to stop
+```
+
+**Request log:** Incoming requests are logged with color-coded method, status, and duration:
+
+```
+  [10:23:45] GET /api/health 200 23ms
+  [10:23:46] POST /webhooks 201 142ms
+  [10:23:47] DELETE /api/item/42 200 8ms
+```
+
+Colors: methods (GET cyan, POST purple, PUT/PATCH yellow, DELETE red), status (2xx green, 3xx cyan, 4xx yellow, 5xx red), duration (<100ms green, 100-500ms yellow, >500ms red).
+
+**Stats on exit:** Press Ctrl+C to see a summary:
+
+```
+  Tunnel closed
+  42 requests | avg 28ms | p50 23ms | p95 89ms
 ```
 
 **TCP/UDP Tunnels:**
@@ -158,6 +183,29 @@ npx private-connect list
 npx private-connect close <tunnelId>
 npx private-connect close --all
 ```
+
+## How Temporary Tunnels Work
+
+```
+┌──────────────┐        WebSocket        ┌─────────────────────┐        HTTPS        ┌─────────┐
+│  Your Machine│◄───────────────────────►│  privateconnect.co  │◄────────────────────│ Internet│
+│              │  (persistent connection) │  (Hub)              │  (TLS termination)  │         │
+│  localhost:N │                          │                     │                     │         │
+└──────────────┘                          └─────────────────────┘                     └─────────┘
+```
+
+1. You run `npx private-connect tunnel 3000`.
+2. The CLI opens a WebSocket to the hub (`api.privateconnect.co`).
+3. The hub assigns a public subdomain (e.g. `abc12345.privateconnect.co`) and handles TLS.
+4. When a request arrives at the public URL, the hub forwards it over the WebSocket to your CLI.
+5. Your CLI forwards it to `localhost:3000` and sends the response back.
+
+**Key properties:**
+- **No open ports** — Your machine only makes outbound connections (WebSocket).
+- **Auto-reconnect** — If the connection drops, the CLI reconnects automatically (up to 10 retries with backoff).
+- **No signup** — Tunnels are ephemeral (2-hour TTL). No account required.
+- **End-to-end** — Request bodies are forwarded in-memory over the WebSocket; nothing is stored on disk.
+- **TCP/UDP** — For `--tcp` and `--udp` tunnels, the hub allocates a public port and relays raw packets the same way.
 
 ## Installation Options
 

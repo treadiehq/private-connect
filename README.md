@@ -47,6 +47,7 @@ npx private-connect test db.internal:5432
 | You want to... | Command |
 |----------------|---------|
 | Quick tunnel (no signup) | `npx private-connect tunnel 3000` |
+| Named tunnel (webhook/demo) | `npx private-connect stripe 3000` |
 | Expose a service | `connect 5432` |
 | Access a service | `connect prod-db` |
 | Share with a teammate | `connect 5432 --share` |
@@ -56,7 +57,7 @@ npx private-connect test db.internal:5432
 
 Everything is automatic: auto-naming, background daemon, local DNS.
 
-**Quick tunnels** show your actual website at the public URL - perfect for demos and testing.
+**Quick tunnels** show your actual website at the public URL - perfect for demos and testing. Named tunnels get a readable subdomain (e.g. `stripe-a1b2.privateconnect.co`).
 
 ## How It Works
 

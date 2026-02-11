@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import { ServicesService } from '../services/services.service';
 import { TemporaryTunnelService } from '../tunnel/temporary-tunnel.service';
 import { DebugService } from '../debug/debug.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { proxyRateLimiter, proxySubdomainLimiter } from '../common/rate-limiter';
 import { 
   resilientRequest, 
@@ -106,6 +107,7 @@ export class ProxyController {
     private tempTunnelService: TemporaryTunnelService,
     @Inject(forwardRef(() => DebugService))
     private debugService: DebugService,
+    private prisma: PrismaService,
   ) {}
 
   // Handle requests like: /w/abc123/* -> forward to service with subdomain "abc123"
@@ -187,8 +189,9 @@ export class ProxyController {
         });
       }
 
-      // Get debug session if linked
+      // Get debug session if linked (UUID for packet capture, token for widget URL)
       const debugSessionId = this.tempTunnelService.getDebugSessionId(tempTunnel.tunnelId);
+      const debugSessionToken = this.tempTunnelService.getDebugSessionToken(tempTunnel.tunnelId);
       const connectionId = `${tempTunnel.tunnelId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
       // Forward request through temporary tunnel
@@ -197,16 +200,18 @@ export class ProxyController {
         const requestPath = targetPath + (req.url.includes('?') ? '?' + req.url.split('?')[1] : '');
         const requestHeaders = this.filterHeaders(req.headers as Record<string, string>);
         
-        // Capture inbound request packet
+        // Capture inbound request packet (use temp workspace context for RLS)
         if (debugSessionId) {
           const requestPayload = this.buildHttpRequestPayload(req.method, requestPath, requestHeaders, requestBody);
-          this.debugService.capturePacket({
-            sessionId: debugSessionId,
-            connectionId,
-            direction: 'inbound',
-            payload: Buffer.from(requestPayload),
-            timestamp: new Date(),
-          }).catch(err => this.logger.warn(`Failed to capture request packet: ${err.message}`));
+          this.prisma.withWorkspace('temp-tunnel-workspace', () =>
+            this.debugService.capturePacket({
+              sessionId: debugSessionId,
+              connectionId,
+              direction: 'inbound',
+              payload: Buffer.from(requestPayload),
+              timestamp: new Date(),
+            })
+          ).catch(err => this.logger.warn(`Failed to capture request packet: ${err.message}`));
         }
 
         const response = await this.tempTunnelService.forwardRequest(tempTunnel.tunnelId, {
@@ -216,16 +221,18 @@ export class ProxyController {
           body: requestBody,
         });
         
-        // Capture outbound response packet
+        // Capture outbound response packet (use temp workspace context for RLS)
         if (debugSessionId) {
           const responsePayload = this.buildHttpResponsePayload(response.status, response.headers, response.body);
-          this.debugService.capturePacket({
-            sessionId: debugSessionId,
-            connectionId,
-            direction: 'outbound',
-            payload: Buffer.from(responsePayload),
-            timestamp: new Date(),
-          }).catch(err => this.logger.warn(`Failed to capture response packet: ${err.message}`));
+          this.prisma.withWorkspace('temp-tunnel-workspace', () =>
+            this.debugService.capturePacket({
+              sessionId: debugSessionId,
+              connectionId,
+              direction: 'outbound',
+              payload: Buffer.from(responsePayload),
+              timestamp: new Date(),
+            })
+          ).catch(err => this.logger.warn(`Failed to capture response packet: ${err.message}`));
         }
 
         // Set response headers
@@ -237,12 +244,12 @@ export class ProxyController {
         
         res.setHeader('X-RateLimit-Remaining', proxyRateLimiter.getRemaining(clientIp).toString());
         
-        // Inject widget into HTML responses
+        // Inject widget into HTML responses (use token for the public debug URL)
         const contentType = response.headers['content-type'] || '';
         let responseBody = response.body;
         
         if (contentType.includes('text/html') && typeof responseBody === 'string') {
-          const widget = generateTunnelWidget(subdomain, debugSessionId);
+          const widget = generateTunnelWidget(subdomain, debugSessionToken);
           responseBody = injectWidgetIntoHtml(responseBody, widget);
         }
         
