@@ -30,6 +30,11 @@
           <div><span class="text-gray-500">$</span> <span class="text-gray-300">curl -fsSL https://privateconnect.co/install.sh | bash</span></div>
           <div><span class="text-gray-500">$</span> <span class="text-gray-300">connect up</span></div>
         </div>
+        <p class="mt-3 text-xs text-gray-500">
+          <a href="https://github.com/treadiehq/private-connect/blob/main/scripts/install.sh" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-blue-300 underline underline-offset-2">View install script source</a>
+          <span class="mx-1.5">·</span>
+          <NuxtLink to="/install" class="text-gray-400 hover:text-blue-300 underline underline-offset-2">Manual download</NuxtLink>
+        </p>
       </div>
 
       <!-- Main AI prompt -->
@@ -51,7 +56,7 @@
           </button>
         </div>
         <p class="text-gray-500 text-sm mb-4">Copy this prompt to your AI code editor (Cursor, Copilot, etc.) to set up Private Connect automatically:</p>
-        <div class="bg-black/50 rounded-lg p-4 font-mono text-xs text-gray-300 leading-relaxed whitespace-pre-wrap">{{ MAIN_PROMPT }}</div>
+        <pre class="bg-black/50 rounded-lg p-4 font-mono text-xs text-gray-300 leading-relaxed whitespace-pre-wrap break-words">{{ MAIN_PROMPT }}</pre>
       </div>
 
       <!-- More examples -->
@@ -87,7 +92,7 @@
               {{ copiedExampleIndex === i ? 'Copied!' : 'Copy AI prompt' }}
             </button>
           </div>
-          <div class="bg-black/50 rounded-lg p-4 font-mono text-xs text-gray-400 leading-relaxed">{{ example.prompt }}</div>
+          <pre class="bg-black/50 rounded-lg p-4 font-mono text-xs text-gray-400 leading-relaxed whitespace-pre-wrap break-words">{{ example.prompt }}</pre>
         </div>
       </div>
 
@@ -129,11 +134,7 @@ After step 4, each service is available at localhost on its configured port (e.g
 const CLI_CODE = `curl -fsSL https://privateconnect.co/install.sh | bash
 connect up`;
 
-const moreExamples = [
-  {
-    title: 'Expose local app and receive webhooks',
-    description: 'Make your local app reachable via a public URL so Stripe, GitHub, etc. can send webhooks to it.',
-    prompt: `I have Private Connect installed and authenticated (via "connect up"). I want to expose my local web app so it can receive webhooks from Stripe.
+const EXPOSE_PROMPT = `I have Private Connect installed and authenticated (via "connect up"). I want to expose my local web app so it can receive webhooks from Stripe.
 
 Create a file called pconnect.yml in my project root with this structure:
 
@@ -142,12 +143,9 @@ expose:
     target: localhost:3000
     public: true
 
-Then run "connect serve". The output will show a public URL like https://abc123.privateconnect.co — that's the webhook URL. Tell me the exact URL from the output so I can paste it into my Stripe webhook dashboard settings.`,
-  },
-  {
-    title: 'Access a staging database locally',
-    description: 'Connect to your team\'s staging Postgres (or any database) from your local machine via Cursor.',
-    prompt: `I have Private Connect installed and authenticated (via "connect up"). My team has a staging Postgres database exposed as "staging-db" through Private Connect.
+Then run "connect serve". The output will show a public URL like https://abc123.privateconnect.co — that's the webhook URL. Tell me the exact URL from the output so I can paste it into my Stripe webhook dashboard settings.`;
+
+const DB_PROMPT = `I have Private Connect installed and authenticated (via "connect up"). My team has a staging Postgres database exposed as "staging-db" through Private Connect.
 
 Create or update pconnect.yml in my project root:
 
@@ -157,19 +155,32 @@ services:
 
 Then run "connect dev". Once it connects, the database is available at localhost:5432. Show me:
 1. The psql connection command: psql -h localhost -p 5432 -U <user> -d <dbname>
-2. A DATABASE_URL I can put in .env: postgres://<user>:<password>@localhost:5432/<dbname>`,
-  },
-  {
-    title: 'Share your environment with a teammate',
-    description: 'Give a teammate access to the same services you\'re connected to, with one command each.',
-    prompt: `I have Private Connect running with services exposed. I want to share my environment with a teammate so they get the same services I have.
+2. A DATABASE_URL I can put in .env: postgres://<user>:<password>@localhost:5432/<dbname>`;
+
+const SHARE_PROMPT = `I have Private Connect running with services exposed. I want to share my environment with a teammate so they get the same services I have.
 
 Run "connect share" to generate a share code. Then tell me:
 1. The share code from the output — I'll send this to my teammate
 2. The command they need to run: connect join <the-code>
 3. How to revoke the share later: connect share --revoke <the-code>
 
-The share expires after 24 hours by default. To set a different duration, use: connect share --expires 7d`,
+The share expires after 24 hours by default. To set a different duration, use: connect share --expires 7d`;
+
+const moreExamples = [
+  {
+    title: 'Expose local app and receive webhooks',
+    description: 'Make your local app reachable via a public URL so Stripe, GitHub, etc. can send webhooks to it.',
+    prompt: EXPOSE_PROMPT,
+  },
+  {
+    title: 'Access a staging database locally',
+    description: 'Connect to your team\'s staging Postgres (or any database) from your local machine via Cursor.',
+    prompt: DB_PROMPT,
+  },
+  {
+    title: 'Share your environment with a teammate',
+    description: 'Give a teammate access to the same services you\'re connected to, with one command each.',
+    prompt: SHARE_PROMPT,
   },
 ];
 
