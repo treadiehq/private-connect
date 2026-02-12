@@ -221,6 +221,128 @@
       </div>
     </section>
 
+    <!-- Works with: remote dev → private backend -->
+    <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
+      <div class="text-center mb-10">
+        <h2 class="text-xl font-semibold text-white mb-2">Reach private backends from anywhere you code</h2>
+        <p class="text-gray-500 text-sm max-w-sm mx-auto">Your app runs in the cloud. Your database doesn't. One command connects them.</p>
+        <!-- <p class="text-gray-600 text-xs max-w-md mx-auto mt-2">Whether your backend is a <span class="text-gray-400">Mac Mini running OpenClaw</span>, a laptop with Postgres, or a server in AWS—same flow.</p> -->
+      </div>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <a
+          href="https://github.com/treadiehq/private-connect/blob/main/docs/sprites-and-private-connect.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-4 hover:border-gray-500/25 hover:bg-gray-500/10 transition-all text-left group flex items-start gap-3"
+        >
+          <svg class="relative top-px w-auto h-6" viewBox="0 0 724 582" fill-rule="evenodd">
+            <g>
+              <path d="M205.594 197.898h322.661v108.263H205.594z"></path>
+              <path d="M578.582 508.799h-72.323v72.686h72.323v-72.686zm-361.614 0h-72.323v72.686h72.323v-72.686zm361.614-290.742h72.323v145.371h-72.323v72.686h-74.229 1.906v72.685H216.968v-72.685h-72.323v-72.686H72.323V218.057h72.322v-73.163h72.323V72.686h72.323v72.685h144.645V72.686h72.323v72.685h72.323v72.686zM72.323 508.799V363.428H0v145.371h72.323zm650.904 0V363.428h-72.322v145.371h72.322zM289.423 290.742h-.132.132zm-72.455-72.685h72.323v72.685h-72.323v-72.685zm216.968 0h72.323v72.685h-72.323v-72.685zM578.582 0h-72.323v72.686h72.323V0zM216.968 0h-72.323v72.686h72.323V0z" class="fill-green-600"></path>
+              <path d="M144.645 363.428V218.057h72.323v-72.686h289.291v72.686h72.323v72.685l-.001.001v72.685h-72.322v72.686h-72.323V508.8H289.291v-72.686h-72.323v-72.686h-72.323zm144.646-72.686h-72.323v-72.685h72.323v72.685zm216.968 0h-72.323v-72.685h72.323v72.685z" class="fill-green-500"></path>
+            </g>
+          </svg>
+          <!-- <img src="https://logo.clearbit.com/fly.io" alt="" class="w-9 h-9 rounded-lg shrink-0 bg-white/5 object-contain" loading="lazy" onerror="this.style.display='none'"> -->
+          <div class="min-w-0">
+            <div class="font-medium text-white text-sm mb-0.5 group-hover:text-blue-300 transition-colors">Sprites</div>
+            <p class="text-xs text-gray-500">Reach your DB, API or other services from a stateful sandbox</p>
+          </div>
+        </a>
+        <a
+          href="https://github.com/treadiehq/private-connect/blob/main/docs/exe-dev-private-access.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-4 hover:border-gray-500/25 hover:bg-gray-500/10 transition-all text-left group flex items-start gap-3"
+        >
+          <img src="/img/exe.png" alt="" class="w-9 h-9 rounded-lg shrink-0 bg-white/5 object-contain" loading="lazy" onerror="this.style.display='none'">
+          <div class="min-w-0">
+            <div class="font-medium text-white text-sm mb-0.5 group-hover:text-blue-300 transition-colors">exe.dev</div>
+            <p class="text-xs text-gray-500">Access private services from exe.dev VMs</p>
+          </div>
+        </a>
+        <a
+          href="https://github.com/treadiehq/private-connect/blob/main/docs/openclaw-remote-access.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-4 hover:border-gray-500/25 hover:bg-gray-500/10 transition-all text-left group flex items-start gap-3"
+        >
+          <img src="/img/openclaw.jpg" alt="" class="w-9 h-9 rounded-lg shrink-0 bg-white/5 object-contain" loading="lazy" onerror="this.style.display='none'">
+          <div class="min-w-0">
+            <div class="font-medium text-white text-sm mb-0.5 group-hover:text-blue-300 transition-colors">OpenClaw</div>
+            <p class="text-xs text-gray-500">Run OpenClaw at home, reach it from Sprites, Cursor, anywhere</p>
+          </div>
+        </a>
+        <a
+          href="https://github.com/treadiehq/private-connect/blob/main/docs/database-and-cursor.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-4 hover:border-gray-500/25 hover:bg-gray-500/10 transition-all text-left group flex items-start gap-3"
+        >
+          <img src="/img/cursor.jpg" alt="" class="w-9 h-9 rounded-lg shrink-0 bg-white/5 object-contain" loading="lazy" onerror="this.style.display='none'">
+          <div class="min-w-0">
+            <div class="font-medium text-white text-sm mb-0.5 group-hover:text-blue-300 transition-colors">Cursor</div>
+            <p class="text-xs text-gray-500">Connect Cursor (and agents) to your DB</p>
+          </div>
+        </a>
+        <a
+          href="https://github.com/treadiehq/private-connect/blob/main/docs/tailscale-and-private-connect.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-4 hover:border-gray-500/25 hover:bg-gray-500/10 transition-all text-left group flex items-start gap-3"
+        >
+          <img src="/img/tailscale.jpg" alt="" class="w-9 h-9 rounded-lg shrink-0 bg-white/5 object-contain" loading="lazy" onerror="this.style.display='none'">
+          <div class="min-w-0">
+            <div class="font-medium text-white text-sm mb-0.5 group-hover:text-blue-300 transition-colors">Tailscale</div>
+            <p class="text-xs text-gray-500">Service-level access on top of Tailscale</p>
+          </div>
+        </a>
+        <a
+          href="https://github.com/treadiehq/private-connect/blob/main/docs/opencode-remote-access.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-4 hover:border-gray-500/25 hover:bg-gray-500/10 transition-all text-left group flex items-start gap-3"
+        >
+          <img src="/img/opencode.png" alt="" class="w-9 h-9 rounded-lg shrink-0 bg-white/5 object-contain" loading="lazy" onerror="this.style.display='none'">
+          <div class="min-w-0">
+            <div class="font-medium text-white text-sm mb-0.5 group-hover:text-blue-300 transition-colors">OpenCode</div>
+            <p class="text-xs text-gray-500">Access your OpenCode server from anywhere, laptop, phone, or any device</p>
+          </div>
+        </a>
+        <a
+          href="https://github.com/treadiehq/private-connect/blob/main/docs/kubernetes-virtual-clusters-and-private-connect.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-4 hover:border-gray-500/25 hover:bg-gray-500/10 transition-all text-left group flex items-start gap-3"
+        >
+          <div class="w-9 h-9 rounded-lg shrink-0 bg-white/5 flex items-center justify-center">
+            <svg class="w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18l6.9 3.45L12 11.09 5.1 7.63 12 4.18zM4 8.82l7 3.5v7.36l-7-3.5V8.82zm9 10.86v-7.36l7-3.5v7.36l-7 3.5z"/>
+            </svg>
+          </div>
+          <div class="min-w-0">
+            <div class="font-medium text-white text-sm mb-0.5 group-hover:text-blue-300 transition-colors">Kubernetes</div>
+            <p class="text-xs text-gray-500">Multicluster API server and nodes over private tunnels, no VPN</p>
+          </div>
+        </a>
+        <a
+          href="https://github.com/treadiehq/private-connect/blob/main/docs/family-abroad.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-4 hover:border-gray-500/25 hover:bg-gray-500/10 transition-all text-left group flex items-start gap-3"
+        >
+          <div class="w-9 h-9 rounded-lg shrink-0 bg-white/5 flex items-center justify-center">
+            <svg class="w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008H17.25v-.008z"/>
+            </svg>
+          </div>
+          <div class="min-w-0">
+            <div class="font-medium text-white text-sm mb-0.5 group-hover:text-blue-300 transition-colors">Family abroad</div>
+            <p class="text-xs text-gray-500">Share your home (Plex, NAS, etc.) with family abroad, no VPN setup</p>
+          </div>
+        </a>
+      </div>
+    </section>
+
     <!-- Multiple Ways to Integrate -->
     <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10">
       <div class="text-center mb-10">

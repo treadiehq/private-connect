@@ -1,6 +1,6 @@
 # Share Your Home with Family Abroad
 
-Give family in another country access to your home network and services — without VPN setup, port forwarding, or walking them through firewall rules.
+Give family in another country access to your home network and services, without VPN setup, port forwarding, or walking them through firewall rules.
 
 ---
 

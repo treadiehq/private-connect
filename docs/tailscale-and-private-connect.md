@@ -4,6 +4,12 @@ Tailscale gets you on the network. Private Connect gets you to your services.
 
 ---
 
+## "I have a local DB and use Tailscale. I can SSH in, but I can't see the results without opening a port or 0.0.0.0"
+
+**Yes — Private Connect solves that.** You keep your database on `127.0.0.1` (no opening a port, no binding to `0.0.0.0`). On the machine where the DB runs, run `connect expose localhost:5432 --name my-db`. From your laptop (or wherever you're coding), run `connect reach my-db`. Now `localhost:5432` on your machine tunnels to the real DB, your app, IDE, or query tool can connect and you'll see the results. Tailscale already gives you SSH and network access; Private Connect gives you **service access** so you can hit the DB without changing how the DB listens.
+
+---
+
 ## The problem with network-level access
 
 Tailscale is great. You install it, join a tailnet, and suddenly you can reach `100.x.x.x` from anywhere. Your home server, your work VM, your friend's Raspberry Pi, all accessible.

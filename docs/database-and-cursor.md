@@ -1,6 +1,6 @@
-# Database + Cursor: 2-minute setup
+# Database and Cursor: 2-minute setup
 
-Reach your local Postgres or MySQL from anywhere—and let Cursor’s AI use it—without opening ports or changing your app’s connection string.
+**Cursor connect to local Postgres (or MySQL) from anywhere.** Reach your local Postgres or MySQL from anywhere, and let Cursor’s AI use it, without opening ports or changing your app’s connection string.
 
 ---
 
@@ -70,5 +70,7 @@ Your app keeps using `localhost:5432`; the AI uses the same endpoint via Private
 | Expose DB | Machine with DB | `connect expose localhost:5432 --name my-db` |
 | Reach DB | Any other machine | `connect reach my-db` |
 | AI access | Cursor | `connect mcp setup` → add to Cursor MCP → ask AI to use `my-db` |
+
+**Using Tailscale?** You can SSH in but your DB is on localhost, you can't see query results without opening a port or binding to 0.0.0.0. Private Connect fixes that; see [Tailscale + Private Connect](tailscale-and-private-connect.md) (the "local DB" section at the top).
 
 For more: [AI & MCP](AI.md), [MCP integration](mcp.md), [Tailscale + Private Connect](tailscale-and-private-connect.md).

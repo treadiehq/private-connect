@@ -85,23 +85,6 @@ Private Connect - Temporary Tunnel
   Press Ctrl+C to stop
 ```
 
-**Request log:** Incoming requests are logged with color-coded method, status, and duration:
-
-```
-  [10:23:45] GET /api/health 200 23ms
-  [10:23:46] POST /webhooks 201 142ms
-  [10:23:47] DELETE /api/item/42 200 8ms
-```
-
-Colors: methods (GET cyan, POST purple, PUT/PATCH yellow, DELETE red), status (2xx green, 3xx cyan, 4xx yellow, 5xx red), duration (<100ms green, 100-500ms yellow, >500ms red).
-
-**Stats on exit:** Press Ctrl+C to see a summary:
-
-```
-  Tunnel closed
-  42 requests | avg 28ms | p50 23ms | p95 89ms
-```
-
 **TCP/UDP Tunnels:**
 ```bash
 npx private-connect tunnel 5432 --tcp    # TCP tunnel (databases, etc.)

@@ -1,8 +1,8 @@
 # Private Connect
 
-**Reach your database and private services from anywhere. Cursor, exe.dev, on the road with one command. No VPN, no open ports.**
+**Reach your database and private services from anywhere. Your code runs in Sprites, exe.dev, or Cursor. Your database doesn’t. One command connects them, no VPN, no open ports, no public URLs.**
 
-Private Connect lets you and your AI agent reach databases, APIs, and internal services from another machine, a cloud IDE, or a second device without changing bind addresses or opening firewall ports. **Tailscale for services, not networks.**
+Private Connect lets you and your AI agent reach databases, APIs, and internal services from another machine, a cloud IDE, or a second device without changing bind addresses or opening firewall ports. **Tailscale for services.**
 
 **Who is this for?** Private Connect is for **developers**, **DevOps/platform**, and **QA/test**, anyone who needs to reach or expose private services without VPNs or port forwarding. From remote dev (exe.dev, Codespaces), from Cursor/agents, or on the road; Developers use it day to day; DevOps automates it in CI and infra; QA uses it to hit staging by name.
 
@@ -152,6 +152,7 @@ curl -s -X POST http://localhost:3001/v1/ask -H "Content-Type: application/json"
 - **OpenClaw**: [docs/openclaw-remote-access.md](docs/openclaw-remote-access.md) — secure remote access to OpenClaw gateway
 - **OpenCode**: [docs/opencode-remote-access.md](docs/opencode-remote-access.md) — secure remote access to OpenCode server
 - **exe.dev / Mac Mini**: [docs/exe-dev-private-access.md](docs/exe-dev-private-access.md) — access private services from exe.dev VMs or Mac Mini
+- **Sprites (sprites.dev)**: [docs/sprites-and-private-connect.md](docs/sprites-and-private-connect.md) — reach your DB and private APIs from Sprites
 - **Virtual Kubernetes**: [docs/kubernetes-virtual-clusters-and-private-connect.md](docs/kubernetes-virtual-clusters-and-private-connect.md) — multicluster API server + distributed nodes over private tunnels
 - **Use Cases**: [USE_CASES.md](USE_CASES.md) — real scenarios
 - **Family abroad**: [docs/family-abroad.md](docs/family-abroad.md) — share your home with family (Tailscale + Private Connect)

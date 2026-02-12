@@ -1,6 +1,6 @@
 # Access Private Services from exe.dev VMs (or Mac Mini)
 
-Give your exe.dev agents, Mac Mini servers, and dev environments secure access to your private infrastructure, databases, APIs, and internal services, without exposing them to the internet.
+**exe.dev database access made simple.** Give your exe.dev agents, Mac Mini servers, and dev environments secure access to your private infrastructure, databases, APIs, and internal services, without exposing them to the internet.
 
 ## The Problem
 

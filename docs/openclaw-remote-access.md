@@ -58,6 +58,29 @@ connect localhost:18789 --name openclaw
 
 That's it — your OpenClaw will be accessible from any device via `connect reach openclaw`.
 
+## Mac Mini (or home server) at home
+
+A common setup: OpenClaw runs on a Mac Mini (or home server) at home or in the office. You want to reach it from your laptop, phone, **Sprites**, **Cursor**, **exe.dev**, or any other device.
+
+**On the Mac Mini:**
+
+```bash
+curl -fsSL https://privateconnect.co/install.sh | bash
+connect up
+connect expose localhost:18789 --name openclaw
+# Optionally expose other services: connect expose localhost:5432 --name my-db
+```
+
+**From anywhere** (laptop, phone, a Sprite, Cursor, exe.dev VM):
+
+```bash
+connect up   # if not already
+connect reach openclaw
+# localhost:18789 now tunnels to your OpenClaw gateway
+```
+
+Same flow for every client: no separate setup for "Mac Mini vs Sprites vs Cursor." For exe.dev-specific one-click VM setup (OpenClaw + Private Connect on a VM), see [exe.dev / Mac Mini](exe-dev-private-access.md#one-click-vm-setup-openclaw--private-connect).
+
 ## Security Best Practices
 
 Private Connect keeps your gateway on localhost, but you still need to follow OpenClaw's security guidelines:
