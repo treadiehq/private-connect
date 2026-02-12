@@ -321,7 +321,7 @@
           </div>
           <div class="min-w-0">
             <div class="font-medium text-white text-sm mb-0.5 group-hover:text-blue-300 transition-colors">Kubernetes</div>
-            <p class="text-xs text-gray-500">Multicluster API server and nodes over private tunnels, no VPN</p>
+            <p class="text-xs text-gray-500">Multicluster Kubernetes (kplane) API server and nodes over private tunnels, no VPN</p>
           </div>
         </a>
         <a

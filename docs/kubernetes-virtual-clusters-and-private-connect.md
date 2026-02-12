@@ -1,6 +1,6 @@
 # Virtual Kubernetes Clusters with Private Connect
 
-Use Private Connect to give a multicluster Kubernetes API server and distributed nodes secure, bidirectional connectivity, no VPN, no same-network requirement. Works with **[kplane](https://github.com/kplane-dev/kplane)** (CLI for virtual control planes) and the **[kplane apiserver](https://github.com/kplane-dev/apiserver)** (shared, path-scoped API server).
+Use Private Connect to give a multicluster Kubernetes API server and distributed nodes secure, bidirectional connectivity, no VPN, no same-network requirement. Works with **[kplane](https://github.com/kplane-dev/kplane)** (CLI for virtual control planes)
 
 ---
 
