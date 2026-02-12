@@ -1,8 +1,19 @@
 # Private Connect project config
-# Run: connect dev
+# Reach services:  connect dev
+# Expose services: connect serve
 
 services:
   - name: staging-db
     port: 5432
   - name: redis
     port: 6379
+
+# Expose local services (webhooks, demos, APIs)
+# Uncomment and edit, then run: connect serve
+#
+# expose:
+#   web:
+#     target: localhost:3000
+#     public: true
+#   api:
+#     target: localhost:8000

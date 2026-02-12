@@ -13,15 +13,23 @@ interface DevOptions {
   config?: string;
 }
 
-interface ProjectService {
+export interface ProjectService {
   name: string;
   port?: number;
   localPort?: number; // alias for port
   protocol?: string;
 }
 
-interface ProjectConfig {
+export interface ExposeEntry {
+  name: string;
+  target: string;
+  public?: boolean;
+  expires?: string;
+}
+
+export interface ProjectConfig {
   services: ProjectService[];
+  expose?: ExposeEntry[];
   hub?: string;
 }
 
@@ -34,7 +42,7 @@ const CONFIG_FILENAMES = [
   '.pconnect.json',
 ];
 
-function findProjectConfig(startDir?: string): string | null {
+export function findProjectConfig(startDir?: string): string | null {
   const dir = startDir || process.cwd();
   
   for (const filename of CONFIG_FILENAMES) {
@@ -56,17 +64,28 @@ function findProjectConfig(startDir?: string): string | null {
 function parseYaml(content: string): ProjectConfig {
   // Simple YAML parser for our limited use case
   const lines = content.split('\n');
-  const config: ProjectConfig = { services: [] };
+  const config: ProjectConfig = { services: [], expose: [] };
   let currentService: ProjectService | null = null;
-  let inServices = false;
+  let currentExposeEntry: ExposeEntry | null = null;
+  let section: 'none' | 'services' | 'expose' = 'none';
 
   for (const line of lines) {
     const trimmed = line.trim();
     
     if (trimmed.startsWith('#') || trimmed === '') continue;
     
+    // Top-level section headers
     if (trimmed === 'services:') {
-      inServices = true;
+      if (currentService) { config.services.push(currentService); currentService = null; }
+      if (currentExposeEntry && currentExposeEntry.target) { config.expose!.push(currentExposeEntry); currentExposeEntry = null; }
+      section = 'services';
+      continue;
+    }
+    
+    if (trimmed === 'expose:') {
+      if (currentService) { config.services.push(currentService); currentService = null; }
+      if (currentExposeEntry && currentExposeEntry.target) { config.expose!.push(currentExposeEntry); currentExposeEntry = null; }
+      section = 'expose';
       continue;
     }
     
@@ -75,7 +94,7 @@ function parseYaml(content: string): ProjectConfig {
       continue;
     }
     
-    if (inServices) {
+    if (section === 'services') {
       // New service entry
       if (trimmed.startsWith('- name:')) {
         if (currentService) {
@@ -94,21 +113,59 @@ function parseYaml(content: string): ProjectConfig {
         }
       }
     }
+    
+    if (section === 'expose') {
+      // New expose entry: "name:" (word followed by colon, no value)
+      const entryMatch = trimmed.match(/^([a-zA-Z0-9_-]+):$/);
+      if (entryMatch) {
+        if (currentExposeEntry && currentExposeEntry.target) {
+          config.expose!.push(currentExposeEntry);
+        }
+        currentExposeEntry = { name: entryMatch[1], target: '' };
+      } else if (currentExposeEntry) {
+        // Expose entry properties
+        if (trimmed.startsWith('target:')) {
+          currentExposeEntry.target = trimmed.split(':').slice(1).join(':').trim().replace(/['"]/g, '');
+        } else if (trimmed.startsWith('public:')) {
+          const val = trimmed.split(':')[1].trim().toLowerCase();
+          currentExposeEntry.public = val === 'true';
+        } else if (trimmed.startsWith('expires:')) {
+          currentExposeEntry.expires = trimmed.split(':')[1].trim().replace(/['"]/g, '');
+        }
+      }
+    }
   }
   
+  // Flush remaining entries
   if (currentService) {
     config.services.push(currentService);
+  }
+  if (currentExposeEntry && currentExposeEntry.target) {
+    config.expose!.push(currentExposeEntry);
   }
   
   return config;
 }
 
-function loadProjectConfig(configPath: string): ProjectConfig | null {
+export function loadProjectConfig(configPath: string): ProjectConfig | null {
   try {
     const content = fs.readFileSync(configPath, 'utf-8');
     
     if (configPath.endsWith('.json')) {
-      return JSON.parse(content) as ProjectConfig;
+      const raw = JSON.parse(content);
+      const config: ProjectConfig = {
+        services: raw.services || [],
+        hub: raw.hub,
+        expose: [],
+      };
+      // Convert expose map { name: { target, public, expires } } to array
+      if (raw.expose && typeof raw.expose === 'object') {
+        for (const [name, entry] of Object.entries(raw.expose)) {
+          const e = entry as { target: string; public?: boolean; expires?: string };
+          config.expose!.push({ name, target: e.target, public: e.public, expires: e.expires });
+        }
+      }
+      return config;
     } else {
       return parseYaml(content);
     }

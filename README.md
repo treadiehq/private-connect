@@ -49,6 +49,7 @@ npx private-connect test db.internal:5432
 | Quick tunnel (no signup) | `npx private-connect tunnel 3000` |
 | Named tunnel (webhook/demo) | `npx private-connect stripe 3000` |
 | Expose a service | `connect 5432` |
+| Expose many from config | `connect serve` |
 | Access a service | `connect prod-db` |
 | Share with a teammate | `connect 5432 --share` |
 | Clone a teammate's setup | `connect clone alice` |
@@ -147,6 +148,7 @@ curl -s -X POST http://localhost:3001/v1/ask -H "Content-Type: application/json"
 - **DB + Cursor (2 min)**: [docs/database-and-cursor.md](docs/database-and-cursor.md) — expose local DB, reach from anywhere, use with Cursor
 - **Docs**: [DETAILED.md](DETAILED.md) — full CLI reference, all features
 - **API Reference**: [DETAILED.md#control-api](DETAILED.md#control-api) — REST API documentation
+- **Config-driven expose**: [docs/config-driven-expose-webhooks-demos.md](docs/config-driven-expose-webhooks-demos.md) — expose multiple services from config (`connect serve`)
 - **Debugging**: [docs/debugging.md](docs/debugging.md) — live traffic inspection, AI copilot
 - **AI & MCP**: [docs/AI.md](docs/AI.md) — AI integration, orchestration, SDK
 - **OpenClaw**: [docs/openclaw-remote-access.md](docs/openclaw-remote-access.md) — secure remote access to OpenClaw gateway

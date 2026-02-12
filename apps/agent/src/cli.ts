@@ -14,6 +14,7 @@ import { joinCommand } from './commands/join';
 import { mapCommand, mapStatusCommand } from './commands/map';
 import { daemonCommand } from './commands/daemon';
 import { devCommand, devInitCommand } from './commands/dev';
+import { serveCommand } from './commands/serve';
 import { linkCommand } from './commands/link';
 import { deleteCommand } from './commands/delete';
 import { doctorCommand, cleanupCommand, statusCommand } from './commands/doctor';
@@ -432,6 +433,18 @@ program
     } else {
       devCommand(options);
     }
+  });
+
+// Serve Mode Commands
+program
+  .command('serve')
+  .description('Expose all services defined in the expose block of pconnect.yml')
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-f, --file <path>', 'Path to pconnect.yml file')
+  .option('-c, --config <path>', 'Agent config file path')
+  .action((options) => {
+    if (options.config) setConfigPath(options.config);
+    serveCommand(options);
   });
 
 // Health & Diagnostics Commands

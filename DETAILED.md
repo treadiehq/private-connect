@@ -216,6 +216,7 @@ connect delete <service>      # Delete a service
 connect proxy                 # Subdomain proxy (my-api.localhost:3000)
 connect daemon <action>       # Background daemon (install|status|logs)
 connect dev                   # Project dev mode (pconnect.yml)
+connect serve                 # Expose all services from pconnect.yml
 connect dns <action>          # Local DNS (*.connect domains)
 connect mcp <action>          # AI assistant integration
 connect broker <action>       # Agent Permission Broker
@@ -395,6 +396,37 @@ Then:
 connect dev --init  # Create config
 connect dev         # Connect all services
 ```
+
+### Config-driven Expose (`connect serve`)
+
+Add an `expose` block to your `pconnect.yml` to expose multiple local services with one command:
+
+```yaml
+# pconnect.yml
+services:
+  - name: staging-db
+    port: 5432
+
+expose:
+  web:
+    target: localhost:3000
+    public: true
+  api:
+    target: localhost:8000
+  webhooks:
+    target: localhost:3000
+    public: true
+```
+
+Then:
+
+```bash
+connect serve       # Expose all entries under expose:
+```
+
+Each entry becomes a named service in the hub. Set `public: true` to get a public URL (for webhooks and demos). Teammates can `connect reach web` or `connect reach api` to access your services.
+
+See [docs/config-driven-expose-webhooks-demos.md](docs/config-driven-expose-webhooks-demos.md) for the full guide.
 
 ### Subdomain Proxy
 
