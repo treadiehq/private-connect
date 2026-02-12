@@ -229,8 +229,8 @@ const copiedConnect = ref(false);
 
 const exampleQuestions = [
   'Is it healthy?',
-  'What version is running?',
-  'Why might it be failing?',
+  'What version is it?',
+  'Why is it failing?',
 ];
 
 async function submit() {
