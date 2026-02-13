@@ -211,6 +211,67 @@ export function useApi() {
     return response.json();
   };
 
+  // Subdomain (custom public URL) — uses same base URL and auth as other API calls
+  const checkSubdomain = async (
+    serviceId: string,
+    subdomain: string,
+  ): Promise<{ valid: boolean; available?: boolean; error?: string; subdomain?: string; publicUrl?: string | null }> => {
+    const value = subdomain?.toLowerCase().trim() || '';
+    if (!value) return { valid: false, error: 'Subdomain is required' };
+    const response = await fetch(
+      `${baseUrl}/v1/services/${serviceId}/subdomain/check?subdomain=${encodeURIComponent(value)}`,
+      fetchOptions(),
+    );
+    if (!response.ok) return { valid: false, error: 'Failed to check availability' };
+    return response.json();
+  };
+
+  const setSubdomain = async (
+    serviceId: string,
+    subdomain: string | null,
+  ): Promise<{ success: boolean; service?: { id: string; publicSubdomain: string | null; isPublic: boolean; publicUrl: string | null }; error?: string }> => {
+    const response = await fetch(`${baseUrl}/v1/services/${serviceId}/subdomain`, {
+      method: 'PATCH',
+      ...fetchOptions(),
+      headers: {
+        ...headers(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ subdomain: subdomain?.toLowerCase().trim() || null }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const msg = data.message || data.error || 'Failed to save subdomain';
+      const err = new Error(msg) as Error & { data?: { message?: string } };
+      err.data = { message: msg };
+      throw err;
+    }
+    return data;
+  };
+
+  const updateService = async (
+    serviceId: string,
+    data: { name?: string },
+  ): Promise<{ success: boolean; service?: { id: string; name: string; [key: string]: unknown } }> => {
+    const response = await fetch(`${baseUrl}/v1/services/${serviceId}`, {
+      method: 'PATCH',
+      ...fetchOptions(),
+      headers: {
+        ...headers(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const msg = result.message || result.error || 'Failed to update service';
+      const err = new Error(msg) as Error & { data?: { message?: string } };
+      err.data = { message: msg };
+      throw err;
+    }
+    return result;
+  };
+
   const checkMcpStatus = async (): Promise<boolean> => {
     try {
       const response = await fetch(`${baseUrl}/v1/agents/by-capability/mcp-server`, fetchOptions());
@@ -308,6 +369,9 @@ export function useApi() {
     fetchShareAccessLogs,
     // Service management
     deleteService,
+    checkSubdomain,
+    setSubdomain,
+    updateService,
     // MCP status
     checkMcpStatus,
     // Audit

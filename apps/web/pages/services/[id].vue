@@ -586,7 +586,7 @@ definePageMeta({
 });
 
 const route = useRoute();
-const { fetchService, fetchServiceDiagnostics, fetchOnlineAgents, runCheck, runReachCheck } = useApi();
+const { fetchService, fetchServiceDiagnostics, fetchOnlineAgents, runCheck, runReachCheck, checkSubdomain: apiCheckSubdomain, setSubdomain: apiSetSubdomain, updateService: apiUpdateService } = useApi();
 const { connect } = useSocket();
 const { success, error: showError } = useToast();
 
@@ -755,20 +755,31 @@ watch(showSubdomainModal, (open) => {
   }
 });
 
+// Normalize subdomain: accept pasted full URL (e.g. https://privateconnect.co/w/my-app) and extract subdomain
+function normalizeSubdomainInput(raw: string): string {
+  const trimmed = raw.trim();
+  const lower = trimmed.toLowerCase();
+  const wMatch = lower.match(/\/w\/([a-z0-9-]+)\/?$/);
+  if (wMatch) return wMatch[1];
+  const pathMatch = lower.match(/privateconnect\.co\/w\/([a-z0-9-]+)/);
+  if (pathMatch) return pathMatch[1];
+  return lower;
+}
+
 const checkSubdomainDebounced = () => {
   if (checkDebounceTimer) clearTimeout(checkDebounceTimer);
   subdomainError.value = '';
   subdomainAvailable.value = false;
   
-  const value = subdomainInput.value.toLowerCase().trim();
+  const raw = subdomainInput.value;
+  const value = normalizeSubdomainInput(raw);
+  if (value !== raw) subdomainInput.value = value;
   if (!value) return;
   
   checkingSubdomain.value = true;
   checkDebounceTimer = setTimeout(async () => {
     try {
-      const { $api } = useNuxtApp();
-      const response = await $api(`/v1/services/${route.params.id}/subdomain/check?subdomain=${encodeURIComponent(value)}`);
-      
+      const response = await apiCheckSubdomain(route.params.id as string, value);
       if (!response.valid) {
         subdomainError.value = response.error || 'Invalid subdomain';
         subdomainAvailable.value = false;
@@ -787,18 +798,13 @@ const checkSubdomainDebounced = () => {
 };
 
 const saveSubdomain = async () => {
-  if (!subdomainInput.value || !subdomainAvailable.value) return;
+  const subdomain = normalizeSubdomainInput(subdomainInput.value);
+  if (!subdomain || !subdomainAvailable.value) return;
   
   savingSubdomain.value = true;
   try {
-    const { $api } = useNuxtApp();
-    const response = await $api(`/v1/services/${route.params.id}/subdomain`, {
-      method: 'PATCH',
-      body: { subdomain: subdomainInput.value.toLowerCase().trim() },
-    });
-    
+    const response = await apiSetSubdomain(route.params.id as string, subdomain);
     if (response.success && response.service) {
-      // Update local service
       if (service.value) {
         service.value.publicSubdomain = response.service.publicSubdomain;
         service.value.isPublic = response.service.isPublic;
@@ -816,12 +822,7 @@ const saveSubdomain = async () => {
 const clearSubdomain = async () => {
   savingSubdomain.value = true;
   try {
-    const { $api } = useNuxtApp();
-    const response = await $api(`/v1/services/${route.params.id}/subdomain`, {
-      method: 'PATCH',
-      body: { subdomain: null },
-    });
-    
+    const response = await apiSetSubdomain(route.params.id as string, null);
     if (response.success) {
       if (service.value) {
         service.value.publicSubdomain = null;
@@ -874,9 +875,7 @@ const checkRenameDebounced = () => {
   checkingRename.value = true;
   renameDebounceTimer = setTimeout(async () => {
     try {
-      const { $api } = useNuxtApp();
-      // We'll check by trying to validate - the API will tell us if taken
-      // For now, just do basic validation and let save handle conflicts
+      // Basic validation only; save will handle API conflicts
       renameAvailable.value = true;
     } catch (err) {
       renameError.value = 'Failed to check availability';
@@ -892,14 +891,8 @@ const saveRename = async () => {
   
   savingRename.value = true;
   try {
-    const { $api } = useNuxtApp();
-    const response = await $api(`/v1/services/${route.params.id}`, {
-      method: 'PATCH',
-      body: { name: newName },
-    });
-    
+    const response = await apiUpdateService(route.params.id as string, { name: newName });
     if (response.success && response.service) {
-      // Update local service
       if (service.value) {
         service.value.name = response.service.name;
       }
