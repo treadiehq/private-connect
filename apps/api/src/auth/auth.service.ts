@@ -72,122 +72,129 @@ export class AuthService {
       throw new BadRequestException('This workspace name is reserved. Please choose a different name.');
     }
 
-    // Check if user already exists
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: normalizedEmail },
-    });
+    // Registration is an unauthenticated system operation — bypass RLS
+    // since there's no workspace context yet
+    return this.prisma.withoutRls(async () => {
+      // Check if user already exists
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: normalizedEmail },
+      });
 
-    if (existingUser) {
-      throw new ConflictException('An account with this email already exists. Please login instead.');
-    }
+      if (existingUser) {
+        throw new ConflictException('An account with this email already exists. Please login instead.');
+      }
 
-    // Check if workspace name already exists
-    const existingWorkspace = await this.prisma.workspace.findUnique({
-      where: { name: normalizedWorkspaceName },
-    });
+      // Check if workspace name already exists
+      const existingWorkspace = await this.prisma.workspace.findUnique({
+        where: { name: normalizedWorkspaceName },
+      });
 
-    if (existingWorkspace) {
-      throw new ConflictException('A workspace with this name already exists. Please choose a different name.');
-    }
+      if (existingWorkspace) {
+        throw new ConflictException('A workspace with this name already exists. Please choose a different name.');
+      }
 
-    // Create user, workspace, and initial API key in a transaction
-    const { user, workspace, apiKey } = await this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
+      // Create user, workspace, and initial API key in a transaction
+      const { user, workspace, apiKey } = await this.prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            email: normalizedEmail,
+          },
+        });
+
+        const workspace = await tx.workspace.create({
+          data: {
+            name: normalizedWorkspaceName,
+            ownerId: user.id,
+          },
+        });
+
+        // Create initial API key
+        const key = `pc_${randomBytes(24).toString('hex')}`;
+        const keyPrefix = key.slice(0, 11);
+        const apiKey = await tx.apiKey.create({
+          data: {
+            workspaceId: workspace.id,
+            name: 'Default',
+            key,
+            keyPrefix,
+          },
+        });
+
+        return { user, workspace, apiKey };
+      });
+
+      // Create magic link
+      const token = randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+      await this.prisma.magicLink.create({
         data: {
-          email: normalizedEmail,
+          userId: user.id,
+          token,
+          type: 'REGISTER',
+          expiresAt,
         },
       });
 
-      const workspace = await tx.workspace.create({
-        data: {
-          name: normalizedWorkspaceName,
-          ownerId: user.id,
-        },
-      });
-
-      // Create initial API key
-      const key = `pc_${randomBytes(24).toString('hex')}`;
-      const keyPrefix = key.slice(0, 11);
-      const apiKey = await tx.apiKey.create({
-        data: {
-          workspaceId: workspace.id,
-          name: 'Default',
-          key,
-          keyPrefix,
-        },
-      });
-
-      return { user, workspace, apiKey };
-    });
-
-    // Create magic link
-    const token = randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-
-    await this.prisma.magicLink.create({
-      data: {
-        userId: user.id,
+      // Send magic link email
+      await this.emailService.sendMagicLink({
+        to: normalizedEmail,
         token,
         type: 'REGISTER',
-        expiresAt,
-      },
-    });
+        workspaceName,
+      });
 
-    // Send magic link email
-    await this.emailService.sendMagicLink({
-      to: normalizedEmail,
-      token,
-      type: 'REGISTER',
-      workspaceName,
+      return { message: 'Check your email for a magic link to complete registration' };
     });
-
-    return { message: 'Check your email for a magic link to complete registration' };
   }
 
   // Login: send magic link to existing user
   async login(email: string): Promise<{ message: string }> {
     const normalizedEmail = email.toLowerCase().trim();
 
-    const user = await this.prisma.user.findUnique({
-      where: { email: normalizedEmail },
-    });
+    // Login is unauthenticated — bypass RLS
+    return this.prisma.withoutRls(async () => {
+      const user = await this.prisma.user.findUnique({
+        where: { email: normalizedEmail },
+      });
 
-    if (!user) {
-      throw new BadRequestException('No account found with this email. Please register first.');
-    }
+      if (!user) {
+        throw new BadRequestException('No account found with this email. Please register first.');
+      }
 
-    // Invalidate any existing unused magic links
-    await this.prisma.magicLink.updateMany({
-      where: {
-        userId: user.id,
-        usedAt: null,
-      },
-      data: {
-        usedAt: new Date(), // Mark as used to invalidate
-      },
-    });
+      // Invalidate any existing unused magic links
+      await this.prisma.magicLink.updateMany({
+        where: {
+          userId: user.id,
+          usedAt: null,
+        },
+        data: {
+          usedAt: new Date(), // Mark as used to invalidate
+        },
+      });
 
-    // Create new magic link
-    const token = randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+      // Create new magic link
+      const token = randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-    await this.prisma.magicLink.create({
-      data: {
-        userId: user.id,
+      await this.prisma.magicLink.create({
+        data: {
+          userId: user.id,
+          token,
+          type: 'LOGIN',
+          expiresAt,
+        },
+      });
+
+      // Send magic link email
+      await this.emailService.sendMagicLink({
+        to: normalizedEmail,
         token,
         type: 'LOGIN',
-        expiresAt,
-      },
-    });
+      });
 
-    // Send magic link email
-    await this.emailService.sendMagicLink({
-      to: normalizedEmail,
-      token,
-      type: 'LOGIN',
+      return { message: 'If an account exists with this email, you will receive a magic link' };
     });
-
-    return { message: 'If an account exists with this email, you will receive a magic link' };
   }
 
   // Verify magic link and create session
@@ -200,89 +207,92 @@ export class AuthService {
     const sessionToken = randomBytes(32).toString('hex');
     const sessionExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
-    try {
-      // Perform all validation and updates inside transaction to prevent TOCTOU race
-      const result = await this.prisma.$transaction(async (tx) => {
-        // Fetch magic link with fresh data inside transaction
-        const magicLink = await tx.magicLink.findUnique({
-          where: { token },
-          include: { user: { include: { workspaces: { include: { apiKeys: { where: { revokedAt: null }, take: 1 } } } } } },
-        });
-
-        if (!magicLink) {
-          throw new UnauthorizedException('Invalid or expired magic link');
-        }
-
-        // Validate inside transaction with fresh data
-        if (magicLink.usedAt) {
-          throw new UnauthorizedException('This magic link has already been used');
-        }
-
-        if (magicLink.expiresAt < new Date()) {
-          throw new UnauthorizedException('This magic link has expired');
-        }
-
-        // Mark magic link as used with optimistic lock (only update if still unused)
-        const updateResult = await tx.magicLink.updateMany({
-          where: {
-            id: magicLink.id,
-            usedAt: null, // Optimistic lock: only update if still null
-          },
-          data: { usedAt: new Date() },
-        });
-
-        // If no rows were updated, another request already used this link
-        if (updateResult.count === 0) {
-          throw new UnauthorizedException('This magic link has already been used');
-        }
-
-        // Mark user as verified if registering
-        if (magicLink.type === 'REGISTER' && !magicLink.user.emailVerified) {
-          await tx.user.update({
-            where: { id: magicLink.userId },
-            data: { emailVerified: true },
+    // Magic link verification is unauthenticated — bypass RLS
+    return this.prisma.withoutRls(async () => {
+      try {
+        // Perform all validation and updates inside transaction to prevent TOCTOU race
+        const result = await this.prisma.$transaction(async (tx) => {
+          // Fetch magic link with fresh data inside transaction
+          const magicLink = await tx.magicLink.findUnique({
+            where: { token },
+            include: { user: { include: { workspaces: { include: { apiKeys: { where: { revokedAt: null }, take: 1 } } } } } },
           });
-        }
 
-        // Create auth session
-        await tx.authSession.create({
-          data: {
-            userId: magicLink.userId,
-            token: sessionToken,
-            expiresAt: sessionExpiresAt,
-            userAgent,
-            ipAddress,
-          },
+          if (!magicLink) {
+            throw new UnauthorizedException('Invalid or expired magic link');
+          }
+
+          // Validate inside transaction with fresh data
+          if (magicLink.usedAt) {
+            throw new UnauthorizedException('This magic link has already been used');
+          }
+
+          if (magicLink.expiresAt < new Date()) {
+            throw new UnauthorizedException('This magic link has expired');
+          }
+
+          // Mark magic link as used with optimistic lock (only update if still unused)
+          const updateResult = await tx.magicLink.updateMany({
+            where: {
+              id: magicLink.id,
+              usedAt: null, // Optimistic lock: only update if still null
+            },
+            data: { usedAt: new Date() },
+          });
+
+          // If no rows were updated, another request already used this link
+          if (updateResult.count === 0) {
+            throw new UnauthorizedException('This magic link has already been used');
+          }
+
+          // Mark user as verified if registering
+          if (magicLink.type === 'REGISTER' && !magicLink.user.emailVerified) {
+            await tx.user.update({
+              where: { id: magicLink.userId },
+              data: { emailVerified: true },
+            });
+          }
+
+          // Create auth session
+          await tx.authSession.create({
+            data: {
+              userId: magicLink.userId,
+              token: sessionToken,
+              expiresAt: sessionExpiresAt,
+              userAgent,
+              ipAddress,
+            },
+          });
+
+          return magicLink;
         });
 
-        return magicLink;
-      });
+        const workspace = result.user.workspaces[0] || null;
+        const apiKey = workspace?.apiKeys?.[0] || null;
+        const isNewUser = result.type === 'REGISTER';
 
-      const workspace = result.user.workspaces[0] || null;
-      const apiKey = workspace?.apiKeys?.[0] || null;
-      const isNewUser = result.type === 'REGISTER';
-
-      return {
-        sessionToken,
-        isNewUser,
-        user: {
-          id: result.user.id,
-          email: result.user.email,
-        },
-        workspace: workspace ? {
-          id: workspace.id,
-          name: workspace.name,
-          apiKey: apiKey?.key || '',
-        } : null,
-      };
-    } catch (error) {
-      // Re-throw UnauthorizedException as-is
-      if (error instanceof UnauthorizedException) {
-        throw error;
+        return {
+          sessionToken,
+          isNewUser,
+          user: {
+            id: result.user.id,
+            email: result.user.email,
+          },
+          workspace: workspace ? {
+            id: workspace.id,
+            name: workspace.name,
+            apiKey: apiKey?.key || '',
+          } : null,
+        };
+      } catch (error) {
+        // Re-throw UnauthorizedException as-is
+        if (error instanceof UnauthorizedException) {
+          throw error;
+        }
+        // For any other errors, throw a generic error
+        throw new UnauthorizedException('Failed to verify magic link');
       }
-      // For any other errors, throw a generic error
-      throw new UnauthorizedException('Failed to verify magic link');
-    }
+    });
   }
 
   // Validate session token
@@ -290,44 +300,49 @@ export class AuthService {
     user: { id: string; email: string; emailVerified: boolean; isAdmin: boolean };
     workspace: { id: string; name: string } | null;
   } | null> {
-    const session = await this.prisma.authSession.findUnique({
-      where: { token },
-      include: { user: { include: { workspaces: true } } },
+    // Session validation runs before workspace context is established — bypass RLS
+    return this.prisma.withoutRls(async () => {
+      const session = await this.prisma.authSession.findUnique({
+        where: { token },
+        include: { user: { include: { workspaces: true } } },
+      });
+
+      if (!session || session.expiresAt < new Date()) {
+        return null;
+      }
+
+      // Update last used timestamp
+      await this.prisma.authSession.update({
+        where: { id: session.id },
+        data: { lastUsedAt: new Date() },
+      });
+
+      const workspace = session.user.workspaces[0] || null;
+
+      return {
+        user: {
+          id: session.user.id,
+          email: session.user.email,
+          emailVerified: session.user.emailVerified,
+          isAdmin: isAdminEmail(session.user.email),
+        },
+        workspace: workspace ? {
+          id: workspace.id,
+          name: workspace.name,
+        } : null,
+      };
     });
-
-    if (!session || session.expiresAt < new Date()) {
-      return null;
-    }
-
-    // Update last used timestamp
-    await this.prisma.authSession.update({
-      where: { id: session.id },
-      data: { lastUsedAt: new Date() },
-    });
-
-    const workspace = session.user.workspaces[0] || null;
-
-    return {
-      user: {
-        id: session.user.id,
-        email: session.user.email,
-        emailVerified: session.user.emailVerified,
-        isAdmin: isAdminEmail(session.user.email),
-      },
-      workspace: workspace ? {
-        id: workspace.id,
-        name: workspace.name,
-      } : null,
-    };
   }
 
   // Logout: invalidate session
   async logout(token: string): Promise<void> {
-    await this.prisma.authSession.delete({
-      where: { token },
-    }).catch(() => {
-      // Ignore if session doesn't exist
-    });
+    await this.prisma.withoutRls(() =>
+      this.prisma.authSession.delete({
+        where: { token },
+      }).catch(() => {
+        // Ignore if session doesn't exist
+      })
+    );
   }
 
   // Get current user
