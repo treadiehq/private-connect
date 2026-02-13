@@ -9,7 +9,7 @@ import type {
 } from './ask.types';
 
 const CHECK_TIMEOUT_MS = 2000;
-const CHECK_PATHS = ['/health', '/status', '/version', '/'];
+const CHECK_PATHS = ['/health', '/status', '/version', '/', '/api/v2/status.json'];
 const BODY_SNIPPET_MAX_LEN = 200;
 const LLM_TIMEOUT_MS = 10000;
 

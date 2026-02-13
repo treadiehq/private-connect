@@ -23,6 +23,18 @@
               placeholder="https://api.example.com or my-api.internal"
               class="w-full bg-black/50 border border-gray-500/20 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-300 font-mono text-sm"
             />
+            <div class="flex flex-wrap items-center gap-2 mt-2">
+              <span class="text-gray-500 text-xs">Try:</span>
+              <button
+                v-for="ex in exampleServices"
+                :key="ex.url"
+                type="button"
+                class="text-xs text-blue-300 hover:text-blue-400 border border-gray-500/20 hover:border-blue-300/20 rounded-full px-3 py-1 transition-colors"
+                @click="service = ex.url"
+              >
+                {{ ex.label }}
+              </button>
+            </div>
           </div>
           <div>
             <label for="question" class="block text-sm font-medium text-gray-300 mb-1">Question</label>
@@ -226,6 +238,15 @@ const result = ref<{
 const showSetup = ref(false);
 const copiedInstall = ref(false);
 const copiedConnect = ref(false);
+
+const exampleServices = [
+  { label: 'GitHub API', url: 'https://api.github.com' },
+  { label: 'OpenAI Status', url: 'https://status.openai.com' },
+  { label: 'SpaceX API', url: 'https://api.spacexdata.com' },
+  { label: 'npm Registry', url: 'https://registry.npmjs.org' },
+  { label: 'Railway API', url: 'https://api.railway.app' },
+  { label: 'Cloudflare API', url: 'https://api.cloudflare.com' },
+];
 
 const exampleQuestions = [
   'Is it healthy?',
