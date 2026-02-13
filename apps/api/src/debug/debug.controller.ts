@@ -16,7 +16,7 @@ import {
 } from '@nestjs/common';
 import { DebugService } from './debug.service';
 import { AuthGuard } from '../auth/auth.guard';
-import { ApiKeyGuard } from '../auth/api-key.guard';
+import { CombinedAuthGuard } from '../auth/combined-auth.guard';
 import { AIService } from '../ai/ai.service';
 import { RateLimitGuard, RateLimit } from '../common/rate-limit.guard';
 
@@ -346,7 +346,7 @@ export class DebugController {
    * Create session via API key (for CLI)
    */
   @Post('sessions/cli')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   async createSessionCli(
     @Req() req: any,
     @Body() body: CreateSessionDto,

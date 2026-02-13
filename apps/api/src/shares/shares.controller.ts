@@ -22,7 +22,7 @@ import { SharesService } from './shares.service';
 import { ServicesService } from '../services/services.service';
 import { AuthService } from '../auth/auth.service';
 import { TemporaryTunnelService } from '../tunnel/temporary-tunnel.service';
-import { ApiKeyGuard } from '../auth/api-key.guard';
+import { CombinedAuthGuard } from '../auth/combined-auth.guard';
 import * as http from 'http';
 import * as https from 'https';
 import * as net from 'net';
@@ -57,7 +57,7 @@ export class SharesController {
   ) {}
 
   @Post('v1/services/:serviceId/shares')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Create share', description: 'Creates a shareable link for a service.' })
   @ApiBody({

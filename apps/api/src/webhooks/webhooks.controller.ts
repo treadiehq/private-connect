@@ -18,7 +18,7 @@ import {
   ApiBody,
   ApiSecurity,
 } from '@nestjs/swagger';
-import { ApiKeyGuard } from '../auth/api-key.guard';
+import { CombinedAuthGuard } from '../auth/combined-auth.guard';
 import { WebhooksService, WebhookEventType } from './webhooks.service';
 import { z } from 'zod';
 
@@ -54,7 +54,7 @@ export class WebhooksController {
   constructor(private webhooksService: WebhooksService) {}
 
   @Post()
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Create webhook',
@@ -106,7 +106,7 @@ export class WebhooksController {
   }
 
   @Get()
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'List webhooks',
@@ -119,7 +119,7 @@ export class WebhooksController {
   }
 
   @Get(':id')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Get webhook',
@@ -137,7 +137,7 @@ export class WebhooksController {
   }
 
   @Patch(':id')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Update webhook',
@@ -167,7 +167,7 @@ export class WebhooksController {
   }
 
   @Delete(':id')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Delete webhook',
@@ -182,7 +182,7 @@ export class WebhooksController {
   }
 
   @Post(':id/rotate-secret')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Rotate webhook secret',
@@ -205,7 +205,7 @@ export class WebhooksController {
   }
 
   @Post(':id/test')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Test webhook',

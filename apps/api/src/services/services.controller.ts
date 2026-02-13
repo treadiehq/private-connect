@@ -5,7 +5,6 @@ import { DiagnosticsService } from './diagnostics.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { AgentsService } from '../agents/agents.service';
 import { SessionsService } from './sessions.service';
-import { ApiKeyGuard } from '../auth/api-key.guard';
 import { CombinedAuthGuard } from '../auth/combined-auth.guard';
 import { z } from 'zod';
 
@@ -44,7 +43,7 @@ export class ServicesController {
   ) {}
 
   @Post('register')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Register service', description: 'Registers a new service exposed by an agent.' })
   @ApiBody({
@@ -111,7 +110,7 @@ export class ServicesController {
   }
 
   @Post('external')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Create external service', description: 'Creates an external service target (not exposed by an agent).' })
   @ApiBody({
@@ -200,7 +199,7 @@ export class ServicesController {
   }
 
   @Get()
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'List services', description: 'Returns all services in the workspace.' })
   @ApiResponse({ status: 200, description: 'List of services' })
@@ -210,7 +209,7 @@ export class ServicesController {
   }
 
   @Get(':id')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Get service', description: 'Returns details for a specific service.' })
   @ApiResponse({ status: 200, description: 'Service details' })
@@ -234,7 +233,7 @@ export class ServicesController {
   }
 
   @Get(':id/diagnostics')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Get service diagnostics', description: 'Returns diagnostic history for a service.' })
   @ApiQuery({ name: 'limit', required: false, description: 'Limit number of results (default: 50)' })
@@ -264,7 +263,7 @@ export class ServicesController {
   }
 
   @Post(':id/check')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Run service check', description: 'Runs a diagnostic check on the service.' })
   @ApiResponse({ status: 200, description: 'Check completed' })
@@ -325,7 +324,7 @@ export class ServicesController {
   }
 
   @Post(':id/reach')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Reach check', description: 'Tests connectivity to a service from a specific agent.' })
   @ApiBody({
@@ -424,7 +423,7 @@ export class ServicesController {
   }
 
   @Patch(':id')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Update service', description: 'Updates service properties like name.' })
   @ApiBody({
@@ -479,7 +478,7 @@ export class ServicesController {
   }
 
   @Patch(':id/subdomain')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Set custom subdomain', description: 'Sets a custom vanity subdomain for public access. Set to null to clear.' })
   @ApiBody({
@@ -535,7 +534,7 @@ export class ServicesController {
   }
 
   @Get(':id/subdomain/check')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Check subdomain availability', description: 'Checks if a subdomain is available and valid.' })
   @ApiQuery({ name: 'subdomain', required: true, description: 'Subdomain to check' })

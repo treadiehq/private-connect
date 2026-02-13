@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity, ApiQuery } from '@nestjs/swagger';
-import { ApiKeyGuard } from '../auth/api-key.guard';
+import { CombinedAuthGuard } from '../auth/combined-auth.guard';
 import { AuditService } from './audit.service';
 
 @ApiTags('Audit')
@@ -9,7 +9,7 @@ export class AuditController {
   constructor(private auditService: AuditService) {}
 
   @Get()
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Get audit log',
@@ -68,7 +68,7 @@ export class AuditController {
   }
 
   @Get('stats')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Get audit statistics',
@@ -131,7 +131,7 @@ export class AuditController {
   }
 
   @Get('agents/:id')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Get agent audit log',
@@ -154,7 +154,7 @@ export class AuditController {
   }
 
   @Get('tunnels/:id')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Get tunnel audit log',

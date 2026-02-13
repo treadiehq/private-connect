@@ -1,7 +1,7 @@
 import { Controller, Get, Post, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger';
 import { WorkspaceService } from './workspace.service';
-import { ApiKeyGuard } from '../auth/api-key.guard';
+import { CombinedAuthGuard } from '../auth/combined-auth.guard';
 
 @ApiTags('Workspace')
 @Controller('v1/workspace')
@@ -9,7 +9,7 @@ export class WorkspaceController {
   constructor(private workspaceService: WorkspaceService) {}
 
   @Get()
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Get workspace', description: 'Returns workspace details and usage information.' })
   @ApiResponse({ status: 200, description: 'Workspace details' })
@@ -20,7 +20,7 @@ export class WorkspaceController {
   }
 
   @Post('upgrade')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Upgrade workspace', description: 'Upgrades the workspace to PRO plan.' })
   @ApiResponse({ status: 200, description: 'Workspace upgraded' })

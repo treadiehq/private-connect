@@ -1,13 +1,13 @@
 import { Controller, Get, Param, HttpException, HttpStatus, UseGuards, Req } from '@nestjs/common';
 import { ServicesService } from './services.service';
-import { ApiKeyGuard } from '../auth/api-key.guard';
+import { CombinedAuthGuard } from '../auth/combined-auth.guard';
 
 @Controller('v1/diagnostics')
 export class DiagnosticsController {
   constructor(private servicesService: ServicesService) {}
 
   @Get(':id')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   async getDiagnostic(
     @Param('id') id: string,
     @Req() req: any,

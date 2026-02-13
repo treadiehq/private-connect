@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Get, Param, Query, HttpException, HttpStatus, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiSecurity, ApiQuery } from '@nestjs/swagger';
 import { AgentsService } from './agents.service';
-import { ApiKeyGuard } from '../auth/api-key.guard';
+import { CombinedAuthGuard } from '../auth/combined-auth.guard';
 import { z } from 'zod';
 
 const RegisterSchema = z.object({
@@ -53,7 +53,7 @@ export class AgentsController {
   constructor(private agentsService: AgentsService) {}
 
   @Post('register')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Register agent', description: 'Registers a new agent in the workspace.' })
   @ApiBody({
@@ -128,7 +128,7 @@ export class AgentsController {
   }
 
   @Get()
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'List agents', description: 'Returns all agents in the workspace.' })
   @ApiResponse({ status: 200, description: 'List of agents' })
@@ -139,7 +139,7 @@ export class AgentsController {
   }
 
   @Get('online')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'List online agents', description: 'Returns all currently online agents in the workspace.' })
   @ApiResponse({ status: 200, description: 'List of online agents' })
@@ -149,7 +149,7 @@ export class AgentsController {
   }
 
   @Get(':id')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Get agent', description: 'Returns details for a specific agent.' })
   @ApiResponse({ status: 200, description: 'Agent details' })
@@ -207,7 +207,7 @@ export class AgentsController {
   }
 
   @Get(':id/audit-logs')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Get agent audit logs', description: 'Returns security audit logs for a specific agent.' })
   @ApiResponse({ status: 200, description: 'Audit logs' })
@@ -232,7 +232,7 @@ export class AgentsController {
   }
 
   @Get('expiring-tokens')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Get agents with expiring tokens', description: 'Returns agents whose tokens will expire soon.' })
   @ApiResponse({ status: 200, description: 'Agents with expiring tokens' })
@@ -247,7 +247,7 @@ export class AgentsController {
   // ============================================
 
   @Get('orchestration')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Get agents for orchestration', description: 'Returns all agents with their capabilities and services for orchestration purposes.' })
   @ApiResponse({ status: 200, description: 'Agents with orchestration details' })
@@ -271,7 +271,7 @@ export class AgentsController {
   }
 
   @Get('by-capability/:capability')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Find agents by capability', description: 'Returns agents that have a specific capability.' })
   @ApiResponse({ status: 200, description: 'Agents with the capability' })
@@ -285,7 +285,7 @@ export class AgentsController {
   }
 
   @Post(':id/capabilities')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Register capabilities', description: 'Registers capabilities for an agent.' })
   @ApiBody({
@@ -328,7 +328,7 @@ export class AgentsController {
   }
 
   @Post(':id/messages/send')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Send message to agent', description: 'Sends a message from one agent to another.' })
   @ApiBody({
@@ -390,7 +390,7 @@ export class AgentsController {
   }
 
   @Post(':id/messages/broadcast')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Broadcast message', description: 'Broadcasts a message to all agents in the workspace.' })
   @ApiBody({
@@ -435,7 +435,7 @@ export class AgentsController {
   }
 
   @Get(':id/messages')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Get messages', description: 'Returns messages for an agent.' })
   @ApiQuery({ name: 'channel', required: false, description: 'Filter by channel' })
@@ -476,7 +476,7 @@ export class AgentsController {
   }
 
   @Post(':id/messages/read')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({ summary: 'Mark messages as read', description: 'Marks specified messages as read.' })
   @ApiBody({
@@ -514,7 +514,7 @@ export class AgentsController {
   // ============================================
 
   @Post(':id/command')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Send command to agent',

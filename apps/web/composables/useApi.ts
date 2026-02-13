@@ -22,12 +22,15 @@ export function useApi() {
     'x-api-key': getApiKey(),
   });
 
+  // Base fetch options - always include credentials for session cookie auth
+  const fetchOptions = () => ({
+    headers: headers(),
+    credentials: 'include' as RequestCredentials,
+  });
+
   const fetchWorkspace = async (): Promise<WorkspaceUsage | null> => {
-    const apiKey = getApiKey();
-    if (!apiKey) return null;
-    
     try {
-      const response = await fetch(`${baseUrl}/v1/workspace`, { headers: headers() });
+      const response = await fetch(`${baseUrl}/v1/workspace`, fetchOptions());
       if (!response.ok) return null;
       return response.json();
     } catch {
@@ -38,26 +41,26 @@ export function useApi() {
   const upgradeWorkspace = async () => {
     const response = await fetch(`${baseUrl}/v1/workspace/upgrade`, {
       method: 'POST',
-      headers: headers(),
+      ...fetchOptions(),
     });
     if (!response.ok) throw new Error('Failed to upgrade');
     return response.json();
   };
 
   const fetchServices = async () => {
-    const response = await fetch(`${baseUrl}/v1/services`, { headers: headers() });
+    const response = await fetch(`${baseUrl}/v1/services`, fetchOptions());
     if (!response.ok) throw new Error('Failed to fetch services');
     return response.json();
   };
 
   const fetchService = async (id: string) => {
-    const response = await fetch(`${baseUrl}/v1/services/${id}`, { headers: headers() });
+    const response = await fetch(`${baseUrl}/v1/services/${id}`, fetchOptions());
     if (!response.ok) throw new Error('Failed to fetch service');
     return response.json();
   };
 
   const fetchServiceDiagnostics = async (id: string, limit: number = 50) => {
-    const response = await fetch(`${baseUrl}/v1/services/${id}/diagnostics?limit=${limit}`, { headers: headers() });
+    const response = await fetch(`${baseUrl}/v1/services/${id}/diagnostics?limit=${limit}`, fetchOptions());
     if (!response.ok) throw new Error('Failed to fetch diagnostics');
     return response.json();
   };
@@ -65,7 +68,7 @@ export function useApi() {
   const runCheck = async (id: string) => {
     const response = await fetch(`${baseUrl}/v1/services/${id}/check`, {
       method: 'POST',
-      headers: headers(),
+      ...fetchOptions(),
     });
     if (!response.ok) throw new Error('Failed to run check');
     return response.json();
@@ -74,6 +77,7 @@ export function useApi() {
   const runReachCheck = async (serviceId: string, sourceAgentId: string) => {
     const response = await fetch(`${baseUrl}/v1/services/${serviceId}/reach`, {
       method: 'POST',
+      ...fetchOptions(),
       headers: {
         ...headers(),
         'Content-Type': 'application/json',
@@ -89,25 +93,25 @@ export function useApi() {
   };
 
   const fetchAgents = async (): Promise<Agent[]> => {
-    const response = await fetch(`${baseUrl}/v1/agents`, { headers: headers() });
+    const response = await fetch(`${baseUrl}/v1/agents`, fetchOptions());
     if (!response.ok) throw new Error('Failed to fetch agents');
     return response.json();
   };
 
   const fetchAgent = async (id: string): Promise<Agent> => {
-    const response = await fetch(`${baseUrl}/v1/agents/${id}`, { headers: headers() });
+    const response = await fetch(`${baseUrl}/v1/agents/${id}`, fetchOptions());
     if (!response.ok) throw new Error('Failed to fetch agent');
     return response.json();
   };
 
   const fetchOnlineAgents = async (): Promise<Agent[]> => {
-    const response = await fetch(`${baseUrl}/v1/agents/online`, { headers: headers() });
+    const response = await fetch(`${baseUrl}/v1/agents/online`, fetchOptions());
     if (!response.ok) throw new Error('Failed to fetch online agents');
     return response.json();
   };
 
   const fetchDiagnostic = async (id: string) => {
-    const response = await fetch(`${baseUrl}/v1/diagnostics/${id}`, { headers: headers() });
+    const response = await fetch(`${baseUrl}/v1/diagnostics/${id}`, fetchOptions());
     if (!response.ok) throw new Error('Failed to fetch diagnostic');
     return response.json();
   };
@@ -126,6 +130,7 @@ export function useApi() {
   ) => {
     const response = await fetch(`${baseUrl}/v1/services/external`, {
       method: 'POST',
+      ...fetchOptions(),
       headers: {
         ...headers(),
         'Content-Type': 'application/json',
@@ -160,6 +165,7 @@ export function useApi() {
   ) => {
     const response = await fetch(`${baseUrl}/v1/services/${serviceId}/shares`, {
       method: 'POST',
+      ...fetchOptions(),
       headers: {
         ...headers(),
         'Content-Type': 'application/json',
@@ -176,9 +182,7 @@ export function useApi() {
   };
 
   const fetchServiceShares = async (serviceId: string) => {
-    const response = await fetch(`${baseUrl}/v1/services/${serviceId}/shares`, {
-      headers: headers(),
-    });
+    const response = await fetch(`${baseUrl}/v1/services/${serviceId}/shares`, fetchOptions());
     if (!response.ok) throw new Error('Failed to fetch shares');
     return response.json();
   };
@@ -186,16 +190,14 @@ export function useApi() {
   const revokeShare = async (shareId: string) => {
     const response = await fetch(`${baseUrl}/v1/shares/${shareId}`, {
       method: 'DELETE',
-      headers: headers(),
+      ...fetchOptions(),
     });
     if (!response.ok) throw new Error('Failed to revoke share');
     return response.json();
   };
 
   const fetchShareAccessLogs = async (shareId: string) => {
-    const response = await fetch(`${baseUrl}/v1/shares/${shareId}/logs`, {
-      headers: headers(),
-    });
+    const response = await fetch(`${baseUrl}/v1/shares/${shareId}/logs`, fetchOptions());
     if (!response.ok) throw new Error('Failed to fetch access logs');
     return response.json();
   };
@@ -203,7 +205,7 @@ export function useApi() {
   const deleteService = async (serviceId: string) => {
     const response = await fetch(`${baseUrl}/v1/services/${serviceId}`, {
       method: 'DELETE',
-      headers: headers(),
+      ...fetchOptions(),
     });
     if (!response.ok) throw new Error('Failed to delete service');
     return response.json();
@@ -211,9 +213,7 @@ export function useApi() {
 
   const checkMcpStatus = async (): Promise<boolean> => {
     try {
-      const response = await fetch(`${baseUrl}/v1/agents/by-capability/mcp-server`, {
-        headers: headers(),
-      });
+      const response = await fetch(`${baseUrl}/v1/agents/by-capability/mcp-server`, fetchOptions());
       if (!response.ok) return false;
       const data = await response.json();
       // Check if any agents with mcp-server capability are online
@@ -238,20 +238,20 @@ export function useApi() {
     if (options?.type) params.set('type', options.type);
     if (options?.since) params.set('since', options.since);
     
-    const response = await fetch(`${baseUrl}/v1/audit?${params}`, { headers: headers() });
+    const response = await fetch(`${baseUrl}/v1/audit?${params}`, fetchOptions());
     if (!response.ok) throw new Error('Failed to fetch audit log');
     return response.json();
   };
 
   const fetchAuditStats = async () => {
-    const response = await fetch(`${baseUrl}/v1/audit/stats`, { headers: headers() });
+    const response = await fetch(`${baseUrl}/v1/audit/stats`, fetchOptions());
     if (!response.ok) throw new Error('Failed to fetch audit stats');
     return response.json();
   };
 
   // Tunnels API
   const fetchTunnels = async () => {
-    const response = await fetch(`${baseUrl}/v1/tunnels`, { headers: headers() });
+    const response = await fetch(`${baseUrl}/v1/tunnels`, fetchOptions());
     if (!response.ok) throw new Error('Failed to fetch tunnels');
     return response.json();
   };
@@ -265,6 +265,7 @@ export function useApi() {
   }) => {
     const response = await fetch(`${baseUrl}/v1/tunnels`, {
       method: 'POST',
+      ...fetchOptions(),
       headers: {
         ...headers(),
         'Content-Type': 'application/json',
@@ -278,7 +279,7 @@ export function useApi() {
   const deleteTunnel = async (id: string) => {
     const response = await fetch(`${baseUrl}/v1/tunnels/${id}`, {
       method: 'DELETE',
-      headers: headers(),
+      ...fetchOptions(),
     });
     if (!response.ok) throw new Error('Failed to delete tunnel');
     return response.json();

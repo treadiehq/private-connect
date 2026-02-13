@@ -18,7 +18,7 @@ import {
   ApiBody,
   ApiSecurity,
 } from '@nestjs/swagger';
-import { ApiKeyGuard } from '../auth/api-key.guard';
+import { CombinedAuthGuard } from '../auth/combined-auth.guard';
 import { TunnelsService, CreateTunnelDto, UpdateTunnelDto } from './tunnels.service';
 import { AuthService } from '../auth/auth.service';
 import { z } from 'zod';
@@ -60,7 +60,7 @@ export class TunnelsController {
   ) {}
 
   @Get()
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'List tunnels',
@@ -74,7 +74,7 @@ export class TunnelsController {
   }
 
   @Get(':id')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Get tunnel',
@@ -92,7 +92,7 @@ export class TunnelsController {
   }
 
   @Post()
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Create tunnel',
@@ -136,7 +136,7 @@ export class TunnelsController {
   }
 
   @Patch(':id')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Update tunnel',
@@ -165,7 +165,7 @@ export class TunnelsController {
   }
 
   @Delete(':id')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Delete tunnel',
@@ -180,7 +180,7 @@ export class TunnelsController {
   }
 
   @Post(':id/share')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Create share for tunnel',
@@ -230,7 +230,7 @@ export class TunnelsController {
   }
 
   @Post(':id/connect')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Connect to tunnel',
