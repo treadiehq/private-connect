@@ -1,0 +1,24 @@
+name: private-connect
+setup:
+  - pnpm install
+  - pnpm db:generate
+  - pnpm db:push
+apps:
+  - name: agent
+    path: apps/agent
+    command: pnpm dev
+  - name: api
+    path: apps/api
+    command: pnpm dev
+    port: 3001
+  - name: web
+    path: apps/web
+    command: pnpm dev
+    port: 3000
+docker:
+  composeFile: docker-compose.yml
+  services:
+    - name: postgres
+      container: private-connect-postgres-1
+      readyCheck: pg_isready -U privateconnect
+      timeout: 30
