@@ -428,11 +428,52 @@ Each entry becomes a named service in the hub. Set `public: true` to get a publi
 
 See [docs/config-driven-expose-webhooks-demos.md](docs/config-driven-expose-webhooks-demos.md) for the full guide.
 
-### Subdomain Proxy
+### Local Proxy & Subdomains
+
+Access reached services via `.localhost` subdomains instead of remembering port numbers:
 
 ```bash
-connect proxy --port 3000
-# Access: http://prod-db.localhost:3000
+# Start the local proxy (runs as background daemon)
+connect proxy start
+
+# Reach a service (auto-starts the proxy if needed)
+connect reach my-api
+# → TCP:   localhost:8080
+# → HTTP:  http://my-api.localhost:3000
+#           (proxy auto-started on port 3000)
+
+# Access in browser or curl
+curl http://my-api.localhost:3000/health
+
+# Check proxy status
+connect proxy status
+
+# Stop it when done
+connect proxy stop
+```
+
+With HTTPS (auto-generates and trusts local CA certificates):
+
+```bash
+connect proxy start --https
+# → https://my-api.localhost:3000
+
+# Trust the CA separately
+connect proxy trust
+
+# Use your own certs
+connect proxy start --https --cert ./cert.pem --key ./key.pem
+
+# Run in foreground (for debugging)
+connect proxy start --foreground
+```
+
+Certificates auto-renew when expiring within 30 days.
+
+Set `CONNECT=0` or `CONNECT=skip` to bypass Private Connect entirely (useful for CI):
+
+```bash
+CONNECT=0 pnpm dev  # runs directly, no tunneling
 ```
 
 ### Local DNS
