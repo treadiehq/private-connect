@@ -9,6 +9,8 @@ Private Connect lets you and your AI agent reach databases, APIs, and internal s
 > **Example:** Have a local database but need to access it from another machine? On your local machine: `connect expose localhost:5432 --name my-db`. From anywhere: `connect reach my-db`. **Yes, this solves that problem**—no port forwarding, no firewall rules, no changing localhost to 0.0.0.0. Works with Tailscale.
 
 - **Access by name:** `connect prod-db` instead of remembering IPs or ports
+- **Stable ports:** `connect reach prod-db` always gives you the same local port
+- **`.localhost` subdomains:** `http://prod-db.localhost:3000` via the local proxy, no port numbers to remember for HTTP services
 - **Onboard teammates in 30 seconds:** `connect clone alice` gives them your exact setup
 - **Share instantly:** `connect share` → teammate runs `connect join`, same environment
 - **Works with any infrastructure:** AWS, exe.dev, DigitalOcean, your local machine, or anywhere—works regardless of where services run
@@ -51,12 +53,14 @@ npx private-connect test db.internal:5432
 | Expose a service | `connect 5432` |
 | Expose many from config | `connect serve` |
 | Access a service | `connect prod-db` |
+| Access via subdomain | `connect proxy start` → `http://prod-db.localhost:3000` |
 | Share with a teammate | `connect 5432 --share` |
 | Clone a teammate's setup | `connect clone alice` |
 | Delete a service | `connect delete my-service` |
 | Check status | `connect status` |
+| Disable for CI | `CONNECT=0 your-command` |
 
-Everything is automatic: auto-naming, background daemon, local DNS.
+Everything is automatic: auto-naming, stable ports, background daemon.
 
 **Quick tunnels** show your actual website at the public URL - perfect for demos and testing. Named tunnels get a readable subdomain (e.g. `stripe-a1b2.privateconnect.co`).
 
@@ -74,12 +78,63 @@ Run an agent on each machine. Expose services from one, access from another.
 
 **Key Features:**
 - **Zero Configuration** - No VPN setup, no firewall rules, no port forwarding
+- **Stable Ports** - Same service always gets the same local port across restarts
+- **`.localhost` Subdomains** - `http://my-api.localhost:3000` via local proxy, no ports to memorize
+- **HTTPS with Auto-TLS** - `connect proxy --https` generates and trusts local certificates automatically
 - **Secure** - End-to-end encrypted tunnels with audit logging
 - **Live Debugging** - Real-time traffic inspection with AI-powered analysis
 - **Team Collaboration** - Share services instantly with `connect share` or clone teammate setups
 - **Works Everywhere** - Works on top of Tailscale, VPN, or plain internet
 - **Open Source** - Self-hostable hub, inspect and modify the code
 - **Service-Level** - Access services by name, not IP addresses or random URLs
+
+## Local Proxy & Subdomains
+
+Access reached services via `.localhost` subdomains instead of remembering port numbers:
+
+```bash
+# Start the local proxy (runs as background daemon)
+connect proxy start
+
+# Reach a service (auto-starts the proxy if needed)
+connect reach my-api
+# → TCP:   localhost:8080
+# → HTTP:  http://my-api.localhost:3000
+#           (proxy auto-started on port 3000)
+
+# Access in browser or curl
+curl http://my-api.localhost:3000/health
+
+# Check proxy status
+connect proxy status
+
+# Stop it when done
+connect proxy stop
+```
+
+With HTTPS (auto-generates and trusts local CA certificates):
+
+```bash
+connect proxy start --https
+# → https://my-api.localhost:3000
+
+# Trust the CA separately
+connect proxy trust
+
+# Use your own certs
+connect proxy start --https --cert ./cert.pem --key ./key.pem
+
+# Run in foreground (for debugging)
+connect proxy start --foreground
+```
+
+Certificates auto-renew when expiring within 30 days.
+
+Set `CONNECT=0` or `CONNECT=skip` to bypass Private Connect entirely (useful for CI):
+
+```bash
+CONNECT=0 pnpm dev  # runs directly, no tunneling
+```
 
 ## Install
 

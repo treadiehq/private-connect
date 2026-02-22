@@ -5,6 +5,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { loadConfig } from '../config';
 import { enforceSecureConnection, handleTokenExpiry, handleSecurityEvent, SecurityError } from '../security';
 import { findAvailablePort, isPortAvailable } from '../ports';
+import { getStablePort, savePort } from '../port-map';
+import { registerRoute, unregisterRoute } from '../active-routes';
+import { readProxyState, getProxyUrl } from '../proxy-state';
+import { ensureProxyRunning } from './proxy';
 
 interface ReachOptions {
   hub: string;
@@ -184,26 +188,27 @@ export async function reachCommand(target: string, options: ReachOptions) {
   }
 
   // Create local tunnel
-  const preferredPort = options.port ? parseInt(options.port, 10) : service.targetPort;
-  
   console.log(chalk.cyan(`\n📡 Creating local tunnel...`));
-  
-  // Check if preferred port is available, if not find an alternative
-  let localPort = preferredPort;
+
+  let localPort: number;
   let wasAutoSelected = false;
-  
-  if (!(await isPortAvailable(preferredPort))) {
-    const alternativePort = await findAvailablePort(preferredPort + 1);
-    if (alternativePort) {
-      localPort = alternativePort;
-      wasAutoSelected = true;
-      console.log(chalk.yellow(`  [!] Port ${preferredPort} in use, using ${localPort} instead`));
-    } else {
-      console.error(chalk.red(`  [x] Port ${preferredPort} is in use and no alternatives available`));
+
+  if (options.port) {
+    // Explicit port from --port flag
+    localPort = parseInt(options.port, 10);
+    if (!(await isPortAvailable(localPort))) {
+      console.error(chalk.red(`  [x] Port ${localPort} is in use`));
+      console.log(chalk.gray(`    Try without --port to use a stable auto-assigned port\n`));
       process.exit(1);
     }
+    savePort(service.name, localPort);
+  } else {
+    // Stable port: saved mapping → original port → hash-derived
+    const preferred = service.targetPort;
+    localPort = await getStablePort(service.name, preferred);
+    wasAutoSelected = localPort !== preferred;
   }
-  
+
   await createLocalTunnel(service, localPort, config, hubUrl, wasAutoSelected);
 }
 
@@ -341,14 +346,56 @@ async function createLocalTunnel(
       reject(err);
     });
 
-    server.listen(localPort, '127.0.0.1', () => {
+    server.listen(localPort, '127.0.0.1', async () => {
+      registerRoute(service.name, localPort, service.protocol || 'tcp');
+
       console.log(chalk.green(`  [ok] Listening on localhost:${localPort}`));
       console.log();
-      console.log(chalk.green.bold(`  [ok] Connected to ${service.name} on localhost:${localPort}`));
+      console.log(chalk.green.bold(`  [ok] Connected to ${service.name}`));
       console.log();
-      console.log(chalk.gray(`  You can now connect to the service at:`));
-      console.log(chalk.cyan(`    localhost:${localPort}`));
+      console.log(chalk.white(`  Endpoints:`));
+      console.log(chalk.cyan(`    TCP:   localhost:${localPort}`));
+
+      // Auto-start proxy if not running, then show correct URL
+      let proxyUrl = getProxyUrl(service.name);
+      if (!proxyUrl) {
+        const proxyResult = await ensureProxyRunning();
+        if (proxyResult) {
+          const proto = proxyResult.tls ? 'https' : 'http';
+          proxyUrl = `${proto}://${service.name}.localhost:${proxyResult.port}`;
+          console.log(chalk.cyan(`    HTTP:  ${proxyUrl}`));
+          console.log(chalk.gray(`           (proxy auto-started on port ${proxyResult.port})`));
+        } else {
+          console.log(chalk.gray(`    HTTP:  proxy not running (start with: connect proxy start)`));
+        }
+      } else {
+        console.log(chalk.cyan(`    HTTP:  ${proxyUrl}`));
+      }
+
+      const svcProto = (service.protocol || '').toLowerCase();
+      const name = service.name.toLowerCase();
+      if (svcProto === 'http' || svcProto === 'https' || name.includes('api') || name.includes('web') || name.includes('app')) {
+        if (proxyUrl) {
+          console.log(chalk.gray(`    curl:  curl ${proxyUrl}`));
+        }
+      }
+      if (name.includes('postgres') || name.includes('pg') || name.includes('db') || service.targetPort === 5432) {
+        console.log(chalk.gray(`    psql:  psql -h localhost -p ${localPort}`));
+      }
+      if (name.includes('redis') || service.targetPort === 6379) {
+        console.log(chalk.gray(`    redis: redis-cli -p ${localPort}`));
+      }
+      if (name.includes('mongo') || service.targetPort === 27017) {
+        console.log(chalk.gray(`    mongo: mongosh --port ${localPort}`));
+      }
+      if (name.includes('mysql') || service.targetPort === 3306) {
+        console.log(chalk.gray(`    mysql: mysql -h 127.0.0.1 -P ${localPort}`));
+      }
+
       console.log();
+      if (wasAutoSelected) {
+        console.log(chalk.gray(`  Port ${localPort} saved — will be reused next time.\n`));
+      }
       console.log(chalk.gray('  Press Ctrl+C to disconnect\n'));
       resolve();
     });
@@ -357,6 +404,14 @@ async function createLocalTunnel(
   // Handle shutdown
   process.on('SIGINT', () => {
     console.log(chalk.yellow('\n👋 Disconnecting...'));
+    try { unregisterRoute(service.name); } catch { /* cleanup best-effort */ }
+    server.close();
+    socket.disconnect();
+    process.exit(0);
+  });
+
+  process.on('SIGTERM', () => {
+    try { unregisterRoute(service.name); } catch { /* cleanup best-effort */ }
     server.close();
     socket.disconnect();
     process.exit(0);

@@ -1,43 +1,34 @@
 import * as http from 'http';
+import * as https from 'https';
 import * as net from 'net';
+import * as fs from 'fs';
+import * as path from 'path';
+import { spawn } from 'child_process';
 import chalk from 'chalk';
 import { loadConfig } from '../config';
 import { findAvailablePort, isPortAvailable, getPortUser, killProcess, isProcessRunning } from '../ports';
+import { loadActiveRoutes, getActiveRoutesPath, ActiveRoute } from '../active-routes';
+import { ensureCerts, isCATrusted, trustCA, loadTLSOptions } from '../certs';
+import {
+  writeProxyState, clearProxyState, readProxyState,
+  getProxyPidPath, getProxyLogPath, getProxyHeader,
+  getDefaultProxyPort, isProxyResponding, waitForProxy,
+} from '../proxy-state';
 
-/**
- * Try to kill the process using a port
- */
-async function tryKillPortProcess(port: number): Promise<boolean> {
-  const portUser = getPortUser(port);
-  if (!portUser) return false;
-  
-  // Only kill if it looks like a Private Connect process
-  if (!portUser.command.includes('node') && !portUser.command.includes('connect')) {
-    return false;
-  }
-  
-  killProcess(portUser.pid, 'SIGTERM');
-  
-  // Wait for graceful shutdown
-  for (let i = 0; i < 10; i++) {
-    await new Promise(resolve => setTimeout(resolve, 200));
-    if (!isProcessRunning(portUser.pid)) {
-      return true;
-    }
-  }
-  
-  // Force kill if still running
-  killProcess(portUser.pid, 'SIGKILL');
-  await new Promise(resolve => setTimeout(resolve, 200));
-  
-  return !isProcessRunning(portUser.pid);
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface ProxyOptions {
   port: number;
   hub: string;
   config?: string;
   replace?: boolean;
+  https?: boolean;
+  cert?: string;
+  key?: string;
+  trust?: boolean;
+  foreground?: boolean;
 }
 
 interface Service {
@@ -50,40 +41,218 @@ interface Service {
   protocol: string;
 }
 
-export async function proxyCommand(options: ProxyOptions) {
+interface RouteTarget {
+  name: string;
+  host: string;
+  port: number;
+  source: 'hub' | 'local';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function tryKillPortProcess(port: number): Promise<boolean> {
+  const portUser = getPortUser(port);
+  if (!portUser) return false;
+
+  if (!portUser.command.includes('node') && !portUser.command.includes('connect')) {
+    return false;
+  }
+
+  killProcess(portUser.pid, 'SIGTERM');
+
+  for (let i = 0; i < 10; i++) {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    if (!isProcessRunning(portUser.pid)) return true;
+  }
+
+  killProcess(portUser.pid, 'SIGKILL');
+  await new Promise(resolve => setTimeout(resolve, 200));
+  return !isProcessRunning(portUser.pid);
+}
+
+function buildForwardedHeaders(req: http.IncomingMessage, isTls: boolean): Record<string, string> {
+  const remote = req.socket.remoteAddress || '127.0.0.1';
+  const proto = isTls ? 'https' : 'http';
+  const host = req.headers.host || '';
+  const defaultPort = isTls ? '443' : '80';
+
+  return {
+    'x-forwarded-for': req.headers['x-forwarded-for']
+      ? `${req.headers['x-forwarded-for']}, ${remote}`
+      : remote,
+    'x-forwarded-proto': (req.headers['x-forwarded-proto'] as string) || proto,
+    'x-forwarded-host': (req.headers['x-forwarded-host'] as string) || host,
+    'x-forwarded-port': (req.headers['x-forwarded-port'] as string) || host.split(':')[1] || defaultPort,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Route Resolution
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildRouteTable(
+  hubServices: Service[],
+  activeRoutes: ActiveRoute[],
+): Map<string, RouteTarget> {
+  const table = new Map<string, RouteTarget>();
+
+  for (const s of hubServices) {
+    if (s.tunnelPort) {
+      table.set(s.name.toLowerCase(), {
+        name: s.name,
+        host: '127.0.0.1',
+        port: s.tunnelPort,
+        source: 'hub',
+      });
+    }
+  }
+
+  for (const r of activeRoutes) {
+    table.set(r.serviceName.toLowerCase(), {
+      name: r.serviceName,
+      host: '127.0.0.1',
+      port: r.localPort,
+      source: 'local',
+    });
+  }
+
+  return table;
+}
+
+function findRoute(routes: Map<string, RouteTarget>, hostname: string): RouteTarget | null {
+  const subdomain = hostname.split('.')[0].split(':')[0].toLowerCase();
+  return routes.get(subdomain) || null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Proxy Command - Dispatcher
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function proxyCommand(action: string | undefined, options: ProxyOptions) {
+  switch (action) {
+    case 'start':
+      return startProxy(options);
+    case 'stop':
+      return stopProxy();
+    case 'status':
+      return statusProxy();
+    case 'trust':
+      return handleTrust();
+    default:
+      // Bare `connect proxy` defaults to start
+      return startProxy(options);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Start (daemon or foreground)
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function startProxy(options: ProxyOptions) {
   const config = loadConfig();
-  
   if (!config) {
     console.error(chalk.red('[x] Agent not configured'));
     console.log(chalk.gray(`  Run ${chalk.cyan('connect up')} first to authenticate.\n`));
     process.exit(1);
   }
 
+  if (options.trust) {
+    return handleTrust();
+  }
+
+  const isForeground = !!options.foreground || process.env.CONNECT_PROXY_FOREGROUND === '1';
+  const wantHttps = !!options.https || !!options.cert;
+
+  // Check if already running
+  const existing = readProxyState();
+  if (existing.running && existing.port) {
+    if (await isProxyResponding(existing.port, existing.tls)) {
+      if (isForeground) return; // Internal fork; exit silently
+      console.log(chalk.yellow(`\n[!] Proxy is already running on port ${existing.port}`));
+      console.log(chalk.gray(`  Stop it first: ${chalk.cyan('connect proxy stop')}\n`));
+      return;
+    }
+    // PID alive but not responding — stale state
+    clearProxyState();
+  }
+
+  // ── Daemon mode (default): fork and detach ─────────────────────────────
+
+  if (!isForeground) {
+    console.log(chalk.cyan('\n🌐 Starting proxy...\n'));
+
+    const proxyPort = options.port || getDefaultProxyPort();
+    const logPath = getProxyLogPath();
+    const dir = path.dirname(logPath);
+
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    }
+
+    const logFd = fs.openSync(logPath, 'a');
+    try {
+      const daemonArgs = [process.argv[1], 'proxy', 'start', '--foreground'];
+      daemonArgs.push('--port', proxyPort.toString());
+      if (wantHttps) {
+        if (options.cert && options.key) {
+          daemonArgs.push('--cert', options.cert, '--key', options.key);
+        } else {
+          daemonArgs.push('--https');
+        }
+      }
+
+      const child = spawn(process.execPath, daemonArgs, {
+        detached: true,
+        stdio: ['ignore', logFd, logFd],
+        env: { ...process.env, CONNECT_PROXY_FOREGROUND: '1' },
+      });
+      child.unref();
+    } finally {
+      fs.closeSync(logFd);
+    }
+
+    // Wait for it to come up
+    if (!(await waitForProxy(proxyPort, wantHttps))) {
+      console.error(chalk.red('[x] Proxy failed to start (timed out).'));
+      console.error(chalk.gray(`  Try foreground mode to see the error:`));
+      console.error(chalk.cyan(`    connect proxy start --foreground`));
+      if (fs.existsSync(logPath)) {
+        console.error(chalk.gray(`  Logs: ${logPath}`));
+      }
+      process.exit(1);
+    }
+
+    const proto = wantHttps ? 'HTTPS' : 'HTTP';
+    console.log(chalk.green(`[ok] ${proto} proxy started on port ${proxyPort}`));
+    console.log(chalk.gray(`  Logs: ${logPath}`));
+    console.log(chalk.gray(`  Stop: ${chalk.cyan('connect proxy stop')}\n`));
+    return;
+  }
+
+  // ── Foreground mode ────────────────────────────────────────────────────
+
   const hubUrl = config.hubUrl || options.hub;
-  const preferredPort = options.port;
-  
+  const preferredPort = options.port || getDefaultProxyPort();
+
   console.log(chalk.cyan('\n🌐 Starting subdomain proxy...\n'));
   console.log(chalk.gray(`  Hub:  ${hubUrl}`));
-  
-  // Check if preferred port is available
+
+  // Port selection
   let actualPort = preferredPort;
   let wasAutoSelected = false;
-  
+
   if (!(await isPortAvailable(preferredPort))) {
     if (options.replace) {
-      // Try to kill the existing process on this port
       console.log(chalk.yellow(`  [!] Port ${preferredPort} in use, attempting to take over...`));
       const killed = await tryKillPortProcess(preferredPort);
       if (killed) {
         console.log(chalk.green(`  [ok] Killed existing process`));
-        // Wait for port to become available
         await new Promise(resolve => setTimeout(resolve, 500));
-      } else {
-        console.log(chalk.red(`  [x] Could not kill existing process`));
       }
     }
-    
-    // Check again after potential kill
+
     if (!(await isPortAvailable(preferredPort))) {
       const alternativePort = await findAvailablePort(preferredPort + 1);
       if (alternativePort) {
@@ -92,205 +261,232 @@ export async function proxyCommand(options: ProxyOptions) {
         console.log(chalk.yellow(`  [!] Port ${preferredPort} in use, using ${actualPort} instead`));
       } else {
         console.error(chalk.red(`\n[x] Port ${preferredPort} is in use and no alternatives available`));
-        console.log(chalk.gray(`  Try: ${chalk.cyan(`connect proxy --port ${preferredPort + 100}`)}`));
-        console.log(chalk.gray(`  Or:  ${chalk.cyan(`connect proxy --replace`)} to take over\n`));
         process.exit(1);
       }
     }
   }
-  
+
   console.log(chalk.gray(`  Port: ${actualPort}${wasAutoSelected ? chalk.yellow(' (auto-selected)') : ''}`));
+
+  // TLS setup
+  let tlsOptions: { cert: Buffer; key: Buffer } | null = null;
+
+  if (wantHttps) {
+    if (options.cert && options.key) {
+      try {
+        tlsOptions = { cert: fs.readFileSync(options.cert), key: fs.readFileSync(options.key) };
+        console.log(chalk.gray(`  TLS:  custom certs`));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(chalk.red(`[x] Failed to read certificate files: ${msg}`));
+        process.exit(1);
+      }
+    } else {
+      console.log(chalk.gray(`  TLS:  auto-generating certificates...`));
+      const result = ensureCerts();
+      if (result.caGenerated) console.log(chalk.green(`  [ok] Generated local CA`));
+      if (result.serverGenerated) console.log(chalk.green(`  [ok] Generated server certificate`));
+
+      if (!isCATrusted()) {
+        console.log(chalk.yellow(`  [!] Adding CA to system trust store...`));
+        const trustResult = trustCA();
+        if (trustResult.trusted) {
+          console.log(chalk.green(`  [ok] CA trusted — no browser warnings`));
+        } else {
+          console.warn(chalk.yellow(`  [!] Could not auto-trust CA: ${trustResult.error || 'unknown'}`));
+          console.warn(chalk.gray(`      Fix later with: ${chalk.cyan('connect proxy trust')}`));
+        }
+      }
+
+      tlsOptions = loadTLSOptions();
+      if (!tlsOptions) {
+        console.error(chalk.red(`[x] TLS certificates not found after generation.`));
+        process.exit(1);
+      }
+    }
+  }
+
   console.log();
 
-  // Fetch initial service list
-  let services: Service[] = [];
-  
-  const refreshServices = async () => {
+  // Service + route state
+  let hubServices: Service[] = [];
+  let activeRoutes: ActiveRoute[] = [];
+  let routes: Map<string, RouteTarget> = new Map();
+
+  const refreshAll = async () => {
     try {
       const response = await fetch(`${hubUrl}/v1/services`, {
         headers: { 'x-api-key': config.apiKey },
       });
-      if (response.ok) {
-        services = await response.json() as Service[];
-      }
-    } catch (err) {
-      // Silently fail, keep using cached services
-    }
+      if (response.ok) hubServices = await response.json() as Service[];
+    } catch { /* keep cached */ }
+
+    activeRoutes = loadActiveRoutes();
+    routes = buildRouteTable(hubServices, activeRoutes);
   };
 
-  await refreshServices();
-  
-  if (services.length === 0) {
-    console.log(chalk.yellow('[!] No services found. Expose some services first:'));
-    console.log(chalk.gray(`  ${chalk.cyan('connect expose localhost:8080 --name my-api')}\n`));
+  await refreshAll();
+
+  const totalRoutes = routes.size;
+  if (totalRoutes === 0) {
+    console.log(chalk.yellow('[!] No services found. Expose or reach some services first.'));
   } else {
-    console.log(chalk.green(`[ok] Found ${services.length} service(s):`));
-    services.forEach(s => {
-      const tunnelInfo = s.tunnelPort ? `:${s.tunnelPort}` : ' (external)';
-      console.log(chalk.gray(`  • ${s.name} → ${s.targetHost}:${s.targetPort}${tunnelInfo}`));
-    });
-    console.log();
+    console.log(chalk.green(`[ok] Found ${totalRoutes} route(s):`));
+    for (const r of routes.values()) {
+      const src = r.source === 'local' ? chalk.blue('reach') : chalk.gray('hub');
+      console.log(chalk.gray(`  • ${r.name} → 127.0.0.1:${r.port} [${src}]`));
+    }
   }
+  console.log();
 
-  // Refresh services periodically
-  const refreshInterval = setInterval(refreshServices, 10000);
+  const hubRefreshInterval = setInterval(refreshAll, 10000);
 
-  // Find service by subdomain
-  const findService = (hostname: string): Service | null => {
-    // Extract subdomain from hostname
-    // Handles: my-api.localhost, my-api.localhost:3000, my-api.127.0.0.1.nip.io
-    const subdomain = hostname.split('.')[0].split(':')[0];
-    return services.find(s => s.name.toLowerCase() === subdomain.toLowerCase()) || null;
-  };
+  // Watch active-routes file
+  const routesPath = getActiveRoutesPath();
+  let routeWatcher: fs.FSWatcher | null = null;
+  let routeDebounce: ReturnType<typeof setTimeout> | null = null;
 
-  // Create HTTP proxy server
-  const server = http.createServer(async (req, res) => {
+  try {
+    const routesDir = path.dirname(routesPath);
+    if (fs.existsSync(routesDir)) {
+      routeWatcher = fs.watch(routesDir, (_event: string, filename: string | null) => {
+        if (filename === 'active-routes.json') {
+          if (routeDebounce) clearTimeout(routeDebounce);
+          routeDebounce = setTimeout(async () => {
+            activeRoutes = loadActiveRoutes();
+            routes = buildRouteTable(hubServices, activeRoutes);
+          }, 100);
+        }
+      });
+    }
+  } catch { /* fallback to polling */ }
+
+  // Request handling
+  const isTls = !!tlsOptions;
+  const proto = isTls ? 'https' : 'http';
+  const headerName = getProxyHeader();
+
+  const handleRequest = (req: http.IncomingMessage, res: http.ServerResponse) => {
+    res.setHeader(headerName, '1');
+
     const host = req.headers.host || '';
-    const service = findService(host);
-    
-    if (!service) {
+    const route = findRoute(routes, host);
+
+    if (!route) {
       const subdomain = host.split('.')[0];
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         error: 'Service not found',
         subdomain,
-        available: services.map(s => s.name),
-        hint: `Try: ${services[0]?.name || 'my-service'}.localhost:${options.port}`,
+        available: Array.from(routes.values()).map(r => r.name),
+        hint: `Try: ${proto}://${Array.from(routes.values())[0]?.name || 'my-service'}.localhost:${actualPort}`,
       }, null, 2));
-      console.log(chalk.red(`  [x] ${subdomain} → not found`));
       return;
     }
 
-    // Determine target - use tunnelPort for internal services
-    const targetPort = service.tunnelPort || service.targetPort;
-    const targetHost = service.tunnelPort ? '127.0.0.1' : service.targetHost;
+    const forwardedHeaders = buildForwardedHeaders(req, isTls);
 
-    console.log(chalk.gray(`  → ${service.name} → ${targetHost}:${targetPort}${req.url}`));
-
-    // Proxy the request
     const proxyReq = http.request({
-      hostname: targetHost,
-      port: targetPort,
+      hostname: route.host,
+      port: route.port,
       path: req.url,
       method: req.method,
-      headers: {
-        ...req.headers,
-        host: `${service.targetHost}:${service.targetPort}`, // Original host for the service
-      },
+      headers: { ...req.headers, ...forwardedHeaders },
     }, (proxyRes) => {
       res.writeHead(proxyRes.statusCode || 500, proxyRes.headers);
       proxyRes.pipe(res);
     });
 
     proxyReq.on('error', (err) => {
-      console.log(chalk.red(`  [x] ${service.name} → connection failed: ${err.message}`));
-      res.writeHead(502, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: 'Service unavailable',
-        service: service.name,
-        target: `${targetHost}:${targetPort}`,
-        message: err.message,
-      }, null, 2));
+      if (!res.headersSent) {
+        const errWithCode = err as NodeJS.ErrnoException;
+        const message = errWithCode.code === 'ECONNREFUSED'
+          ? 'Bad Gateway: the service is not responding.'
+          : `Bad Gateway: ${err.message}`;
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: message, service: route.name }));
+      }
     });
 
+    res.on('close', () => { if (!proxyReq.destroyed) proxyReq.destroy(); });
     req.pipe(proxyReq);
-  });
+  };
 
-  // Handle WebSocket upgrades
-  server.on('upgrade', (req, socket, head) => {
+  const handleUpgrade = (req: http.IncomingMessage, socket: net.Socket, head: Buffer) => {
     const host = req.headers.host || '';
-    const service = findService(host);
+    const route = findRoute(routes, host);
 
-    if (!service) {
-      socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
-      socket.destroy();
-      return;
-    }
+    if (!route) { socket.write('HTTP/1.1 404 Not Found\r\n\r\n'); socket.destroy(); return; }
 
-    const targetPort = service.tunnelPort || service.targetPort;
-    const targetHost = service.tunnelPort ? '127.0.0.1' : service.targetHost;
+    const proxyReq = http.request({
+      hostname: route.host, port: route.port,
+      path: req.url, method: req.method,
+      headers: { ...req.headers },
+    });
 
-    console.log(chalk.magenta(`  ↔ ${service.name} → WebSocket upgrade`));
-
-    const proxySocket = net.createConnection({
-      host: targetHost,
-      port: targetPort,
-    }, () => {
-      // Reconstruct the upgrade request
-      const headers = Object.entries(req.headers)
-        .map(([key, value]) => `${key}: ${value}`)
-        .join('\r\n');
-      
-      proxySocket.write(
-        `${req.method} ${req.url} HTTP/1.1\r\n` +
-        `Host: ${service.targetHost}:${service.targetPort}\r\n` +
-        `${headers}\r\n\r\n`
-      );
-      
-      if (head.length > 0) {
-        proxySocket.write(head);
+    proxyReq.on('upgrade', (proxyRes, proxySocket, proxyHead) => {
+      let response = 'HTTP/1.1 101 Switching Protocols\r\n';
+      for (let i = 0; i < proxyRes.rawHeaders.length; i += 2) {
+        response += `${proxyRes.rawHeaders[i]}: ${proxyRes.rawHeaders[i + 1]}\r\n`;
       }
-
-      // Bi-directional pipe
-      socket.pipe(proxySocket);
+      response += '\r\n';
+      socket.write(response);
+      if (proxyHead.length > 0) socket.write(proxyHead);
       proxySocket.pipe(socket);
+      socket.pipe(proxySocket);
+      proxySocket.on('error', () => socket.destroy());
+      socket.on('error', () => proxySocket.destroy());
     });
 
-    proxySocket.on('error', (err) => {
-      console.log(chalk.red(`  [x] ${service.name} → WebSocket failed: ${err.message}`));
-      socket.destroy();
-    });
-
-    socket.on('error', () => {
-      proxySocket.destroy();
-    });
-  });
-
-  // Handle CONNECT for HTTPS tunneling (less common but useful)
-  server.on('connect', (req, clientSocket, head) => {
-    const [hostname] = (req.url || '').split(':');
-    const service = findService(hostname);
-
-    if (!service) {
-      clientSocket.write('HTTP/1.1 404 Not Found\r\n\r\n');
-      clientSocket.destroy();
-      return;
-    }
-
-    const targetPort = service.tunnelPort || service.targetPort;
-    const targetHost = service.tunnelPort ? '127.0.0.1' : service.targetHost;
-
-    console.log(chalk.blue(`  ⇄ ${service.name} → CONNECT tunnel`));
-
-    const proxySocket = net.createConnection({
-      host: targetHost,
-      port: targetPort,
-    }, () => {
-      clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
-      
-      if (head.length > 0) {
-        proxySocket.write(head);
+    proxyReq.on('error', () => socket.destroy());
+    proxyReq.on('response', (res) => {
+      if (!socket.destroyed) {
+        let response = `HTTP/1.1 ${res.statusCode} ${res.statusMessage}\r\n`;
+        for (let i = 0; i < res.rawHeaders.length; i += 2) {
+          response += `${res.rawHeaders[i]}: ${res.rawHeaders[i + 1]}\r\n`;
+        }
+        response += '\r\n';
+        socket.write(response);
+        res.pipe(socket);
       }
+    });
 
+    if (head.length > 0) proxyReq.write(head);
+    proxyReq.end();
+  };
+
+  const handleConnect = (req: http.IncomingMessage, clientSocket: net.Socket, head: Buffer) => {
+    const [hostname] = (req.url || '').split(':');
+    const route = findRoute(routes, hostname);
+
+    if (!route) { clientSocket.write('HTTP/1.1 404 Not Found\r\n\r\n'); clientSocket.destroy(); return; }
+
+    const proxySocket = net.createConnection({ host: route.host, port: route.port }, () => {
+      clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+      if (head.length > 0) proxySocket.write(head);
       clientSocket.pipe(proxySocket);
       proxySocket.pipe(clientSocket);
     });
 
-    proxySocket.on('error', () => {
-      clientSocket.destroy();
-    });
+    proxySocket.on('error', () => clientSocket.destroy());
+    clientSocket.on('error', () => proxySocket.destroy());
+  };
 
-    clientSocket.on('error', () => {
-      proxySocket.destroy();
-    });
-  });
+  // Server creation
+  let server: http.Server | https.Server;
+  if (tlsOptions) {
+    server = https.createServer({ cert: tlsOptions.cert, key: tlsOptions.key }, handleRequest);
+  } else {
+    server = http.createServer(handleRequest);
+  }
 
-  // Start server
+  server.on('upgrade', handleUpgrade);
+  server.on('connect', handleConnect);
+
   server.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {
       console.error(chalk.red(`\n[x] Port ${actualPort} is already in use`));
-      console.log(chalk.gray(`  Try: ${chalk.cyan(`connect proxy --port ${actualPort + 1}`)}`));
-      console.log(chalk.gray(`  Or:  ${chalk.cyan(`connect proxy --replace`)} to take over\n`));
+      console.error(chalk.gray(`  Try: ${chalk.cyan(`connect proxy start --port ${actualPort + 1}`)}`));
     } else {
       console.error(chalk.red(`\n[x] Server error: ${err.message}\n`));
     }
@@ -298,34 +494,192 @@ export async function proxyCommand(options: ProxyOptions) {
   });
 
   server.listen(actualPort, '127.0.0.1', () => {
-    console.log(chalk.green.bold(`[ok] Proxy running on port ${actualPort}\n`));
+    // Write state so other commands can discover us
+    writeProxyState(process.pid, actualPort, isTls);
+
+    const label = isTls ? 'HTTPS' : 'HTTP';
+    console.log(chalk.green.bold(`[ok] ${label} proxy running on port ${actualPort}\n`));
     console.log(chalk.white('  Access your services via subdomains:'));
     console.log();
-    
-    if (services.length > 0) {
-      services.forEach(s => {
-        console.log(chalk.cyan(`    http://${s.name}.localhost:${actualPort}`));
-      });
+    if (routes.size > 0) {
+      for (const r of routes.values()) {
+        console.log(chalk.cyan(`    ${proto}://${r.name}.localhost:${actualPort}`));
+      }
     } else {
-      console.log(chalk.gray(`    http://<service-name>.localhost:${actualPort}`));
+      console.log(chalk.gray(`    ${proto}://<service-name>.localhost:${actualPort}`));
     }
-    
     console.log();
     console.log(chalk.gray('  Press Ctrl+C to stop\n'));
   });
 
-  // Handle shutdown
-  process.on('SIGINT', () => {
-    console.log(chalk.yellow('\n👋 Stopping proxy...'));
-    clearInterval(refreshInterval);
-    server.close();
-    process.exit(0);
-  });
+  // Shutdown
+  let exiting = false;
+  const cleanup = () => {
+    if (exiting) return;
+    exiting = true;
+    clearInterval(hubRefreshInterval);
+    if (routeDebounce) clearTimeout(routeDebounce);
+    if (routeWatcher) routeWatcher.close();
+    clearProxyState();
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 2000).unref();
+  };
 
-  process.on('SIGTERM', () => {
-    clearInterval(refreshInterval);
-    server.close();
-    process.exit(0);
-  });
+  process.on('SIGINT', () => { console.log(chalk.yellow('\n👋 Stopping proxy...')); cleanup(); });
+  process.on('SIGTERM', cleanup);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Stop
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function stopProxy() {
+  const state = readProxyState();
+
+  if (!state.running || !state.pid) {
+    console.log(chalk.yellow('\n[!] Proxy is not running.\n'));
+    return;
+  }
+
+  try {
+    process.kill(state.pid, 'SIGTERM');
+  } catch (err) {
+    const e = err as NodeJS.ErrnoException;
+    if (e.code === 'ESRCH') {
+      console.log(chalk.yellow('\n[!] Proxy process already gone. Cleaning up.\n'));
+      clearProxyState();
+      return;
+    }
+    throw err;
+  }
+
+  // Wait for graceful exit
+  for (let i = 0; i < 20; i++) {
+    await new Promise(r => setTimeout(r, 200));
+    try { process.kill(state.pid, 0); } catch {
+      // Process is gone
+      clearProxyState();
+      console.log(chalk.green('\n[ok] Proxy stopped.\n'));
+      return;
+    }
+  }
+
+  // Force kill
+  try { process.kill(state.pid, 'SIGKILL'); } catch { /* already gone */ }
+  clearProxyState();
+  console.log(chalk.green('\n[ok] Proxy stopped (forced).\n'));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Status
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function statusProxy() {
+  const state = readProxyState();
+
+  console.log(chalk.cyan('\n🌐 Proxy Status\n'));
+
+  if (!state.running) {
+    console.log(chalk.red('  ○ Proxy: stopped'));
+    console.log(chalk.gray(`\n  Start with: ${chalk.cyan('connect proxy start')}\n`));
+    return;
+  }
+
+  const responding = state.port ? await isProxyResponding(state.port, state.tls) : false;
+
+  if (responding) {
+    console.log(chalk.green(`  ● Proxy: running (PID ${state.pid})`));
+  } else {
+    console.log(chalk.yellow(`  ● Proxy: running but not responding (PID ${state.pid})`));
+  }
+
+  console.log(chalk.gray(`    Port: ${state.port}`));
+  console.log(chalk.gray(`    TLS:  ${state.tls ? 'enabled' : 'disabled'}`));
+
+  // Show active routes
+  const activeRoutes = loadActiveRoutes();
+  if (activeRoutes.length > 0) {
+    const proto = state.tls ? 'https' : 'http';
+    console.log(chalk.gray(`    Routes:`));
+    for (const r of activeRoutes) {
+      console.log(chalk.cyan(`      ${proto}://${r.serviceName}.localhost:${state.port}`));
+    }
+  }
+
+  console.log();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Trust
+// ─────────────────────────────────────────────────────────────────────────────
+
+function handleTrust() {
+  console.log(chalk.cyan('\n🔒 Trusting Private Connect local CA...\n'));
+
+  const result = ensureCerts();
+  if (result.caGenerated) console.log(chalk.green('  [ok] Generated local CA certificate'));
+
+  const trustResult = trustCA();
+  if (trustResult.trusted) {
+    console.log(chalk.green('  [ok] CA added to system trust store'));
+    console.log(chalk.gray('  Browsers will now trust Private Connect HTTPS certificates.\n'));
+  } else {
+    console.error(chalk.red(`  [x] Failed to trust CA: ${trustResult.error}`));
+    if (trustResult.error?.includes('sudo') || trustResult.error?.includes('Permission')) {
+      console.log(chalk.gray(`  Try: ${chalk.cyan('sudo connect proxy trust')}\n`));
+    }
+    process.exit(1);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auto-start (called from reach)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Ensure the proxy is running. If not, auto-start it as a daemon.
+ * Returns the proxy state after starting.
+ */
+export async function ensureProxyRunning(options?: { https?: boolean }): Promise<{ port: number; tls: boolean } | null> {
+  const state = readProxyState();
+  if (state.running && state.port) {
+    if (await isProxyResponding(state.port, state.tls)) {
+      return { port: state.port, tls: state.tls || false };
+    }
+    clearProxyState();
+  }
+
+  // Auto-start
+  const config = loadConfig();
+  if (!config) return null;
+
+  const port = getDefaultProxyPort();
+  const wantHttps = !!options?.https;
+  const logPath = getProxyLogPath();
+  const dir = path.dirname(logPath);
+
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  }
+
+  const logFd = fs.openSync(logPath, 'a');
+  try {
+    const daemonArgs = [process.argv[1], 'proxy', 'start', '--foreground', '--port', port.toString()];
+    if (wantHttps) daemonArgs.push('--https');
+
+    const child = spawn(process.execPath, daemonArgs, {
+      detached: true,
+      stdio: ['ignore', logFd, logFd],
+      env: { ...process.env, CONNECT_PROXY_FOREGROUND: '1' },
+    });
+    child.unref();
+  } finally {
+    fs.closeSync(logFd);
+  }
+
+  if (await waitForProxy(port, wantHttps)) {
+    return { port, tls: wantHttps };
+  }
+
+  return null;
+}

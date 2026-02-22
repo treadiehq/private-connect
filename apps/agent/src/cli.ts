@@ -34,6 +34,17 @@ const pkg = require('../package.json') as { version: string };
 const VERSION = pkg.version;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Bypass Check
+// ─────────────────────────────────────────────────────────────────────────────
+// CONNECT=0 or CONNECT=skip disables Private Connect entirely.
+// Useful for CI pipelines or environments where tunneling is not wanted.
+
+const connectEnv = process.env.CONNECT;
+if (connectEnv === '0' || connectEnv === 'skip') {
+  process.exit(0);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Validation & Coercion Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -262,15 +273,21 @@ program
   });
 
 program
-  .command('proxy')
-  .description('Start a local HTTP proxy to access services via subdomains (e.g., my-api.localhost:3000)')
+  .command('proxy [action]')
+  .description('Manage the local subdomain proxy (start|stop|status|trust)')
   .option('-p, --port <port>', 'Port to listen on', parsePort, 3000)
   .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-c, --config <path>', 'Config file path (for multiple agents)')
   .option('-r, --replace', 'Kill existing proxy on the same port and take over')
-  .action((options) => {
+  .option('--https', 'Enable HTTPS with auto-generated local CA certificates')
+  .option('--cert <path>', 'Path to custom TLS certificate (implies --https)')
+  .option('--key <path>', 'Path to custom TLS private key (implies --https)')
+  .option('--trust', 'Add the local CA to system trust store')
+  .option('--foreground', 'Run in foreground (default: daemonize)')
+  .action((action, options) => {
     if (options.config) setConfigPath(options.config);
-    proxyCommand(options);
+    if (options.trust && !action) action = 'trust';
+    proxyCommand(action, options);
   });
 
 program
