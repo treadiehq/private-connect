@@ -10,7 +10,6 @@ Private Connect lets you and your AI agent reach databases, APIs, and internal s
 
 - **Access by name:** `connect prod-db` instead of remembering IPs or ports
 - **Stable ports:** `connect reach prod-db` always gives you the same local port
-- **`.localhost` subdomains:** `http://prod-db.localhost:3000` via the local proxy, no port numbers to remember for HTTP services
 - **Onboard teammates in 30 seconds:** `connect clone alice` gives them your exact setup
 - **Share instantly:** `connect share` → teammate runs `connect join`, same environment
 - **Works with any infrastructure:** AWS, exe.dev, DigitalOcean, your local machine, or anywhere—works regardless of where services run
@@ -79,8 +78,6 @@ Run an agent on each machine. Expose services from one, access from another.
 **Key Features:**
 - **Zero Configuration** - No VPN setup, no firewall rules, no port forwarding
 - **Stable Ports** - Same service always gets the same local port across restarts
-- **`.localhost` Subdomains** - `http://my-api.localhost:3000` via local proxy, no ports to memorize
-- **HTTPS with Auto-TLS** - `connect proxy --https` generates and trusts local certificates automatically
 - **Secure** - End-to-end encrypted tunnels with audit logging
 - **Live Debugging** - Real-time traffic inspection with AI-powered analysis
 - **Team Collaboration** - Share services instantly with `connect share` or clone teammate setups
