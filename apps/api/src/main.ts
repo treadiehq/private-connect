@@ -69,6 +69,17 @@ async function bootstrap() {
   // Cookie parser for session handling
   app.use(cookieParser());
   
+  // Redirect www to apex domain
+  app.use((req: any, res: any, next: any) => {
+    const host = (req.headers.host || '').toLowerCase();
+    const baseDomain = process.env.BASE_DOMAIN || 'privateconnect.co';
+    if (host === `www.${baseDomain}`) {
+      const protocol = req.headers['x-forwarded-proto'] || 'https';
+      return res.redirect(301, `${protocol}://${baseDomain}${req.originalUrl || req.url}`);
+    }
+    next();
+  });
+
   // Rewrite paths for share subdomains (ngrok-style)
   // Subdomain style: {token}.privateconnect.co/* -> /shared/{token}/*
   // Known subdomains (api, www, link, app) are excluded
