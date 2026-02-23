@@ -227,6 +227,7 @@ const props = defineProps<{
   serviceName: string;
   connectionInfo: string;
   isConnected?: boolean;
+  queryUrl?: string;
 }>();
 
 const emit = defineEmits<{
@@ -261,7 +262,8 @@ const executeQuery = async () => {
   const startTime = Date.now();
   
   try {
-    const response = await fetch(`${config.public.apiBase}/api/shared/${props.token}/query`, {
+    const endpoint = props.queryUrl || `${config.public.apiBase}/api/shared/${props.token}/query`;
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: query.value }),

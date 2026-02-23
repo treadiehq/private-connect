@@ -1,13 +1,27 @@
 import { Controller, Post, Get, Delete, All, Param, Body, Req, Res, HttpException, HttpStatus, Inject, forwardRef, OnModuleInit } from '@nestjs/common';
 import { Request, Response } from 'express';
+import * as net from 'net';
 import { TemporaryTunnelService } from './temporary-tunnel.service';
 import { DebugService } from '../debug/debug.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { randomBytes } from 'crypto';
 
 const HUB_URL = process.env.HUB_URL || process.env.API_URL || 'https://api.privateconnect.co';
-const TEMP_WORKSPACE_ID = 'temp-tunnel-workspace'; // Special workspace for temporary tunnels
-const TEMP_USER_EMAIL = 'system@privateconnect.co'; // System user for temporary workspace
+const PUBLIC_URL = process.env.PUBLIC_URL || 'https://privateconnect.co';
+const TEMP_WORKSPACE_ID = 'temp-tunnel-workspace';
+const TEMP_USER_EMAIL = 'system@privateconnect.co';
+
+const DB_PORTS: Record<number, string> = {
+  5432: 'PostgreSQL',
+  3306: 'MySQL',
+  27017: 'MongoDB',
+  6379: 'Redis',
+  9200: 'Elasticsearch',
+  5984: 'CouchDB',
+  8529: 'ArangoDB',
+  7687: 'Neo4j',
+  9042: 'Cassandra',
+};
 
 interface CreateTunnelDto {
   tunnelId?: string;
@@ -135,7 +149,6 @@ export class TemporaryTunnelController implements OnModuleInit {
     }
     
     if (tunnelType === 'tcp') {
-      // Create TCP tunnel with dynamic port
       const tunnel = await this.tempTunnelService.createTcpTunnel(
         tunnelId,
         body.localHost,
@@ -143,8 +156,8 @@ export class TemporaryTunnelController implements OnModuleInit {
         ttlMinutes,
       );
       
-      // Get the hub host for TCP connection
       const hubHost = new URL(HUB_URL).hostname;
+      const isDbPort = body.localPort in DB_PORTS;
       
       return {
         success: true,
@@ -157,6 +170,7 @@ export class TemporaryTunnelController implements OnModuleInit {
           wsUrl: `${HUB_URL.replace('http', 'ws')}/temp-tunnel`,
           expiresAt: tunnel.expiresAt.toISOString(),
           ttlMinutes,
+          ...(isDbPort && { webUrl: `${PUBLIC_URL}/tunnel/${tunnelId}` }),
         },
       };
     }
@@ -235,26 +249,6 @@ export class TemporaryTunnelController implements OnModuleInit {
         createdAt: t.createdAt.toISOString(),
         expiresAt: t.expiresAt.toISOString(),
       })),
-    };
-  }
-
-  /**
-   * Get tunnel status
-   */
-  @Get('v1/tunnels/temporary/:tunnelId')
-  async getTunnelStatus(@Param('tunnelId') tunnelId: string) {
-    const tunnel = this.tempTunnelService.getTunnel(tunnelId);
-    
-    if (!tunnel) {
-      throw new HttpException('Tunnel not found or expired', HttpStatus.NOT_FOUND);
-    }
-    
-    return {
-      tunnelId: tunnel.tunnelId,
-      connected: this.tempTunnelService.isConnected(tunnelId),
-      requestCount: tunnel.requestCount,
-      createdAt: tunnel.createdAt.toISOString(),
-      expiresAt: tunnel.expiresAt.toISOString(),
     };
   }
 
@@ -356,6 +350,186 @@ export class TemporaryTunnelController implements OnModuleInit {
         message: err.message,
       });
     }
+  }
+
+  /**
+   * Get tunnel info for the web viewer (no auth required)
+   */
+  @Get('v1/tunnels/temporary/:tunnelId/info')
+  async getTunnelInfo(@Param('tunnelId') tunnelId: string) {
+    const tunnel = this.tempTunnelService.getTunnel(tunnelId);
+    
+    if (!tunnel) {
+      throw new HttpException('Tunnel not found or expired', HttpStatus.NOT_FOUND);
+    }
+    
+    const dbType = DB_PORTS[tunnel.localPort];
+    
+    return {
+      tunnelId: tunnel.tunnelId,
+      type: tunnel.type,
+      localPort: tunnel.localPort,
+      connected: this.tempTunnelService.isConnected(tunnelId),
+      expiresAt: tunnel.expiresAt.toISOString(),
+      serviceType: dbType ? 'database' : (tunnel.localPort === 22 ? 'ssh' : 'other'),
+      databaseType: dbType || null,
+    };
+  }
+
+  /**
+   * Execute a SQL query through a temporary TCP tunnel (no auth required)
+   */
+  @Post('v1/tunnels/temporary/:tunnelId/query')
+  async executeQuery(
+    @Param('tunnelId') tunnelId: string,
+    @Body() body: { query?: string },
+  ) {
+    const tunnel = this.tempTunnelService.getTunnel(tunnelId);
+    
+    if (!tunnel) {
+      throw new HttpException('Tunnel not found or expired', HttpStatus.NOT_FOUND);
+    }
+    
+    if (!this.tempTunnelService.isConnected(tunnelId)) {
+      throw new HttpException('Tunnel not connected', HttpStatus.SERVICE_UNAVAILABLE);
+    }
+    
+    if (tunnel.type !== 'tcp' || !tunnel.tcpPort) {
+      throw new HttpException('Query execution requires a TCP tunnel', HttpStatus.BAD_REQUEST);
+    }
+    
+    if (!(tunnel.localPort in DB_PORTS)) {
+      throw new HttpException('Query execution is only supported for database ports', HttpStatus.BAD_REQUEST);
+    }
+    
+    if (!body.query || body.query.length === 0 || body.query.length > 10000) {
+      throw new HttpException('Invalid query', HttpStatus.BAD_REQUEST);
+    }
+    
+    if (tunnel.localPort === 5432) {
+      try {
+        const result = await this.executePostgresQuery('127.0.0.1', tunnel.tcpPort, body.query);
+        return result;
+      } catch (err: any) {
+        throw new HttpException(err.message, HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+    }
+    
+    throw new HttpException(
+      `Query execution for ${DB_PORTS[tunnel.localPort]} is not yet implemented`,
+      HttpStatus.NOT_IMPLEMENTED,
+    );
+  }
+
+  private executePostgresQuery(
+    host: string,
+    port: number,
+    query: string,
+  ): Promise<{ columns: string[]; rows: any[]; rowCount: number }> {
+    return new Promise((resolve, reject) => {
+      const socket = new net.Socket();
+      let buffer = Buffer.alloc(0);
+      let columns: string[] = [];
+      const rows: any[] = [];
+      let rowCount = 0;
+
+      socket.setTimeout(10000);
+      socket.on('timeout', () => { socket.destroy(); reject(new Error('Connection timeout')); });
+      socket.on('error', (err: Error) => { reject(err); });
+
+      socket.on('data', (data: Buffer) => {
+        buffer = Buffer.concat([buffer, data]);
+
+        while (buffer.length >= 5) {
+          const msgType = String.fromCharCode(buffer[0]);
+          const msgLen = buffer.readInt32BE(1);
+          if (buffer.length < msgLen + 1) break;
+
+          const msgData = buffer.slice(5, msgLen + 1);
+          buffer = buffer.slice(msgLen + 1);
+
+          switch (msgType) {
+            case 'R':
+              if (msgData.readInt32BE(0) === 0) {
+                const queryBuf = Buffer.from(query + '\0', 'utf8');
+                const qMsg = Buffer.alloc(5 + queryBuf.length);
+                qMsg[0] = 0x51;
+                qMsg.writeInt32BE(4 + queryBuf.length, 1);
+                queryBuf.copy(qMsg, 5);
+                socket.write(qMsg);
+              }
+              break;
+            case 'T': {
+              const numFields = msgData.readInt16BE(0);
+              let offset = 2;
+              columns = [];
+              for (let i = 0; i < numFields; i++) {
+                const nameEnd = msgData.indexOf(0, offset);
+                columns.push(msgData.slice(offset, nameEnd).toString('utf8'));
+                offset = nameEnd + 19;
+              }
+              break;
+            }
+            case 'D': {
+              const numCols = msgData.readInt16BE(0);
+              let dOffset = 2;
+              const row: any = {};
+              for (let i = 0; i < numCols; i++) {
+                const len = msgData.readInt32BE(dOffset);
+                dOffset += 4;
+                if (len === -1) {
+                  row[columns[i]] = null;
+                } else {
+                  row[columns[i]] = msgData.slice(dOffset, dOffset + len).toString('utf8');
+                  dOffset += len;
+                }
+              }
+              rows.push(row);
+              break;
+            }
+            case 'C': {
+              const tag = msgData.toString('utf8').split('\0')[0];
+              const match = tag.match(/\d+$/);
+              rowCount = match ? parseInt(match[0], 10) : rows.length;
+              break;
+            }
+            case 'Z':
+              socket.end();
+              resolve({ columns, rows, rowCount });
+              break;
+            case 'E': {
+              const parts: Record<string, string> = {};
+              let off = 0;
+              while (off < msgData.length && msgData[off] !== 0) {
+                const code = String.fromCharCode(msgData[off]);
+                off++;
+                const end = msgData.indexOf(0, off);
+                parts[code] = msgData.slice(off, end).toString('utf8');
+                off = end + 1;
+              }
+              socket.end();
+              reject(new Error(parts['M'] || parts['S'] || 'Unknown error'));
+              break;
+            }
+          }
+        }
+      });
+
+      socket.connect(port, host, () => {
+        const startup = Buffer.alloc(1024);
+        let pos = 0;
+        pos += 4;
+        startup.writeInt32BE(196608, pos);
+        pos += 4;
+        pos += startup.write('user\0', pos);
+        pos += startup.write('postgres\0', pos);
+        pos += startup.write('database\0', pos);
+        pos += startup.write('postgres\0', pos);
+        startup[pos++] = 0;
+        startup.writeInt32BE(pos, 0);
+        socket.write(startup.slice(0, pos));
+      });
+    });
   }
 
   /**

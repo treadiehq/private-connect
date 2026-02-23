@@ -450,6 +450,18 @@ function getProviderInstructions(provider: WebhookProvider): string[] {
 const HUB_URL = process.env.CONNECT_HUB_URL || 'https://api.privateconnect.co';
 const TUNNEL_DOMAIN = process.env.CONNECT_TUNNEL_DOMAIN || 'tunnel.privateconnect.co';
 
+const DB_PORTS: Record<number, string> = {
+  5432: 'PostgreSQL',
+  3306: 'MySQL',
+  27017: 'MongoDB',
+  6379: 'Redis',
+  9200: 'Elasticsearch',
+  5984: 'CouchDB',
+  8529: 'ArangoDB',
+  7687: 'Neo4j',
+  9042: 'Cassandra',
+};
+
 interface TunnelOptions {
   host: string;
   port: number;
@@ -460,7 +472,9 @@ interface TunnelOptions {
 }
 
 async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
-  const { host, port, ttl = 120, tcp = false, udp = false, provider: providerName } = options;
+  const { host, port, ttl = 120, udp = false, provider: providerName } = options;
+  const isDbPort = port in DB_PORTS;
+  const tcp = options.tcp || (isDbPort && !udp);
   const tunnelType = udp ? 'udp' : (tcp ? 'tcp' : 'http');
   const provider = providerName ? WEBHOOK_PROVIDERS[providerName.toLowerCase()] : undefined;
   
@@ -556,6 +570,7 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
         tcpPort?: number;
         udpHost?: string;
         udpPort?: number;
+        webUrl?: string;
       } 
     };
     
@@ -609,6 +624,15 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
     if (data.tunnel.type === 'udp' && data.tunnel.udpHost && data.tunnel.udpPort) {
       console.log(`  ${c.bold}Connect:${c.reset} ${c.cyan}${data.tunnel.udpHost}:${data.tunnel.udpPort}${c.reset} ${c.dim}(UDP)${c.reset}`);
     }
+    
+    // Show web viewer for database tunnels
+    if (data.tunnel.webUrl) {
+      console.log();
+      console.log(`  ${c.bold}Browser:${c.reset} ${c.green}${c.bold}${data.tunnel.webUrl}${c.reset}`);
+      const dbName = DB_PORTS[port] || 'database';
+      console.log(`  ${c.gray}         Query your ${dbName} from the browser — no install needed${c.reset}`);
+    }
+    
     console.log(`  ${c.bold}Expires:${c.reset} ${data.tunnel.ttlMinutes} minutes`);
     
     // Show provider-specific webhook instructions

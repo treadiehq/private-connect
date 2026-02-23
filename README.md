@@ -1,67 +1,32 @@
 # Private Connect
 
-**Reach your database and private services from anywhere. Your code runs in Sprites, exe.dev, or Cursor. Your database doesn’t. One command connects them, no VPN, no open ports, no public URLs.**
+**Reach your database and private services from anywhere. No VPN, no open ports, no changing localhost to 0.0.0.0.**
 
-Private Connect lets you and your AI agent reach databases, APIs, and internal services from another machine, a cloud IDE, or a second device without changing bind addresses or opening firewall ports. **Tailscale for services.**
-
-**Who is this for?** Private Connect is for **developers**, **DevOps/platform**, and **QA/test**, anyone who needs to reach or expose private services without VPNs or port forwarding. From remote dev (exe.dev, Codespaces), from Cursor/agents, or on the road; Developers use it day to day; DevOps automates it in CI and infra; QA uses it to hit staging by name.
-
-> **Example:** Have a local database but need to access it from another machine? On your local machine: `connect expose localhost:5432 --name my-db`. From anywhere: `connect reach my-db`. **Yes, this solves that problem**—no port forwarding, no firewall rules, no changing localhost to 0.0.0.0. Works with Tailscale.
-
-- **Access by name:** `connect prod-db` instead of remembering IPs or ports
-- **Stable ports:** `connect reach prod-db` always gives you the same local port
-- **Onboard teammates in 30 seconds:** `connect clone alice` gives them your exact setup
-- **Share instantly:** `connect share` → teammate runs `connect join`, same environment
-- **Works with any infrastructure:** AWS, exe.dev, DigitalOcean, your local machine, or anywhere—works regardless of where services run
-- **Solves a daily problem:** Access private services is something you need constantly, not just when setting up infrastructure
-- **No port conflicts:** Services stay connected via background daemon
-- **Bidirectional:** Access remote services, not just expose local ones (unlike ngrok)
-- **Private by default:** Workspace isolation, not public URLs
-
-## Quick Start
-
-**Reach your DB from anywhere (recommended path):**
+Your database binds to localhost. You need it from your laptop, a cloud IDE, or another machine. One command on each side connects them.
 
 ```bash
-# Install once
-curl -fsSL https://privateconnect.co/install.sh | bash
-connect up
-
-# On the machine with the DB: expose it by name
+# On the machine with the DB
 connect expose localhost:5432 --name my-db
 
-# From anywhere (other laptop, exe.dev, Cursor): reach it
+# From anywhere else
 connect reach my-db
 # → localhost:5432 now points at my-db. Same connection string, works everywhere.
 ```
 
-```bash
-# Quick tunnel (no signup, 2hr expiry)
-npx private-connect tunnel 3000
+No port forwarding, no firewall rules. Works with Tailscale.
 
-# Test connectivity (no signup)
-npx private-connect test db.internal:5432
+## Install
+
+```bash
+curl -fsSL https://privateconnect.co/install.sh | bash
+connect up
 ```
 
-## What It Does
+Or try without signup:
 
-| You want to... | Command |
-|----------------|---------|
-| Quick tunnel (no signup) | `npx private-connect tunnel 3000` |
-| Named tunnel (webhook/demo) | `npx private-connect stripe 3000` |
-| Expose a service | `connect 5432` |
-| Expose many from config | `connect serve` |
-| Access a service | `connect prod-db` |
-| Access via subdomain | `connect proxy start` → `http://prod-db.localhost:3000` |
-| Share with a teammate | `connect 5432 --share` |
-| Clone a teammate's setup | `connect clone alice` |
-| Delete a service | `connect delete my-service` |
-| Check status | `connect status` |
-| Disable for CI | `CONNECT=0 your-command` |
-
-Everything is automatic: auto-naming, stable ports, background daemon.
-
-**Quick tunnels** show your actual website at the public URL - perfect for demos and testing. Named tunnels get a readable subdomain (e.g. `stripe-a1b2.privateconnect.co`).
+```bash
+npx private-connect tunnel 3000
+```
 
 ## How It Works
 
@@ -73,39 +38,26 @@ Everything is automatic: auto-naming, stable ports, background daemon.
 └─────────────────┘                           └─────────────────┘
 ```
 
-Run an agent on each machine. Expose services from one, access from another.
+An agent runs on each machine. Expose services from one, reach them from another. All traffic is encrypted. Services are private to your workspace.
 
-**Key Features:**
-- **Zero Configuration** - No VPN setup, no firewall rules, no port forwarding
-- **Stable Ports** - Same service always gets the same local port across restarts
-- **Secure** - End-to-end encrypted tunnels with audit logging
-- **Live Debugging** - Real-time traffic inspection with AI-powered analysis
-- **Team Collaboration** - Share services instantly with `connect share` or clone teammate setups
-- **Works Everywhere** - Works on top of Tailscale, VPN, or plain internet
-- **Open Source** - Self-hostable hub, inspect and modify the code
-- **Service-Level** - Access services by name, not IP addresses or random URLs
+- **Access by name** — `connect prod-db` instead of remembering IPs or ports
+- **Stable ports** — same service always gets the same local port across restarts
+- **Encrypted** — end-to-end encrypted tunnels with audit logging
+- **Works everywhere** — on top of Tailscale, VPN, or plain internet
 
-## Install
+## Share with teammates
 
 ```bash
-curl -fsSL https://privateconnect.co/install.sh | bash
+# Share your environment
+connect share
+# → Share code: x7k9m2
+
+# Teammate joins with one command
+connect join x7k9m2
+# → Same services, same ports. Done.
 ```
 
-### Automated/Non-interactive
-
-For scripts, CI/CD, VM provisioning (exe.dev, cloud-init, etc.):
-
-```bash
-curl -fsSL https://privateconnect.co/install.sh | bash -s -- \
-  --non-interactive \
-  --api-key=YOUR_KEY \
-  --daemon \
-  --expose-openclaw
-```
-
-See [scripts/exe-dev-openclaw.md](scripts/exe-dev-openclaw.md) for exe.dev one-click setup (OpenClaw gateway), or [scripts/cloud-init-openclaw.yaml](scripts/cloud-init-openclaw.yaml) for VPS provisioning.
-
-### From source
+## Build from source
 
 ```bash
 git clone https://github.com/treadiehq/private-connect.git
@@ -113,68 +65,13 @@ cd private-connect && pnpm install
 cd apps/agent && pnpm run build:binary
 ```
 
-## Control API
+## Docs
 
-Full REST API for programmatic control. Interactive docs available at `/docs` when running the API.
-
-```bash
-# List tunnels
-curl -H "x-api-key: pc_xxx" https://api.privateconnect.co/v1/tunnels
-
-# Get audit logs
-curl -H "x-api-key: pc_xxx" https://api.privateconnect.co/v1/audit
-
-# Create webhook
-curl -X POST -H "x-api-key: pc_xxx" \
-  -d '{"url":"https://example.com/hook","events":["tunnel.created"]}' \
-  https://api.privateconnect.co/v1/webhooks
-```
-
-See [DETAILED.md#control-api](DETAILED.md#control-api) for full API reference.
-
-## Ask (try any service)
-
-Paste a URL or hostname and a question; we run read-only checks (e.g. `/health`, `/status`, `/version`) and return an answer. No signup. If unreachable, you're guided to enable Private Connect.
-
-- **Web:** [http://localhost:3000/ask](http://localhost:3000/ask) · **API:** `POST /v1/ask` with `{ "service": "http://localhost:9000", "question": "Is it healthy?" }`
-- **Run:** `pnpm dev` then open `/ask`. Optional: `pnpm demo:server` for a target on :9000.
-
-- **LLM (optional):** In `apps/api/.env` set `ASK_LLM_PROVIDER`, `ASK_LLM_MODEL`, `ASK_LLM_API_KEY` (or `ASK_LLM_OLLAMA_URL` for Ollama). Falls back to stub if unset or on failure.
-
-```bash
-curl -s -X POST http://localhost:3001/v1/ask -H "Content-Type: application/json" \
-  -d '{"service":"http://localhost:9000","question":"Is it healthy?"}'
-```
-
-## Links
-
-- **Live**: [privateconnect.co](https://privateconnect.co)
-- **DB + Cursor (2 min)**: [docs/database-and-cursor.md](docs/database-and-cursor.md) — expose local DB, reach from anywhere, use with Cursor
-- **Docs**: [DETAILED.md](DETAILED.md) — full CLI reference, all features
-- **API Reference**: [DETAILED.md#control-api](DETAILED.md#control-api) — REST API documentation
-- **Config-driven expose**: [docs/config-driven-expose-webhooks-demos.md](docs/config-driven-expose-webhooks-demos.md) — expose multiple services from config (`connect serve`)
-- **Debugging**: [docs/debugging.md](docs/debugging.md) — live traffic inspection, AI copilot
-- **AI & MCP**: [docs/AI.md](docs/AI.md) — AI integration, orchestration, SDK
-- **OpenClaw**: [docs/openclaw-remote-access.md](docs/openclaw-remote-access.md) — secure remote access to OpenClaw gateway
-- **OpenCode**: [docs/opencode-remote-access.md](docs/opencode-remote-access.md) — secure remote access to OpenCode server
-- **exe.dev / Mac Mini**: [docs/exe-dev-private-access.md](docs/exe-dev-private-access.md) — access private services from exe.dev VMs or Mac Mini
-- **Sprites (sprites.dev)**: [docs/sprites-and-private-connect.md](docs/sprites-and-private-connect.md) — reach your DB and private APIs from Sprites
-- **Virtual Kubernetes**: [docs/kubernetes-virtual-clusters-and-private-connect.md](docs/kubernetes-virtual-clusters-and-private-connect.md) — multicluster API server + distributed nodes over private tunnels
-- **Use Cases**: [USE_CASES.md](USE_CASES.md) — real scenarios
-- **Family abroad**: [docs/family-abroad.md](docs/family-abroad.md) — share your home with family (Tailscale + Private Connect)
-- **Security**: [docs/security.md](docs/security.md) — architecture details
-- **SDK**: [packages/sdk](packages/sdk) — TypeScript SDK for programmatic access
-
-### Comparisons
-
-- **vs Tailscale**: [docs/tailscale-and-private-connect.md](docs/tailscale-and-private-connect.md) — Tailscale is network access, Private Connect is service access
-- **vs ngrok**: [docs/ngrok-and-private-connect.md](docs/ngrok-and-private-connect.md) — ngrok is public URLs, Private Connect is team collaboration
-
-### Automation Scripts
-
-- **exe.dev Template**: [scripts/exe-dev-openclaw.md](scripts/exe-dev-openclaw.md) — one-click OpenClaw + Private Connect VM
-- **Cloud-Init**: [scripts/cloud-init-openclaw.yaml](scripts/cloud-init-openclaw.yaml) — VPS provisioning script for OpenClaw (AWS, DO, etc.)
-- **Virtual Kubernetes**: [scripts/kubernetes-virtual-clusters-and-private-connect.md](scripts/kubernetes-virtual-clusters-and-private-connect.md) — recipe for multicluster API server + Private Connect
+- [Full CLI reference](DETAILED.md)
+- [API reference](DETAILED.md#control-api)
+- [Security](docs/security.md)
+- [SDK](packages/sdk)
+- [Use cases](USE_CASES.md)
 
 ## Community
 
