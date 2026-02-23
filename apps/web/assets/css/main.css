@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+:root {
+  --dark-bg: #09090b;
+  --gray-color: #a1a1aa;
+  --code-bg: #111113;
+  --border-color: #27272a;
+  --accent: #e4e4e7;
+}
+
 /* Theme customization for Tailwind v4 */
 @theme {
   /* Custom colors */
@@ -139,9 +147,9 @@
   }
 }
 
-body {
+/* body {
   @apply bg-black text-white;
-}
+} */
 
 html {
   font-family: -apple-system, BlinkMacSystemFont, Inter, Segoe UI, Roboto, Noto Sans, Ubuntu, sans-serif;
@@ -150,13 +158,23 @@ html {
   scroll-behavior: smooth;
   line-height: 1.5;
   font-weight: 500;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body, html {
+  background: var(--dark-bg);
+  color: var(--gray-color);
+  @apply w-full;
+  @apply overscroll-none;
+  min-height: 100vh;
+}
+
+/* body, html {
   @apply bg-black w-full antialiased;
   min-height: 100vh;
   overscroll-behavior: none;
-}
+} */
 
 /* Prevent body scroll when modal is open */
 body.modal-open {
@@ -164,8 +182,8 @@ body.modal-open {
 }
 
 ::selection {
-  @apply text-blue-300;
-  background-color: rgb(147 197 253 / 0.15);
+  color: #fff;
+  background: rgba(255,255,255,0.15);
 }
 
 /* Smooth scrolling */
@@ -197,6 +215,10 @@ body.modal-open {
   outline: 2px solid rgba(255, 255, 255, 0.2);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+code, pre, .font-mono {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
 
 @media screen and (-webkit-min-device-pixel-ratio: 0) and (max-device-width: 1024px) {
