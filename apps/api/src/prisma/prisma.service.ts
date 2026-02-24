@@ -3,27 +3,22 @@ import { PrismaClient, Prisma } from '@prisma/client';
 import { AsyncLocalStorage } from 'async_hooks';
 import { ContextService } from '../context/context.service';
 
-// Special token that bypasses RLS for admin/system operations
 const RLS_BYPASS_TOKEN = '__rls_bypass__';
 
-// Explicit context override (for withWorkspace/withoutRls)
 interface ExplicitContext {
   workspaceId?: string;
   bypass?: boolean;
-}
-
-// Context for preventing recursive middleware calls
-interface MiddlewareContext {
-  settingRls?: boolean;
 }
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
   private connected = false;
-  private isInitializing = true; // Flag for startup operations
+  private isInitializing = true;
   private readonly explicitContext = new AsyncLocalStorage<ExplicitContext>();
-  private readonly middlewareContext = new AsyncLocalStorage<MiddlewareContext>();
+  private readonly rlsContext = new AsyncLocalStorage<{ active: boolean }>();
+  private _rlsClient: any;
+  private _originalTransaction: (...args: any[]) => Promise<any>;
 
   constructor(
     @Inject(forwardRef(() => ContextService))
@@ -31,31 +26,91 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   ) {
     super();
 
-    // Add middleware to set RLS context before each query.
-    // We SET the session variable before the query and RESET it after,
-    // so that pooled connections never carry stale tenant context.
-    this.$use(async (params, next) => {
-      // Prevent infinite recursion: don't run RLS context for the SET command itself
-      const ctx = this.middlewareContext.getStore();
-      if (ctx?.settingRls) {
-        return next(params);
+    this._originalTransaction = PrismaClient.prototype.$transaction.bind(this);
+
+    const self = this;
+    this._rlsClient = (this as PrismaClient).$extends({
+      query: {
+        $allModels: {
+          async $allOperations({ args, query }: { args: any; query: any }) {
+            if (self.rlsContext.getStore()?.active) {
+              return query(args);
+            }
+
+            const workspaceId = self.resolveRlsWorkspaceId();
+
+            return self.rlsContext.run({ active: true }, async () => {
+              // set_config with is_local=true scopes the variable to the
+              // transaction — it auto-resets when the transaction ends,
+              // so pooled connections are never returned with stale state.
+              const [, result] = await self._originalTransaction([
+                (self as PrismaClient)
+                  .$executeRaw`SELECT set_config('app.current_workspace_id', ${workspaceId}, TRUE)`,
+                query(args),
+              ]) as [any, any];
+              return result;
+            });
+          },
+        },
+      },
+    });
+
+    // Redirect model delegate access to the RLS-extended client so that
+    // existing code like `this.prisma.agent.findMany(...)` goes through
+    // the extension transparently.
+    const modelNames = Object.values(Prisma.ModelName);
+    for (const modelName of modelNames) {
+      const delegateName = modelName.charAt(0).toLowerCase() + modelName.slice(1);
+      Object.defineProperty(this, delegateName, {
+        get: () => this._rlsClient[delegateName],
+        configurable: true,
+      });
+    }
+  }
+
+  /**
+   * Override $transaction to inject RLS context on the correct connection.
+   *
+   * - Batch transactions: prepends a SET inside the same batch so all
+   *   operations share a single connection with the correct session var.
+   * - Interactive transactions: issues SET on the tx connection before
+   *   handing it to the caller.
+   */
+  $transaction<P extends Prisma.PrismaPromise<any>[]>(
+    arg: [...P],
+    options?: { isolationLevel?: Prisma.TransactionIsolationLevel },
+  ): Promise<any[]>;
+  $transaction<R>(
+    fn: (prisma: Omit<PrismaClient, '$transaction' | '$connect' | '$disconnect' | '$on' | '$use' | '$extends'>) => Promise<R>,
+    options?: { maxWait?: number; timeout?: number; isolationLevel?: Prisma.TransactionIsolationLevel },
+  ): Promise<R>;
+  async $transaction(argsOrFn: any, options?: any): Promise<any> {
+    const workspaceId = this.resolveRlsWorkspaceId();
+
+    return this.rlsContext.run({ active: true }, async () => {
+      if (Array.isArray(argsOrFn)) {
+        const setOp = (this as PrismaClient)
+          .$executeRaw`SELECT set_config('app.current_workspace_id', ${workspaceId}, TRUE)`;
+        const results = (await this._originalTransaction(
+          [setOp, ...argsOrFn],
+          options,
+        )) as any[];
+        return results.slice(1);
       }
 
-      await this.setRlsContext();
-      try {
-        return await next(params);
-      } finally {
-        // Always reset after query to prevent stale context leaking
-        // to the next request that reuses this pooled connection.
-        await this.resetRlsContext();
+      if (typeof argsOrFn === 'function') {
+        return this._originalTransaction(async (tx: any) => {
+          await tx.$executeRaw`SELECT set_config('app.current_workspace_id', ${workspaceId}, TRUE)`;
+          return argsOrFn(tx);
+        }, options);
       }
+
+      return this._originalTransaction(argsOrFn, options);
     });
   }
 
   async onModuleInit() {
-    // Try to connect with retries, but don't crash the app if DB is temporarily unavailable
     await this.connectWithRetry();
-    // Mark initialization complete
     this.isInitializing = false;
   }
 
@@ -64,13 +119,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
    * ALWAYS returns a value — never leaves the session variable unset.
    * Empty string means "no context" which will be denied by RLS policies.
    */
-  private resolveRlsWorkspaceId(): string {
-    // During initialization (startup), bypass RLS for setup operations
+  resolveRlsWorkspaceId(): string {
     if (this.isInitializing) {
       return RLS_BYPASS_TOKEN;
     }
 
-    // Check for explicit context override (from withWorkspace/withoutRls)
     const explicit = this.explicitContext.getStore();
     if (explicit) {
       if (explicit.bypass) {
@@ -81,7 +134,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       }
     }
 
-    // Fall back to request context (from ContextService/interceptor)
     const isAdmin = this.contextService?.isAdmin();
     if (isAdmin) {
       return RLS_BYPASS_TOKEN;
@@ -92,39 +144,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       return workspaceId.replace(/[^a-zA-Z0-9-]/g, '');
     }
 
-    // No context — return empty string so RLS denies access (deny-by-default).
-    // This prevents stale session variables from leaking across pooled connections.
     return '';
-  }
-
-  /**
-   * Set the PostgreSQL session variable for RLS before a query.
-   * ALWAYS sets a value — empty string when no context, which RLS will deny.
-   * This prevents stale workspace IDs from leaking across pooled connections.
-   */
-  private async setRlsContext(): Promise<void> {
-    return this.middlewareContext.run({ settingRls: true }, async () => {
-      const rlsId = this.resolveRlsWorkspaceId();
-      try {
-        await this.$executeRawUnsafe(`SET app.current_workspace_id TO '${rlsId}'`);
-      } catch {
-        // Ignore errors during initial connection
-      }
-    });
-  }
-
-  /**
-   * Reset the RLS session variable after a query completes.
-   * Ensures pooled connections are returned in a clean state.
-   */
-  private async resetRlsContext(): Promise<void> {
-    return this.middlewareContext.run({ settingRls: true }, async () => {
-      try {
-        await this.$executeRawUnsafe(`RESET app.current_workspace_id`);
-      } catch {
-        // Ignore errors — best-effort cleanup
-      }
-    });
   }
 
   private async connectWithRetry(maxRetries = 5, delayMs = 3000): Promise<void> {
@@ -164,19 +184,19 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   /**
-   * Execute a callback with a specific workspace context
-   * Useful for background jobs, webhooks, or unauthenticated endpoints that need explicit context
+   * Execute a callback with a specific workspace context.
+   * Useful for background jobs, webhooks, or unauthenticated endpoints
+   * that need explicit context.
    */
   async withWorkspace<T>(workspaceId: string, callback: () => Promise<T>): Promise<T> {
     return this.explicitContext.run({ workspaceId }, callback);
   }
 
   /**
-   * Execute a callback bypassing RLS (for admin/system operations)
-   * Use with caution - this bypasses tenant isolation
+   * Execute a callback bypassing RLS (for admin/system operations).
+   * Use with caution — this bypasses tenant isolation.
    */
   async withoutRls<T>(callback: () => Promise<T>): Promise<T> {
     return this.explicitContext.run({ bypass: true }, callback);
   }
 }
-

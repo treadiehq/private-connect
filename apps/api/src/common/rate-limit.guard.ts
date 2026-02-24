@@ -71,17 +71,22 @@ export class RateLimitGuard implements CanActivate {
   }
 
   private getClientIp(request: any): string {
-    // Check for forwarded IP (proxy, load balancer)
-    const forwarded =
-      request.headers['x-forwarded-for'] ||
-      request.headers['x-real-ip'] ||
+    const xff = request.headers['x-forwarded-for'];
+    if (xff) {
+      const raw = Array.isArray(xff) ? xff[0] : xff;
+      const ips = raw.split(',').map((s: string) => s.trim()).filter(Boolean);
+      if (ips.length > 0) return ips[ips.length - 1];
+    }
+
+    const realIp = request.headers['x-real-ip'];
+    if (realIp) {
+      return Array.isArray(realIp) ? realIp[0] : realIp;
+    }
+
+    return (
       request.connection?.remoteAddress ||
       request.socket?.remoteAddress ||
-      'unknown';
-
-    // x-forwarded-for can be a comma-separated list, take the first
-    return Array.isArray(forwarded)
-      ? forwarded[0]
-      : forwarded.split(',')[0].trim();
+      'unknown'
+    );
   }
 }

@@ -323,20 +323,23 @@ function tokenizeCommand(command: string): string[] {
 }
 
 /**
- * Check if a command contains shell operators that could chain commands
+ * Check if a command contains shell operators that could chain commands,
+ * redirect output, or otherwise alter execution flow.
  */
 function hasShellOperators(command: string): boolean {
-  // Check for command chaining operators outside of quotes
   const dangerousPatterns = [
-    /[^\\];/, // semicolon (not escaped)
-    /\|\|/, // or
-    /&&/, // and
-    /\|(?!\|)/, // pipe (not ||)
-    /`/, // backticks
-    /\$\(/, // command substitution
+    /(^|[^\\]);/,   // semicolon (including at start of string)
+    /&&/,            // and
+    /\|\|/,          // or
+    /\|(?!\|)/,      // pipe (not ||)
+    /`/,             // backticks
+    /\$\(/,          // command substitution
+    /(?<![0-9])&/,   // backgrounding (& not preceded by fd number, catches solo & and trailing &)
+    /[<>]/,          // redirection (input/output)
+    /\$\{/,          // variable expansion with braces
+    /\n/,            // embedded newlines (command separator)
   ];
 
-  // Simple check - could be more sophisticated with proper parsing
   for (const pattern of dangerousPatterns) {
     if (pattern.test(command)) {
       return true;
@@ -836,11 +839,12 @@ export function evaluateFileWrite(
  * Evaluate a shell command against the policy
  */
 export function evaluateCommand(policy: Policy, command: string): PolicyEvaluation {
-  // First, check for shell operators (potential injection)
+  // Block commands with shell operators — these can bypass policy via
+  // command chaining, backgrounding, or redirection when run through a shell.
   if (hasShellOperators(command)) {
     return {
-      action: 'review',
-      reason: 'Command contains shell operators that may chain commands',
+      action: 'block',
+      reason: 'Command contains shell metacharacters that could bypass policy enforcement',
     };
   }
 

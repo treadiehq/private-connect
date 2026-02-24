@@ -243,10 +243,13 @@ export class WebhooksService {
           },
         });
 
-        // Dispatch asynchronously (don't await)
-        this.deliver(webhook, delivery.id, payload).catch((err) => {
-          console.error(`Webhook delivery failed for ${webhook.id}:`, err);
-        });
+        // Dispatch asynchronously — capture workspace context so that
+        // RLS resolves correctly after the request scope is gone.
+        this.prisma
+          .withWorkspace(workspaceId, () => this.deliver(webhook, delivery.id, payload))
+          .catch((err) => {
+            console.error(`Webhook delivery failed for ${webhook.id}:`, err);
+          });
 
         return delivery;
       }),

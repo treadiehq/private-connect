@@ -233,11 +233,11 @@ const copied = ref(false);
 const shareUrlInput = ref<HTMLInputElement>();
 
 const expiryOptions = [
-  { label: '1 hour', value: '1h' },
-  { label: '24 hours', value: '24h' },
-  { label: '7 days', value: '7d' },
-  { label: '30 days', value: '30d' },
-  { label: 'Never', value: 'never' },
+  { label: '1 hour', value: '1h' as const },
+  { label: '24 hours', value: '24h' as const },
+  { label: '7 days', value: '7d' as const },
+  { label: '30 days', value: '30d' as const },
+  { label: 'Never', value: 'never' as const },
 ];
 
 const shareUrl = computed(() => {

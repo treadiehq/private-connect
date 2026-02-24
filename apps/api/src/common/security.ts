@@ -105,15 +105,25 @@ export function scrubSensitiveData(input: string): string {
 }
 
 /**
- * Scrub sensitive fields from an object for safe logging
- * Recursively traverses nested objects and arrays
+ * Scrub sensitive fields from an object for safe logging.
+ * Recursively traverses nested objects and arrays, applying both
+ * key-based redaction and pattern-based scrubbing on all string values.
  */
 export function scrubObject<T extends Record<string, unknown>>(obj: T): Record<string, unknown> {
   if (!obj || typeof obj !== 'object') return obj;
 
-  // Handle arrays - recursively scrub each element
+  // Preserve non-plain objects that would be destroyed by Object.entries()
+  if (obj instanceof Date || obj instanceof RegExp) return obj;
+  if (obj instanceof Error) {
+    const cleaned = new Error(scrubSensitiveData(obj.message));
+    cleaned.stack = obj.stack ? scrubSensitiveData(obj.stack) : obj.stack;
+    cleaned.name = obj.name;
+    return cleaned as unknown as Record<string, unknown>;
+  }
+
   if (Array.isArray(obj)) {
     return obj.map(item => {
+      if (typeof item === 'string') return scrubSensitiveData(item);
       if (typeof item === 'object' && item !== null) {
         return scrubObject(item as Record<string, unknown>);
       }
@@ -124,16 +134,13 @@ export function scrubObject<T extends Record<string, unknown>>(obj: T): Record<s
   const scrubbed: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(obj)) {
-    // Scrub if this is a sensitive field
     if (SENSITIVE_FIELDS.includes(key) && value) {
       scrubbed[key] = '[REDACTED]';
-    }
-    // Recursively scrub nested objects and arrays
-    else if (typeof value === 'object' && value !== null) {
+    } else if (typeof value === 'string') {
+      scrubbed[key] = scrubSensitiveData(value);
+    } else if (typeof value === 'object' && value !== null) {
       scrubbed[key] = scrubObject(value as Record<string, unknown>);
-    }
-    // Keep non-sensitive primitives as-is
-    else {
+    } else {
       scrubbed[key] = value;
     }
   }
@@ -166,14 +173,19 @@ export function maskIpAddress(ip: string | undefined): string {
 }
 
 /**
- * Extract client IP from various headers (respecting proxy chains)
+ * Extract client IP from various headers (respecting proxy chains).
+ *
+ * Uses the rightmost X-Forwarded-For entry because every trusted reverse
+ * proxy appends (rather than prepends) the connecting IP.  The leftmost
+ * value is trivially spoofable by the client.
  */
 export function extractClientIp(headers: Record<string, string | string[] | undefined>): string | undefined {
-  // Check common proxy headers
   const forwardedFor = headers['x-forwarded-for'];
   if (forwardedFor) {
-    const ips = (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor).split(',');
-    return ips[0]?.trim();
+    const raw = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
+    const ips = raw.split(',').map(ip => ip.trim()).filter(Boolean);
+    // Rightmost IP is the one appended by the nearest trusted proxy
+    return ips[ips.length - 1];
   }
   
   const realIp = headers['x-real-ip'];

@@ -147,7 +147,7 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('expose')
   async handleExpose(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { serviceId: string; serviceName: string; tunnelPort: number; targetHost: string; targetPort: number; protocol?: string },
+    @MessageBody() data: { serviceId: string; protocol?: string },
   ) {
     const agentId = this.socketToAgent.get(client.id);
     if (!agentId) {
@@ -155,28 +155,7 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      // Use UDP listener for UDP protocol, TCP listener for everything else
-      if (data.protocol === 'udp') {
-        await this.tunnelService.startUdpTunnelListener(
-          agentId,
-          data.serviceId,
-          data.serviceName,
-          data.tunnelPort,
-          data.targetHost,
-          data.targetPort,
-        );
-        this.logger.log(`Started UDP tunnel for ${data.serviceName} on port ${data.tunnelPort}`);
-      } else {
-        await this.tunnelService.startTunnelListener(
-          agentId,
-          data.serviceId,
-          data.serviceName,
-          data.tunnelPort,
-          data.targetHost,
-          data.targetPort,
-        );
-        this.logger.log(`Started TCP tunnel for ${data.serviceName} on port ${data.tunnelPort}`);
-      }
+      await this.tunnelService.exposeService(agentId, data.serviceId, data.protocol);
       return { success: true };
     } catch (error: unknown) {
       const err = error as Error;

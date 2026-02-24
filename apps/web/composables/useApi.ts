@@ -346,9 +346,27 @@ export function useApi() {
     return response.json();
   };
 
+  const apiFetch = async (path: string, options?: RequestInit) => {
+    const response = await fetch(`${baseUrl}${path}`, {
+      ...fetchOptions(),
+      ...options,
+      headers: {
+        ...headers(),
+        ...(options?.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(options?.headers as Record<string, string> | undefined),
+      },
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || `Request failed: ${response.status}`);
+    }
+    return response.json();
+  };
+
   return {
     getApiKey,
     setApiKey,
+    apiFetch,
     fetchWorkspace,
     upgradeWorkspace,
     fetchServices,

@@ -302,37 +302,41 @@ export class AgentsService {
   }
 
   async heartbeat(agentId: string, clientIp?: string) {
-    return this.prisma.agent.update({
-      where: { id: agentId },
-      data: { 
-        lastSeenAt: new Date(),
-        isOnline: true,
-        lastSeenIp: clientIp || undefined,
-      },
-    });
+    return this.prisma.withoutRls(() =>
+      this.prisma.agent.update({
+        where: { id: agentId },
+        data: { 
+          lastSeenAt: new Date(),
+          isOnline: true,
+          lastSeenIp: clientIp || undefined,
+        },
+      })
+    );
   }
 
   async setOnlineStatus(agentId: string, isOnline: boolean) {
-    const agent = await this.prisma.agent.update({
-      where: { id: agentId },
-      data: { 
-        isOnline,
-        connectedAt: isOnline ? undefined : null,
-      },
+    return this.prisma.withoutRls(async () => {
+      const agent = await this.prisma.agent.update({
+        where: { id: agentId },
+        data: { 
+          isOnline,
+          connectedAt: isOnline ? undefined : null,
+        },
+      });
+      
+      this.realtimeGateway.broadcastAgentStatus(agentId, isOnline, agent.workspaceId);
+
+      // Emit webhook for agent connect/disconnect
+      const eventType = isOnline ? 'agent.connected' : 'agent.disconnected';
+      this.webhooksService.emit(agent.workspaceId, eventType, {
+        agentId,
+        label: agent.label,
+        name: agent.name,
+        timestamp: new Date().toISOString(),
+      }).catch(err => this.logger.error(`Webhook emit failed: ${err.message}`));
+
+      return agent;
     });
-    
-    this.realtimeGateway.broadcastAgentStatus(agentId, isOnline, agent.workspaceId);
-
-    // Emit webhook for agent connect/disconnect
-    const eventType = isOnline ? 'agent.connected' : 'agent.disconnected';
-    this.webhooksService.emit(agent.workspaceId, eventType, {
-      agentId,
-      label: agent.label,
-      name: agent.name,
-      timestamp: new Date().toISOString(),
-    }).catch(err => this.logger.error(`Webhook emit failed: ${err.message}`));
-
-    return agent;
   }
 
   async findById(agentId: string) {

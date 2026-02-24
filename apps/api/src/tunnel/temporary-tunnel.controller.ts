@@ -85,41 +85,39 @@ export class TemporaryTunnelController implements OnModuleInit {
     if (!this.prisma) return;
 
     try {
-      // Check if workspace exists
-      const existing = await this.prisma.workspace.findUnique({
-        where: { id: TEMP_WORKSPACE_ID },
-      });
+      await this.prisma.withoutRls(async () => {
+        const existing = await this.prisma!.workspace.findUnique({
+          where: { id: TEMP_WORKSPACE_ID },
+        });
 
-      if (existing) {
-        return; // Already exists
-      }
+        if (existing) {
+          return;
+        }
 
-      // Check if system user exists, create if not
-      let systemUser = await this.prisma.user.findUnique({
-        where: { email: TEMP_USER_EMAIL },
-      });
+        let systemUser = await this.prisma!.user.findUnique({
+          where: { email: TEMP_USER_EMAIL },
+        });
 
-      if (!systemUser) {
-        systemUser = await this.prisma.user.create({
+        if (!systemUser) {
+          systemUser = await this.prisma!.user.create({
+            data: {
+              email: TEMP_USER_EMAIL,
+              emailVerified: true,
+              isAdmin: false,
+            },
+          });
+        }
+
+        await this.prisma!.workspace.create({
           data: {
-            email: TEMP_USER_EMAIL,
-            emailVerified: true,
-            isAdmin: false,
+            id: TEMP_WORKSPACE_ID,
+            name: 'Temporary Tunnels',
+            ownerId: systemUser.id,
+            plan: 'PRO',
           },
         });
-      }
-
-      // Create temporary workspace
-      await this.prisma.workspace.create({
-        data: {
-          id: TEMP_WORKSPACE_ID,
-          name: 'Temporary Tunnels',
-          ownerId: systemUser.id,
-          plan: 'PRO', // Give it PRO limits for temporary tunnels
-        },
       });
     } catch (err: any) {
-      // Log but don't fail - debug sessions will just fail gracefully
       console.warn(`Failed to ensure temporary workspace: ${err.message}`);
     }
   }

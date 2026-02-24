@@ -63,7 +63,7 @@ export default defineNuxtConfig({
         { src: 'https://cdn.seline.com/seline.js', async: true, 'data-token': 'd5fd31a3538303d' },
         {
           type: 'application/ld+json',
-          children: JSON.stringify({
+          innerHTML: JSON.stringify({
             '@context': 'https://schema.org',
             '@type': 'SoftwareApplication',
             'name': 'Private Connect',
@@ -77,7 +77,7 @@ export default defineNuxtConfig({
             'description': 'Access your private services and local database from Sprites, exe.dev, Cursor or anywhere. No VPN, no open ports.',
             'url': 'https://privateconnect.co',
             'downloadUrl': 'https://privateconnect.co/install.sh',
-            'softwareVersion': '0.4.3',
+            'softwareVersion': '0.6.4',
             'releaseNotes': 'https://github.com/treadiehq/private-connect/releases',
             'author': {
               '@type': 'Organization',
@@ -105,7 +105,7 @@ export default defineNuxtConfig({
         },
         {
           type: 'application/ld+json',
-          children: JSON.stringify({
+          innerHTML: JSON.stringify({
             '@context': 'https://schema.org',
             '@type': 'WebSite',
             'name': 'Private Connect',
@@ -120,7 +120,7 @@ export default defineNuxtConfig({
         },
         {
           type: 'application/ld+json',
-          children: JSON.stringify({
+          innerHTML: JSON.stringify({
             '@context': 'https://schema.org',
             '@type': 'Organization',
             'name': 'Private Connect',

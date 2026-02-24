@@ -234,7 +234,7 @@ useHead({
   title: 'AI Copilot Settings - Private Connect',
 });
 
-const { $fetch: apiFetch } = useApi();
+const { apiFetch } = useApi();
 
 const loading = ref(true);
 const saving = ref(false);

@@ -95,9 +95,6 @@ export class AuthService {
 
       // Create user, workspace, and initial API key in a transaction
       const { user, workspace, apiKey } = await this.prisma.$transaction(async (tx) => {
-        // Bypass RLS on this transaction's dedicated connection
-        await tx.$executeRawUnsafe(`SET app.current_workspace_id TO '__rls_bypass__'`);
-
         const user = await tx.user.create({
           data: {
             email: normalizedEmail,
@@ -215,9 +212,6 @@ export class AuthService {
       try {
         // Perform all validation and updates inside transaction to prevent TOCTOU race
         const result = await this.prisma.$transaction(async (tx) => {
-          // Bypass RLS on this transaction's dedicated connection
-          await tx.$executeRawUnsafe(`SET app.current_workspace_id TO '__rls_bypass__'`);
-
           // Fetch magic link with fresh data inside transaction
           const magicLink = await tx.magicLink.findUnique({
             where: { token },

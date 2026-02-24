@@ -477,11 +477,11 @@
                 </div>
               </div>
               <!-- Mini latency chart -->
-              <div v-if="service.diagnostics?.length > 1" class="mt-3 pt-3 border-t border-gray-500/20">
+              <div v-if="(service.diagnostics?.length ?? 0) > 1" class="mt-3 pt-3 border-t border-gray-500/20">
                 <div class="text-[10px] text-gray-500 mb-1">Latency History</div>
                 <div class="flex items-end gap-px h-8">
                   <div 
-                    v-for="(diag, i) in service.diagnostics.slice(0, 10).reverse()" 
+                    v-for="(diag, i) in service.diagnostics?.slice(0, 10).reverse()" 
                     :key="i"
                     class="flex-1 rounded-t"
                     :class="diag.latencyMs ? (diag.latencyMs < 50 ? 'bg-emerald-300' : diag.latencyMs < 100 ? 'bg-amber-300' : 'bg-red-400') : 'bg-gray-600'"

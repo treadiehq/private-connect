@@ -714,6 +714,7 @@ const {
   disconnect, 
   requestHistory, 
   requestPacketDetails,
+  clearPackets: clearPacketsFromSocket,
   isConnected, 
   session, 
   packets, 
@@ -795,8 +796,7 @@ const loadMore = async () => {
 
 // Clear packets from view
 const clearPackets = () => {
-  // This just clears the local view, not the server
-  packets.value.splice(0, packets.value.length);
+  clearPacketsFromSocket();
   selectedPacket.value = null;
 };
 

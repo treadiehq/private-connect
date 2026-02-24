@@ -59,6 +59,7 @@ interface AgentBridge {
   targetHost: string;
   targetPort: number;
   ready: boolean;
+  dataBuffer: Buffer[];
   timeout: NodeJS.Timeout;
 }
 
@@ -124,6 +125,13 @@ export class TunnelService {
   }
 
   registerAgent(agentId: string, socket: any) {
+    const existing = this.agents.get(agentId);
+    if (existing) {
+      this.logger.log(`Agent ${agentId} reconnecting, closing stale listeners`);
+      existing.services.forEach((listener) => listener.server.close());
+      existing.udpServices.forEach((listener) => listener.server.close());
+    }
+
     this.logger.log(`Agent registered: ${agentId}`);
     this.agents.set(agentId, {
       agentId,
@@ -181,7 +189,8 @@ export class TunnelService {
         if (pending.agentId === agentId) {
           clearTimeout(pending.timeout);
           pending.clientSocket.end();
-          pending.dataBuffer = []; // Free buffer memory
+          pending.dataBuffer = [];
+          this.disableDebugForConnection(connectionId);
           this.pendingConnections.delete(connectionId);
           this.logger.log(`Cleaned up pending connection ${connectionId} for disconnected agent`);
         }
@@ -191,6 +200,7 @@ export class TunnelService {
       this.agentBridges.forEach((bridge, connectionId) => {
         if (bridge.reachingAgentId === agentId || bridge.exposingAgentId === agentId) {
           clearTimeout(bridge.timeout);
+          bridge.dataBuffer = [];
 
           // Notify the other agent in the bridge
           if (bridge.reachingAgentId === agentId && bridge.exposingSocket) {
@@ -202,6 +212,7 @@ export class TunnelService {
             });
           }
 
+          this.disableDebugForConnection(connectionId);
           this.agentBridges.delete(connectionId);
           this.logger.log(`Cleaned up bridge ${connectionId} for disconnected agent`);
         }
@@ -238,10 +249,61 @@ export class TunnelService {
   }
 
   /**
+   * Validate service ownership and start the appropriate tunnel listener.
+   * All service parameters (tunnelPort, targetHost, targetPort) are read from
+   * the database — never from the client — to prevent port-hijacking attacks.
+   */
+  async exposeService(agentId: string, serviceId: string, protocol?: string): Promise<void> {
+    const service = await this.prisma.withoutRls(async () =>
+      this.prisma.service.findUnique({
+        where: { id: serviceId },
+        select: {
+          id: true,
+          agentId: true,
+          name: true,
+          tunnelPort: true,
+          targetHost: true,
+          targetPort: true,
+          workspaceId: true,
+        },
+      }),
+    );
+
+    if (!service) {
+      throw new Error('Service not found');
+    }
+
+    if (service.agentId !== agentId) {
+      this.logger.warn(
+        `Agent ${agentId} attempted to expose service ${serviceId} owned by agent ${service.agentId}`,
+      );
+      throw new Error('Not authorized to expose this service');
+    }
+
+    if (!service.tunnelPort) {
+      throw new Error('Service has no assigned tunnel port');
+    }
+
+    if (protocol === 'udp') {
+      await this.startUdpTunnelListener(
+        agentId, serviceId, service.name,
+        service.tunnelPort, service.targetHost, service.targetPort,
+      );
+      this.logger.log(`Started UDP tunnel for ${service.name} on port ${service.tunnelPort}`);
+    } else {
+      await this.startTunnelListener(
+        agentId, serviceId, service.name,
+        service.tunnelPort, service.targetHost, service.targetPort,
+      );
+      this.logger.log(`Started TCP tunnel for ${service.name} on port ${service.tunnelPort}`);
+    }
+  }
+
+  /**
    * Start a tunnel listener for a service.
    * When clients connect to this port, we'll request the agent to dial the target.
    */
-  async startTunnelListener(
+  private async startTunnelListener(
     agentId: string,
     serviceId: string,
     serviceName: string,
@@ -316,7 +378,7 @@ export class TunnelService {
    * Start a UDP tunnel listener for a service.
    * When datagrams arrive, we'll forward them to the agent.
    */
-  async startUdpTunnelListener(
+  private async startUdpTunnelListener(
     agentId: string,
     serviceId: string,
     serviceName: string,
@@ -392,8 +454,18 @@ export class TunnelService {
       return;
     }
 
-    const sessionId = `${rinfo.address}:${rinfo.port}-${Date.now()}`;
-    sessions.set(sessionId, { address: rinfo.address, port: rinfo.port, timestamp: Date.now() });
+    const now = Date.now();
+    const sessionId = `${rinfo.address}:${rinfo.port}-${now}`;
+    sessions.set(sessionId, { address: rinfo.address, port: rinfo.port, timestamp: now });
+
+    // Prune sessions older than 60 seconds to prevent unbounded growth
+    // from datagrams that never receive a response.
+    const SESSION_TTL_MS = 60_000;
+    if (sessions.size > 100) {
+      for (const [id, s] of sessions) {
+        if (now - s.timestamp > SESSION_TTL_MS) sessions.delete(id);
+      }
+    }
 
     this.logger.debug(`UDP datagram from ${rinfo.address}:${rinfo.port} for ${serviceName} (${msg.length} bytes)`);
 
@@ -410,7 +482,10 @@ export class TunnelService {
   }
 
   /**
-   * Handle UDP response from agent - send datagram back to client
+   * Handle UDP response from agent - send datagram back to client.
+   * Looks up the original client address from the sessions map rather
+   * than parsing the sessionId, preventing agents from sending UDP
+   * packets to arbitrary destinations.
    */
   handleUdpResponse(agentId: string, serviceId: string, sessionId: string, data: Buffer) {
     const agent = this.agents.get(agentId);
@@ -425,13 +500,15 @@ export class TunnelService {
       return;
     }
 
-    // Parse session ID to get original client address
-    const parts = sessionId.split('-');
-    const addressPort = parts.slice(0, -1).join('-');
-    const [remoteAddress, remotePortStr] = addressPort.split(':');
-    const remotePort = parseInt(remotePortStr, 10);
+    const session = udpListener.sessions.get(sessionId);
+    if (!session) {
+      this.logger.warn(`Unknown UDP session ${sessionId} for service ${serviceId}`);
+      return;
+    }
 
-    udpListener.server.send(data, remotePort, remoteAddress, (err) => {
+    udpListener.sessions.delete(sessionId);
+
+    udpListener.server.send(data, session.port, session.address, (err) => {
       if (err) {
         this.logger.error(`UDP send error: ${err.message}`);
       }
@@ -534,12 +611,12 @@ export class TunnelService {
     });
 
     clientSocket.on('close', () => {
+      this.disableDebugForConnection(connectionId);
       const pending = this.pendingConnections.get(connectionId);
       if (pending) {
-        pending.dataBuffer = []; // Clear buffer
+        pending.dataBuffer = [];
         clearTimeout(pending.timeout);
         this.pendingConnections.delete(connectionId);
-        // Notify agent to close the connection on its end
         agent.socket.emit('close', { connectionId });
       }
     });
@@ -719,12 +796,13 @@ export class TunnelService {
 
     this.logger.log(`Creating bridge ${connectionId}: ${reachingAgentId} -> ${service.agentId} for ${service.name}`);
 
-    // Set up timeout
     const timeout = setTimeout(() => {
       this.logger.error(`Bridge ${connectionId} timed out waiting for dial`);
       const bridge = this.agentBridges.get(connectionId);
       if (bridge) {
+        bridge.dataBuffer = [];
         bridge.reachingSocket.emit('reach_error', { connectionId, error: 'Connection timeout' });
+        this.disableDebugForConnection(connectionId);
         this.agentBridges.delete(connectionId);
       }
     }, 10000);
@@ -740,6 +818,7 @@ export class TunnelService {
       targetHost: service.targetHost,
       targetPort: service.targetPort,
       ready: false,
+      dataBuffer: [],
       timeout,
     };
 
@@ -764,7 +843,29 @@ export class TunnelService {
       clearTimeout(bridge.timeout);
       bridge.ready = true;
       this.logger.log(`Bridge ${connectionId} ready`);
-      
+
+      // Enable debug capture for bridge connections
+      if (this.debugService) {
+        const sessionId = this.debugService.getSessionForAgent(bridge.exposingAgentId);
+        if (sessionId) {
+          this.enableDebugForConnection(connectionId, sessionId);
+          this.logger.log(`Debug capture enabled for bridge ${connectionId} (session ${sessionId})`);
+        }
+      }
+
+      // Flush any data that was buffered before the bridge was ready
+      if (bridge.dataBuffer.length > 0) {
+        const bufferedSize = bridge.dataBuffer.reduce((sum, buf) => sum + buf.length, 0);
+        this.logger.log(`Flushing ${bridge.dataBuffer.length} buffered chunks (${bufferedSize} bytes) for bridge ${connectionId}`);
+        for (const chunk of bridge.dataBuffer) {
+          bridge.exposingSocket.emit('data', {
+            connectionId,
+            data: chunk.toString('base64'),
+          });
+        }
+        bridge.dataBuffer = [];
+      }
+
       // Notify the reaching agent that the connection is ready
       bridge.reachingSocket.emit('reach_ready', { connectionId });
       return true;
@@ -796,6 +897,21 @@ export class TunnelService {
         connectionId,
         data: data.toString('base64'),
       });
+    } else {
+      const totalBufferSize = bridge.dataBuffer.reduce((sum, buf) => sum + buf.length, 0);
+      const MAX_BUFFER_SIZE = 1024 * 1024; // 1MB max buffer
+
+      if (totalBufferSize + data.length > MAX_BUFFER_SIZE) {
+        this.logger.warn(`Bridge ${connectionId} buffer overflow, tearing down`);
+        clearTimeout(bridge.timeout);
+        bridge.reachingSocket.emit('reach_error', { connectionId, error: 'Buffer overflow' });
+        bridge.exposingSocket.emit('close', { connectionId });
+        bridge.dataBuffer = [];
+        this.agentBridges.delete(connectionId);
+        return;
+      }
+
+      bridge.dataBuffer.push(Buffer.from(data));
     }
   }
 
@@ -830,15 +946,15 @@ export class TunnelService {
   handleReachClose(connectionId: string, agentId: string) {
     const bridge = this.agentBridges.get(connectionId);
     if (bridge) {
-      // Validate that the agent is the reaching agent for this bridge
       if (bridge.reachingAgentId !== agentId) {
         this.logger.error(`Agent ${agentId} attempted to close bridge ${connectionId} belonging to ${bridge.reachingAgentId}`);
         return;
       }
 
       clearTimeout(bridge.timeout);
-      // Tell exposing agent to close
+      bridge.dataBuffer = [];
       bridge.exposingSocket.emit('close', { connectionId });
+      this.disableDebugForConnection(connectionId);
       this.agentBridges.delete(connectionId);
       this.logger.log(`Bridge ${connectionId} closed by reaching agent`);
     }
@@ -850,15 +966,15 @@ export class TunnelService {
   handleAgentCloseForBridge(connectionId: string, agentId: string): boolean {
     const bridge = this.agentBridges.get(connectionId);
     if (bridge) {
-      // Validate that the agent is the exposing agent for this bridge
       if (bridge.exposingAgentId !== agentId) {
         this.logger.error(`Agent ${agentId} attempted to close bridge ${connectionId} belonging to exposing agent ${bridge.exposingAgentId}`);
-        return true; // Return true to prevent falling through to pendingConnections check
+        return true;
       }
 
       clearTimeout(bridge.timeout);
-      // Tell reaching agent to close
+      bridge.dataBuffer = [];
       bridge.reachingSocket.emit('reach_close', { connectionId });
+      this.disableDebugForConnection(connectionId);
       this.agentBridges.delete(connectionId);
       this.logger.log(`Bridge ${connectionId} closed by exposing agent`);
       return true;

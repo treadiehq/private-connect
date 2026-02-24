@@ -251,21 +251,38 @@ export class AskService {
       const res = await fetch(url, {
         method: 'GET',
         signal: controller.signal,
+        redirect: 'manual',
         headers: { Accept: 'application/json, text/plain, */*' },
       });
-      clearTimeout(timeoutId);
       const latencyMs = Date.now() - start;
 
       let bodySnippet: string | undefined;
       try {
-        const text = await res.text();
-        if (text && text.length > 0) {
-          bodySnippet = text.length > BODY_SNIPPET_MAX_LEN
-            ? text.slice(0, BODY_SNIPPET_MAX_LEN) + '…'
-            : text;
+        const reader = res.body?.getReader();
+        if (reader) {
+          const maxBytes = BODY_SNIPPET_MAX_LEN + 64;
+          let received = 0;
+          const chunks: Uint8Array[] = [];
+          while (received < maxBytes) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            received += value.length;
+          }
+          reader.cancel();
+          const text = new TextDecoder().decode(
+            chunks.length === 1 ? chunks[0] : Buffer.concat(chunks),
+          );
+          if (text.length > 0) {
+            bodySnippet = text.length > BODY_SNIPPET_MAX_LEN
+              ? text.slice(0, BODY_SNIPPET_MAX_LEN) + '…'
+              : text;
+          }
         }
       } catch {
-        // ignore body read errors
+        // ignore body read errors (including abort)
+      } finally {
+        clearTimeout(timeoutId);
       }
 
       return {

@@ -158,6 +158,10 @@ export function useDebugSocket() {
     });
   };
 
+  const clearPackets = () => {
+    packets.value = [];
+  };
+
   // Auto-cleanup on unmount
   onUnmounted(() => {
     disconnect();
@@ -168,6 +172,7 @@ export function useDebugSocket() {
     disconnect,
     requestHistory,
     requestPacketDetails,
+    clearPackets,
     isConnected: readonly(isConnected),
     session: readonly(session),
     packets: readonly(packets),
