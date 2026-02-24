@@ -100,7 +100,8 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
     }
 
-    this.logger.log(`Agent connected: ${agentId} from ${maskIpAddress(clientIp)}`);
+    const clientTypeLabel = validation.clientType ? ` (${validation.clientType})` : '';
+    this.logger.log(`Agent connected: ${agentId}${clientTypeLabel} from ${maskIpAddress(clientIp)}`);
     this.socketToAgent.set(client.id, agentId);
     this.tunnelService.registerAgent(agentId, client);
 

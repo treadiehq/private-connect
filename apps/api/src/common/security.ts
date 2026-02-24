@@ -200,20 +200,32 @@ export function extractClientIp(headers: Record<string, string | string[] | unde
  * Token expiry configuration
  */
 export const TOKEN_CONFIG = {
-  // Default token lifetime: 30 days
   DEFAULT_EXPIRY_DAYS: 30,
-  // Warning threshold: 7 days before expiry
   WARNING_THRESHOLD_DAYS: 7,
-  // Grace period after expiry: 24 hours (allows rotation)
   GRACE_PERIOD_HOURS: 24,
 };
 
 /**
- * Calculate token expiry date
+ * Provisioned agent token configuration
  */
-export function calculateTokenExpiry(days: number = TOKEN_CONFIG.DEFAULT_EXPIRY_DAYS): Date {
+export const PROVISION_CONFIG = {
+  DEFAULT_TTL_SECONDS: 7200,   // 2 hours
+  MAX_TTL_SECONDS: 86400,      // 24 hours
+  MIN_TTL_SECONDS: 300,        // 5 minutes
+};
+
+/**
+ * Calculate token expiry date.
+ * When called with no arguments, uses the default 30-day expiry for regular agent tokens.
+ * When called with `seconds`, produces a short-lived expiry for provisioned tokens.
+ */
+export function calculateTokenExpiry(seconds?: number): Date {
   const expiry = new Date();
-  expiry.setDate(expiry.getDate() + days);
+  if (seconds !== undefined) {
+    expiry.setSeconds(expiry.getSeconds() + seconds);
+  } else {
+    expiry.setDate(expiry.getDate() + TOKEN_CONFIG.DEFAULT_EXPIRY_DAYS);
+  }
   return expiry;
 }
 

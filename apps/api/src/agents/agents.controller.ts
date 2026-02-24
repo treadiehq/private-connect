@@ -1,7 +1,8 @@
 import { Controller, Post, Body, Get, Param, Query, HttpException, HttpStatus, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiSecurity, ApiQuery } from '@nestjs/swagger';
-import { AgentsService } from './agents.service';
+import { AgentsService, VALID_CLIENT_TYPES } from './agents.service';
 import { CombinedAuthGuard } from '../auth/combined-auth.guard';
+import { PROVISION_CONFIG } from '../common/security';
 import { z } from 'zod';
 
 const RegisterSchema = z.object({
@@ -45,6 +46,17 @@ const RegisterCapabilitiesSchema = z.object({
 
 const MarkReadSchema = z.object({
   messageIds: z.array(z.string().uuid()),
+});
+
+const ProvisionSchema = z.object({
+  clientType: z.enum(VALID_CLIENT_TYPES as unknown as [string, ...string[]]),
+  label: z.string().max(100).optional(),
+  name: z.string().max(100).optional(),
+  ttlSeconds: z.number()
+    .int()
+    .min(PROVISION_CONFIG.MIN_TTL_SECONDS)
+    .max(PROVISION_CONFIG.MAX_TTL_SECONDS)
+    .optional(),
 });
 
 @ApiTags('Agents')
@@ -93,6 +105,66 @@ export class AgentsController {
         workspaceId: agent.workspaceId,
         createdAt: agent.createdAt,
       } 
+    };
+  }
+
+  @Post('provision')
+  @UseGuards(CombinedAuthGuard)
+  @ApiSecurity('api-key')
+  @ApiOperation({
+    summary: 'Provision agent token',
+    description: 'Creates a short-lived agent token programmatically. Used by AI agent runtimes to get workspace access without the device authorization flow.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['clientType'],
+      properties: {
+        clientType: {
+          type: 'string',
+          enum: [...VALID_CLIENT_TYPES],
+          description: 'The tool requesting access',
+          example: 'cursor',
+        },
+        label: { type: 'string', example: 'staging', maxLength: 100 },
+        name: { type: 'string', example: 'cursor-agent-1', maxLength: 100 },
+        ttlSeconds: {
+          type: 'number',
+          minimum: PROVISION_CONFIG.MIN_TTL_SECONDS,
+          maximum: PROVISION_CONFIG.MAX_TTL_SECONDS,
+          default: PROVISION_CONFIG.DEFAULT_TTL_SECONDS,
+          description: 'Token lifetime in seconds (default: 2h, max: 24h)',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Agent provisioned with short-lived token' })
+  @ApiResponse({ status: 400, description: 'Invalid request' })
+  @ApiResponse({ status: 401, description: 'Invalid API key' })
+  async provision(
+    @Body() body: unknown,
+    @Req() req: any,
+  ) {
+    const parsed = ProvisionSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new HttpException(parsed.error.message, HttpStatus.BAD_REQUEST);
+    }
+
+    const workspace = req.workspace;
+    const { clientType, label, name, ttlSeconds } = parsed.data;
+
+    const result = await this.agentsService.provision(workspace.id, clientType, {
+      label,
+      name,
+      ttlSeconds,
+    });
+
+    return {
+      agentId: result.agentId,
+      token: result.token,
+      expiresAt: result.expiresAt.toISOString(),
+      workspaceId: result.workspaceId,
+      workspaceName: result.workspaceName,
     };
   }
 

@@ -200,7 +200,16 @@ connect up
 - **Tokens**: 256-bit random tokens, stored as SHA-256 hashes
 - **Expiry**: Tokens expire after 30 days (configurable)
 - **Rotation**: `connect up --rotate-token` to rotate before expiry
-- **Audit**: All token usage logged with IP and user-agent
+- **Audit**: All token usage logged with IP, user-agent, and client type
+
+#### Provisioned Tokens (for AI agents)
+
+AI agent runtimes can request short-lived tokens via `POST /v1/agents/provision`:
+
+- **Default TTL**: 2 hours (configurable: 5 min to 24 hours)
+- **Client identity**: Each token is tagged with a `clientType` (`cursor`, `claude-code`, `codex`, `devin`, `github-actions`, `cli`, `sdk`, `other`)
+- **Auto-generated credentials**: The API generates both `agentId` and `token` -- callers cannot reuse or supply their own
+- **Audit trail**: A `PROVISIONED` event is logged at creation, and all subsequent token usage carries the `clientType` for attribution
 
 ### API Key Authentication
 
@@ -214,8 +223,10 @@ connect up
 
 | Event | Data Captured |
 |-------|---------------|
-| Agent connect/disconnect | Agent ID, IP (masked), timestamp |
-| Token usage | Agent ID, IP, user-agent |
+| Agent connect/disconnect | Agent ID, client type, IP (masked), timestamp |
+| Token provisioned | Agent ID, client type, TTL, timestamp |
+| Token usage | Agent ID, client type, IP, user-agent |
+| Token rotation | Agent ID, client type, new expiry |
 | IP changes | Previous IP, new IP, timestamp |
 | Service expose/unexpose | Service name, target, agent |
 | Share creation/revocation | Share ID, creator, permissions |

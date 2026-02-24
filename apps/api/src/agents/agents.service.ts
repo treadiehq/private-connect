@@ -9,8 +9,10 @@ import {
   isTokenExpiringSoon,
   SecureLogger,
   maskIpAddress,
+  PROVISION_CONFIG,
 } from '../common/security';
 import { isIpAllowed } from '../auth/api-key.guard';
+import { v4 as uuidv4 } from 'uuid';
 
 // Audit event types for agent token usage
 export enum AgentAuditEvent {
@@ -19,13 +21,22 @@ export enum AgentAuditEvent {
   EXPIRED = 'EXPIRED',
   IP_CHANGED = 'IP_CHANGED',
   REJECTED = 'REJECTED',
+  PROVISIONED = 'PROVISIONED',
 }
+
+export const VALID_CLIENT_TYPES = [
+  'cursor', 'claude-code', 'codex', 'devin',
+  'github-actions', 'cli', 'sdk', 'other',
+] as const;
+
+export type ClientType = typeof VALID_CLIENT_TYPES[number];
 
 export interface TokenValidationResult {
   valid: boolean;
   expired?: boolean;
   expiringSoon?: boolean;
   ipChanged?: boolean;
+  clientType?: string;
   newToken?: string;
   expiresAt?: Date;
 }
@@ -49,7 +60,7 @@ export class AgentsService {
     return randomBytes(32).toString('hex');
   }
 
-  async register(workspaceId: string, agentId: string, token: string, label?: string, name?: string) {
+  async register(workspaceId: string, agentId: string, token: string, label?: string, name?: string, clientType?: string) {
     const tokenHash = this.hashToken(token);
     const now = new Date();
     const tokenExpiresAt = calculateTokenExpiry();
@@ -68,6 +79,7 @@ export class AgentsService {
         connectedAt: now,
         name: name || undefined,
         label: label || undefined,
+        clientType: clientType || undefined,
         isOnline: true,
         tokenHash,
         tokenExpiresAt,
@@ -79,6 +91,7 @@ export class AgentsService {
         tokenExpiresAt,
         name,
         label: label || 'default',
+        clientType: clientType || null,
         lastSeenAt: now,
         connectedAt: now,
         isOnline: true,
@@ -128,7 +141,7 @@ export class AgentsService {
     if (agent.tokenHash !== tokenHash) {
       await this.logAuditEvent(agentId, AgentAuditEvent.REJECTED, clientIp, userAgent, {
         reason: 'invalid_token_hash',
-      });
+      }, agent.clientType);
       return { valid: false };
     }
 
@@ -140,7 +153,7 @@ export class AgentsService {
     if (expiredWithGrace) {
       await this.logAuditEvent(agentId, AgentAuditEvent.EXPIRED, clientIp, userAgent, {
         expiredAt: agent.tokenExpiresAt?.toISOString(),
-      });
+      }, agent.clientType);
       this.logger.warn(`Agent ${agentId} token expired beyond grace period`);
       return { valid: false, expired: true };
     }
@@ -152,7 +165,7 @@ export class AgentsService {
       await this.logAuditEvent(agentId, AgentAuditEvent.IP_CHANGED, clientIp, userAgent, {
         previousIp: maskIpAddress(agent.lastSeenIp ?? undefined),
         newIp: maskIpAddress(clientIp),
-      });
+      }, agent.clientType);
       this.logger.warn(
         `Agent ${agentId} connected from new IP: ${maskIpAddress(clientIp)} (was ${maskIpAddress(agent.lastSeenIp ?? undefined)})`
       );
@@ -170,13 +183,14 @@ export class AgentsService {
     await this.logAuditEvent(agentId, AgentAuditEvent.CONNECTED, clientIp, userAgent, {
       expiringSoon,
       expired,
-    });
+    }, agent.clientType);
 
     return {
       valid: true,
       expired,
       expiringSoon,
       ipChanged: !!ipChanged,
+      clientType: agent.clientType ?? undefined,
       expiresAt: agent.tokenExpiresAt ?? undefined,
     };
   }
@@ -228,7 +242,7 @@ export class AgentsService {
     // Log rotation event
     await this.logAuditEvent(agentId, AgentAuditEvent.ROTATED, undefined, undefined, {
       newExpiresAt: newExpiresAt.toISOString(),
-    });
+    }, agent.clientType);
 
     this.logger.log(`Token rotated for agent ${agentId}, expires ${newExpiresAt.toISOString()}`);
 
@@ -236,6 +250,64 @@ export class AgentsService {
       success: true,
       newToken,
       expiresAt: newExpiresAt,
+    };
+  }
+
+  /**
+   * Provision a short-lived agent token programmatically.
+   * Used by AI agent runtimes (Cursor, Claude Code, GitHub Actions, etc.)
+   * to get workspace access without the device authorization flow.
+   */
+  async provision(
+    workspaceId: string,
+    clientType: string,
+    options?: { label?: string; name?: string; ttlSeconds?: number },
+  ): Promise<{
+    agentId: string;
+    token: string;
+    expiresAt: Date;
+    workspaceId: string;
+    workspaceName: string;
+  }> {
+    const agentId = uuidv4();
+    const token = this.generateToken();
+    const tokenHash = this.hashToken(token);
+
+    const ttl = Math.min(
+      Math.max(options?.ttlSeconds ?? PROVISION_CONFIG.DEFAULT_TTL_SECONDS, PROVISION_CONFIG.MIN_TTL_SECONDS),
+      PROVISION_CONFIG.MAX_TTL_SECONDS,
+    );
+    const tokenExpiresAt = calculateTokenExpiry(ttl);
+
+    const agent = await this.prisma.agent.create({
+      data: {
+        id: agentId,
+        workspaceId,
+        tokenHash,
+        tokenExpiresAt,
+        clientType,
+        name: options?.name || null,
+        label: options?.label || 'default',
+        lastSeenAt: new Date(),
+        isOnline: false,
+      },
+      include: { workspace: true },
+    });
+
+    await this.logAuditEvent(agentId, AgentAuditEvent.PROVISIONED, undefined, undefined, {
+      clientType,
+      ttlSeconds: ttl,
+      expiresAt: tokenExpiresAt.toISOString(),
+    }, clientType);
+
+    this.logger.log(`Provisioned agent ${agentId} (${clientType}) with ${ttl}s TTL for workspace ${workspaceId}`);
+
+    return {
+      agentId,
+      token,
+      expiresAt: tokenExpiresAt,
+      workspaceId,
+      workspaceName: agent.workspace.name,
     };
   }
 
@@ -248,12 +320,14 @@ export class AgentsService {
     ipAddress?: string,
     userAgent?: string,
     details?: Record<string, unknown>,
+    clientType?: string | null,
   ): Promise<void> {
     try {
       await this.prisma.agentTokenAuditLog.create({
         data: {
           agentId,
           event,
+          clientType: clientType ?? undefined,
           ipAddress,
           userAgent,
           previousIp: event === AgentAuditEvent.IP_CHANGED ? (details?.previousIp as string) : undefined,
@@ -261,7 +335,6 @@ export class AgentsService {
         },
       });
     } catch (error) {
-      // Don't fail the main operation if audit logging fails
       this.logger.error(`Failed to log audit event: ${error}`);
     }
   }

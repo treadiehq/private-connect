@@ -830,6 +830,43 @@ GET /v1/widgets/:shareToken/badge
 <script src="https://api.privateconnect.co/v1/widgets/abc123/embed.js"></script>
 ```
 
+### Agent Provisioning
+
+Programmatically create short-lived agent tokens for AI tool runtimes (Cursor, Claude Code, GitHub Actions, etc.) without the device authorization flow.
+
+```bash
+POST /v1/agents/provision
+x-api-key: pc_your_api_key
+
+{
+  "clientType": "cursor",
+  "label": "staging",
+  "name": "cursor-agent-1",
+  "ttlSeconds": 7200
+}
+```
+
+**Response:**
+
+```json
+{
+  "agentId": "550e8400-e29b-41d4-a716-446655440000",
+  "token": "a1b2c3d4...",
+  "expiresAt": "2026-02-24T18:00:00.000Z",
+  "workspaceId": "ws-uuid",
+  "workspaceName": "my-workspace"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `clientType` | string, required | Tool identity: `cursor`, `claude-code`, `codex`, `devin`, `github-actions`, `cli`, `sdk`, `other` |
+| `label` | string, optional | Environment label (default: `"default"`) |
+| `name` | string, optional | Friendly agent name |
+| `ttlSeconds` | number, optional | Token lifetime in seconds (default: 7200, min: 300, max: 86400) |
+
+The returned token can be used immediately to connect via WebSocket. It auto-expires after the requested TTL.
+
 ### Agent Commands
 
 Send commands to agents for remote control.
@@ -859,9 +896,11 @@ POST /v1/agents/:id/command
 
 - All traffic encrypted (TLS required in production)
 - Agent tokens expire after 30 days, support rotation
+- Provisioned tokens: short-lived (default 2h, max 24h) for AI agent runtimes
+- Agent identity tracking: `clientType` logged in audit trail for every token event
 - Credentials never transit hub—only metadata
 - Workspace isolation for multi-tenant
-- Audit logging for token usage
+- Audit logging for token usage with client type, IP, and user-agent
 - Log scrubbing prevents data leakage
 
 See [docs/security.md](docs/security.md) for full architecture.

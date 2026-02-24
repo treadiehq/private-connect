@@ -210,6 +210,37 @@ const session = await sdk.agents.createSession({
 await sdk.agents.endSession(session.id);
 ```
 
+### Agent Provisioning API
+
+AI agent runtimes (Cursor cloud agents, Claude Code, Codex, Devin, GitHub Actions, etc.) can programmatically obtain short-lived agent tokens without the interactive device authorization flow.
+
+```bash
+curl -X POST https://api.privateconnect.co/v1/agents/provision \
+  -H "x-api-key: pc_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "clientType": "cursor",
+    "label": "staging",
+    "ttlSeconds": 7200
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "agentId": "550e8400-e29b-41d4-a716-446655440000",
+  "token": "a1b2c3d4e5f6...",
+  "expiresAt": "2026-02-24T18:00:00.000Z",
+  "workspaceId": "ws-uuid",
+  "workspaceName": "my-workspace"
+}
+```
+
+The token auto-expires after the requested TTL (default: 2 hours, max: 24 hours). Every audit event is tagged with the `clientType`, so you can see exactly which tool accessed which service and when.
+
+**Supported client types:** `cursor`, `claude-code`, `codex`, `devin`, `github-actions`, `cli`, `sdk`, `other`
+
 ---
 
 ## TypeScript SDK

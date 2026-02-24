@@ -95,6 +95,7 @@ model Agent {
   workspaceId String
   name        String?
   label       String    @default("default") // environment label
+  clientType  String?   // Tool identity: cursor | claude-code | codex | devin | github-actions | cli | sdk | other
   tokenHash   String    @unique
   tokenExpiresAt DateTime?  // Token expiry for rotation (null = legacy, never expires)
   lastSeenAt  DateTime  @default(now())
@@ -230,7 +231,8 @@ model Session {
 model AgentTokenAuditLog {
   id          String   @id @default(uuid())
   agentId     String
-  event       String   // CONNECTED | ROTATED | EXPIRED | IP_CHANGED | REJECTED
+  event       String   // CONNECTED | ROTATED | EXPIRED | IP_CHANGED | REJECTED | PROVISIONED
+  clientType  String?  // Denormalized from Agent for fast audit queries
   ipAddress   String?
   previousIp  String?  // For IP_CHANGED events
   userAgent   String?

@@ -8,6 +8,7 @@ export interface AuditEvent {
   timestamp: Date;
   agentId?: string;
   agentLabel?: string;
+  clientType?: string;
   serviceId?: string;
   serviceName?: string;
   tunnelId?: string;
@@ -120,6 +121,7 @@ export class AuditService {
         timestamp: log.createdAt,
         agentId: log.agentId,
         agentLabel: log.agent.label,
+        clientType: log.clientType || undefined,
         ipAddress: log.ipAddress || undefined,
         userAgent: log.userAgent || undefined,
         details: log.details ? JSON.parse(log.details) : undefined,
