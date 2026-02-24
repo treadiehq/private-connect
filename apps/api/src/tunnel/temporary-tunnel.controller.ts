@@ -270,6 +270,72 @@ export class TemporaryTunnelController implements OnModuleInit {
   }
 
   /**
+   * Create a bundle of TCP tunnels for multi-port sharing
+   */
+  @Post('v1/tunnels/temporary/bundle')
+  async createBundle(@Body() body: { ports: number[]; ttlMinutes?: number }) {
+    if (!body.ports || !Array.isArray(body.ports) || body.ports.length === 0) {
+      throw new HttpException('ports array required', HttpStatus.BAD_REQUEST);
+    }
+    if (body.ports.length > 10) {
+      throw new HttpException('Maximum 10 ports per bundle', HttpStatus.BAD_REQUEST);
+    }
+    for (const port of body.ports) {
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        throw new HttpException(`Invalid port: ${port}`, HttpStatus.BAD_REQUEST);
+      }
+    }
+
+    const ttlMinutes = Math.min(body.ttlMinutes || 120, 120);
+    const hubHost = new URL(HUB_URL).hostname;
+
+    try {
+      const bundle = await this.tempTunnelService.createBundle(body.ports, ttlMinutes);
+
+      return {
+        success: true,
+        code: bundle.code,
+        tcpHost: hubHost,
+        wsUrl: `${HUB_URL.replace('http', 'ws')}/temp-tunnel`,
+        ttlMinutes,
+        expiresAt: bundle.expiresAt.toISOString(),
+        tunnels: bundle.tunnels.map(t => ({
+          tunnelId: t.tunnelId,
+          localPort: t.localPort,
+          tcpPort: t.tcpPort,
+        })),
+      };
+    } catch (err: any) {
+      throw new HttpException(err.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Get bundle info by join code (for the `join` command)
+   */
+  @Get('v1/tunnels/temporary/bundle/:code')
+  async getBundle(@Param('code') code: string) {
+    const bundle = this.tempTunnelService.getBundle(code);
+
+    if (!bundle) {
+      throw new HttpException('Bundle not found or expired', HttpStatus.NOT_FOUND);
+    }
+
+    const hubHost = new URL(HUB_URL).hostname;
+
+    return {
+      code: bundle.code,
+      tcpHost: hubHost,
+      expiresAt: bundle.expiresAt.toISOString(),
+      tunnels: bundle.tunnels.map(t => ({
+        localPort: t.localPort,
+        tcpPort: t.tcpPort,
+        connected: this.tempTunnelService.isConnected(t.tunnelId),
+      })),
+    };
+  }
+
+  /**
    * Proxy all requests to /t/:tunnelId/* through the tunnel
    */
   @All('t/:tunnelId')

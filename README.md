@@ -28,6 +28,13 @@ Or try without signup:
 npx private-connect tunnel 3000
 ```
 
+Share your entire local environment with a teammate, no signup:
+
+```bash
+npx private-connect up 3000 5432 6379
+# → npx private-connect join k7m2p9    (send this to your teammate)
+```
+
 ## How It Works
 
 ```

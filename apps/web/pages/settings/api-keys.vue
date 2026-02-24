@@ -141,9 +141,9 @@
             <p class="mt-2 text-xs text-amber-300">Save this key now. It won't be shown again!</p>
           </div>
 
-          <div class="p-3 bg-black rounded-lg mb-4">
+          <div class="p-3 bg-black rounded-lg mb-4 overflow-hidden">
             <p class="text-xs text-gray-500 mb-1">Connect an agent:</p>
-            <code class="text-sm text-blue-300">connect up --api-key {{ newlyCreatedKey.key }}</code>
+            <code class="text-sm text-blue-300 break-all">connect up --api-key {{ newlyCreatedKey.key }}</code>
           </div>
 
           <button

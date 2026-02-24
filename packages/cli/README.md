@@ -14,18 +14,93 @@ npm i -g private-connect       # install globally
 ## Quick Start
 
 ```bash
-# Test connectivity to any service
-npx private-connect test db.internal:5432
+# Share your entire local environment with a teammate
+npx private-connect up 3000 5432 6379
+# → Prints: npx private-connect join abc123
+
+# Teammate joins with one command
+npx private-connect join abc123
+# → All three ports available on their localhost. Done.
 
 # Create a temporary public tunnel
 npx private-connect tunnel 3000
 
-# Test webhooks locally (Polar, Stripe, GitHub, or any provider)
-npx private-connect polar 3000
-npx private-connect stripe 3000
+# Test connectivity to any service
+npx private-connect test db.internal:5432
 ```
 
 ## Commands
+
+### `up` - Share your environment
+
+```bash
+npx private-connect up <port1> [port2] [port3] ...
+```
+
+Share multiple local services at once. Your teammate gets a single join code.
+
+**Examples:**
+```bash
+npx private-connect up 3000                  # Share one service
+npx private-connect up 3000 5432 6379        # Share app + Postgres + Redis
+```
+
+**Output:**
+```
+Private Connect - Share Environment
+────────────────────────────────────
+
+  Sharing 3 services:
+
+    localhost:3000 → api.privateconnect.co:40001 (port 3000)
+    localhost:5432 → api.privateconnect.co:40002 (PostgreSQL)
+    localhost:6379 → api.privateconnect.co:40003 (Redis)
+
+────────────────────────────────────
+
+  Share this with your teammate:
+
+    npx private-connect join k7m2p9
+
+  Expires in 120 minutes
+```
+
+### `join` - Connect to a shared environment
+
+```bash
+npx private-connect join <code>
+```
+
+Connect to a teammate's shared environment. All ports are forwarded to your localhost.
+
+**Example:**
+```bash
+npx private-connect join k7m2p9
+```
+
+**Output:**
+```
+Private Connect - Join Environment
+────────────────────────────────────
+
+  Connecting to 3 services:
+
+    localhost:3000 → port 3000
+    localhost:5432 → PostgreSQL
+    localhost:6379 → Redis
+
+────────────────────────────────────
+
+  Connected! Use these in your app:
+
+    port 3000: localhost:3000
+    PostgreSQL: localhost:5432
+    Redis: localhost:6379
+
+  Expires in 118 minutes
+```
+
+If a port is busy on the joiner's machine, it automatically picks a nearby available port.
 
 ### `test` - Test connectivity
 

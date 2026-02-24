@@ -317,6 +317,8 @@ function printHelp(): void {
 ${c.bold}Private Connect${c.reset} - Zero-friction connectivity tools
 
 ${c.bold}Commands:${c.reset}
+  up <ports...>      Share local services with a join code
+  join <code>        Connect to a shared environment
   check <target>     Test connectivity to any service
   test <target>      Alias for check
   tunnel <port>      Create a temporary public tunnel
@@ -324,24 +326,22 @@ ${c.bold}Commands:${c.reset}
   list               List all active tunnels
   close <id>         Close a tunnel by ID
   close --all        Close all active tunnels
-  setup-openclaw      One-command OpenClaw gateway setup
+  setup-openclaw     One-command OpenClaw gateway setup
   pair               Generate QR code for mobile pairing
 
 ${c.bold}Examples:${c.reset}
+  ${c.green}npx private-connect up 3000 5432 6379${c.reset}
+  ${c.green}npx private-connect join abc123${c.reset}
   npx private-connect test vault.internal:8200
-  npx private-connect test https://api.example.com
   npx private-connect tunnel 3000
-  npx private-connect tunnel localhost:8080
   npx private-connect tunnel 4096 --tcp
-  npx private-connect tunnel 27015 --udp
-  npx private-connect polar 3000
   npx private-connect stripe 3000
-  npx private-connect github 8080
-  npx private-connect myapp 3000
   npx private-connect list
-  npx private-connect close abc123
-  npx private-connect setup-openclaw
-  npx private-connect pair
+
+${c.bold}Share (up/join):${c.reset}
+  • Share your entire local environment in one command
+  • Your teammate runs the join code and gets all ports locally
+  • No signup, no config, auto-expires in 2 hours
 
 ${c.bold}Tunnel:${c.reset}
   • No signup required
@@ -351,18 +351,9 @@ ${c.bold}Tunnel:${c.reset}
 ${c.bold}Webhooks:${c.reset}
   • Use any provider name: polar, stripe, github, shopify, or your own
   • Known providers get tailored setup instructions
-  • Unknown providers get generic webhook guidance
 
 ${c.bold}Test:${c.reset}
-  • TCP reachability
-  • TLS validation  
-  • HTTP response
-  • Latency
-
-${c.bold}OpenClaw:${c.reset}
-  • Detects OpenClaw (formerly Moltbot) gateway on localhost:18789
-  • Creates temporary tunnel for remote access
-  • Shows next steps for permanent setup
+  • TCP reachability, TLS validation, HTTP response, latency
 
 ${c.dim}For permanent tunnels: https://privateconnect.co${c.reset}
 `);
@@ -432,7 +423,7 @@ const WEBHOOK_PROVIDERS: Record<string, WebhookProvider> = {
 };
 
 // Reserved CLI commands that should NOT be treated as provider names
-const RESERVED_COMMANDS = ['test', 'check', 'tunnel', 'list', 'ls', 'close', 'kill', 'setup-openclaw', 'openclaw-setup', 'setup-moltbot', 'moltbot-setup', 'pair', 'qr', '--help', '-h'];
+const RESERVED_COMMANDS = ['test', 'check', 'tunnel', 'list', 'ls', 'close', 'kill', 'up', 'join', 'setup-openclaw', 'openclaw-setup', 'setup-moltbot', 'moltbot-setup', 'pair', 'qr', '--help', '-h'];
 
 function getProviderInstructions(provider: WebhookProvider): string[] {
   return provider.instructions.map(line =>
@@ -1163,6 +1154,374 @@ async function runUdpTunnelProxy(tunnelId: string, wsUrl: string, localHost: str
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Share Environment (up/join)
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function runUpCommand(ports: number[]): Promise<void> {
+  console.log();
+  console.log(`${c.bold}Private Connect${c.reset} - Share Environment`);
+  console.log(`${c.gray}────────────────────────────────────${c.reset}`);
+  console.log();
+
+  // Check all ports
+  for (const port of ports) {
+    process.stdout.write(`  Checking ${c.cyan}localhost:${port}${c.reset}... `);
+    const check = await testTcp('localhost', port, 2000);
+    if (!check.ok) {
+      console.log(`${fail}`);
+      console.log();
+      console.log(`  ${c.red}Cannot connect to localhost:${port}${c.reset}`);
+      console.log(`  ${c.gray}Make sure your service is running${c.reset}`);
+      console.log();
+      process.exit(1);
+    }
+    const dbName = DB_PORTS[port];
+    console.log(`${ok}${dbName ? ` ${c.dim}(${dbName})${c.reset}` : ''}`);
+  }
+
+  console.log();
+  process.stdout.write(`  Creating bundle... `);
+
+  try {
+    const response = await httpRequest(`${HUB_URL}/v1/tunnels/temporary/bundle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ports }),
+    });
+
+    if (!response.ok) {
+      console.log(`${fail}`);
+      console.log();
+      console.log(`  ${c.red}Failed to create bundle: ${response.status}${c.reset}`);
+      console.log();
+      process.exit(1);
+    }
+
+    console.log(`${ok}`);
+
+    const data = JSON.parse(response.body) as {
+      code: string;
+      tcpHost: string;
+      wsUrl: string;
+      ttlMinutes: number;
+      expiresAt: string;
+      tunnels: Array<{ tunnelId: string; localPort: number; tcpPort: number }>;
+    };
+
+    console.log();
+    console.log(`${c.gray}────────────────────────────────────${c.reset}`);
+    console.log();
+    console.log(`  ${c.bold}Sharing ${ports.length} service${ports.length > 1 ? 's' : ''}:${c.reset}`);
+    console.log();
+
+    for (const tunnel of data.tunnels) {
+      const dbName = DB_PORTS[tunnel.localPort];
+      const label = dbName || `port ${tunnel.localPort}`;
+      console.log(`    ${c.cyan}localhost:${tunnel.localPort}${c.reset} ${c.dim}→${c.reset} ${c.green}${data.tcpHost}:${tunnel.tcpPort}${c.reset} ${c.dim}(${label})${c.reset}`);
+    }
+
+    console.log();
+    console.log(`${c.gray}────────────────────────────────────${c.reset}`);
+    console.log();
+    console.log(`  ${c.bold}Share this with your teammate:${c.reset}`);
+    console.log();
+    console.log(`    ${c.green}${c.bold}npx private-connect join ${data.code}${c.reset}`);
+    console.log();
+    console.log(`  ${c.dim}Expires in ${data.ttlMinutes} minutes${c.reset}`);
+    console.log();
+    console.log(`${c.gray}────────────────────────────────────${c.reset}`);
+    console.log();
+    console.log(`  ${c.dim}Press Ctrl+C to stop sharing${c.reset}`);
+    console.log();
+
+    // Adjust WS URL for local dev
+    let wsUrl = data.wsUrl;
+    if (HUB_URL.includes('localhost')) {
+      wsUrl = HUB_URL.replace('http', 'ws') + '/temp-tunnel';
+    }
+
+    await runBundleProxy(data.tunnels, wsUrl);
+
+  } catch (err: any) {
+    console.log(`${fail}`);
+    console.log();
+    console.log(`  ${c.red}Error: ${err.message}${c.reset}`);
+    console.log();
+    process.exit(1);
+  }
+}
+
+/**
+ * Manage WebSocket connections for all tunnels in a bundle (sharer side)
+ */
+async function runBundleProxy(
+  tunnels: Array<{ tunnelId: string; localPort: number; tcpPort: number }>,
+  wsUrl: string,
+): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const url = new URL(wsUrl.replace('ws://', 'http://').replace('wss://', 'https://'));
+    const baseUrl = `${url.protocol}//${url.host}`;
+    const namespace = url.pathname || '/temp-tunnel';
+
+    const sockets: ReturnType<typeof io>[] = [];
+    const allTcpConnections = new Map<string, net.Socket>();
+    let totalConnections = 0;
+
+    for (const tunnel of tunnels) {
+      const socket = io(`${baseUrl}${namespace}`, {
+        transports: ['websocket'],
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+      });
+
+      sockets.push(socket);
+
+      socket.on('connect', () => {
+        socket.emit('register', { tunnelId: tunnel.tunnelId }, (response: { success: boolean; error?: string }) => {
+          if (!response.success) {
+            const dbName = DB_PORTS[tunnel.localPort];
+            const label = dbName || `port ${tunnel.localPort}`;
+            console.log(`  ${c.red}Failed to register ${label}: ${response.error}${c.reset}`);
+          }
+        });
+      });
+
+      socket.on('tunnel_expired', () => {
+        const dbName = DB_PORTS[tunnel.localPort];
+        const label = dbName || `port ${tunnel.localPort}`;
+        console.log(`  ${c.yellow}Tunnel for ${label} expired${c.reset}`);
+      });
+
+      socket.on('server_shutdown', (data: { message?: string; reconnectIn?: number }) => {
+        console.log(`  ${c.yellow}⚠ Server shutting down${c.reset}`);
+        if (data.message) console.log(`  ${c.dim}${data.message}${c.reset}`);
+      });
+
+      socket.on('tcp_dial', (data: { connectionId: string; targetHost: string; targetPort: number }) => {
+        totalConnections++;
+        const timestamp = new Date().toLocaleTimeString();
+        const dbName = DB_PORTS[tunnel.localPort];
+        const label = dbName || `port ${tunnel.localPort}`;
+        console.log(`  ${c.gray}[${timestamp}]${c.reset} ${c.cyan}TCP${c.reset} ${label} ← connection`);
+
+        const localSocket = net.createConnection({
+          host: 'localhost',
+          port: tunnel.localPort,
+        });
+
+        allTcpConnections.set(data.connectionId, localSocket);
+
+        localSocket.on('connect', () => {
+          socket.emit('tcp_dial_success', { connectionId: data.connectionId });
+        });
+
+        localSocket.on('data', (chunk: Buffer) => {
+          socket.emit('tcp_data', {
+            connectionId: data.connectionId,
+            data: chunk.toString('base64'),
+          });
+        });
+
+        localSocket.on('close', () => {
+          socket.emit('tcp_close', { connectionId: data.connectionId });
+          allTcpConnections.delete(data.connectionId);
+        });
+
+        localSocket.on('error', (err) => {
+          console.log(`  ${c.red}TCP error (${label}): ${err.message}${c.reset}`);
+          socket.emit('tcp_close', { connectionId: data.connectionId });
+          allTcpConnections.delete(data.connectionId);
+        });
+      });
+
+      socket.on('tcp_data', (data: { connectionId: string; data: string }) => {
+        const localSocket = allTcpConnections.get(data.connectionId);
+        if (localSocket) {
+          localSocket.write(Buffer.from(data.data, 'base64'));
+        }
+      });
+
+      socket.on('tcp_close', (data: { connectionId: string }) => {
+        const localSocket = allTcpConnections.get(data.connectionId);
+        if (localSocket) {
+          localSocket.end();
+          allTcpConnections.delete(data.connectionId);
+        }
+      });
+    }
+
+    process.on('SIGINT', () => {
+      console.log();
+      console.log(`  ${c.yellow}Sharing stopped${c.reset}`);
+      console.log(`  ${c.gray}Handled ${totalConnections} connections${c.reset}`);
+      console.log();
+
+      for (const [, conn] of allTcpConnections) {
+        conn.end();
+      }
+      for (const socket of sockets) {
+        socket.disconnect();
+      }
+      resolve();
+    });
+  });
+}
+
+/**
+ * Check if a port is available for binding
+ */
+function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once('error', () => resolve(false));
+    server.once('listening', () => {
+      server.close();
+      resolve(true);
+    });
+    server.listen(port, '127.0.0.1');
+  });
+}
+
+/**
+ * Find an available port, starting from the preferred one
+ */
+async function findAvailablePort(preferredPort: number): Promise<number> {
+  if (await isPortAvailable(preferredPort)) return preferredPort;
+
+  for (let offset = 1; offset <= 100; offset++) {
+    const port = preferredPort + offset;
+    if (port > 65535) break;
+    if (await isPortAvailable(port)) return port;
+  }
+
+  throw new Error(`No available port near ${preferredPort}`);
+}
+
+/**
+ * Join a shared environment by code (joiner side).
+ * Creates local TCP proxies for each port in the bundle.
+ */
+async function runJoinCommand(code: string): Promise<void> {
+  console.log();
+  console.log(`${c.bold}Private Connect${c.reset} - Join Environment`);
+  console.log(`${c.gray}────────────────────────────────────${c.reset}`);
+  console.log();
+
+  process.stdout.write(`  Fetching bundle ${c.cyan}${code}${c.reset}... `);
+
+  try {
+    const response = await httpRequest(`${HUB_URL}/v1/tunnels/temporary/bundle/${code}`, {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      console.log(`${fail}`);
+      console.log();
+      if (response.status === 404) {
+        console.log(`  ${c.red}Bundle not found or expired${c.reset}`);
+        console.log(`  ${c.gray}Ask your teammate for a new code${c.reset}`);
+      } else {
+        console.log(`  ${c.red}Error: ${response.status}${c.reset}`);
+      }
+      console.log();
+      process.exit(1);
+    }
+
+    console.log(`${ok}`);
+
+    const data = JSON.parse(response.body) as {
+      code: string;
+      tcpHost: string;
+      expiresAt: string;
+      tunnels: Array<{ localPort: number; tcpPort: number; connected: boolean }>;
+    };
+
+    console.log();
+    console.log(`  ${c.bold}Connecting to ${data.tunnels.length} service${data.tunnels.length > 1 ? 's' : ''}:${c.reset}`);
+    console.log();
+
+    const servers: net.Server[] = [];
+    const portMappings: Array<{ localPort: number; actualPort: number; label: string }> = [];
+
+    for (const tunnel of data.tunnels) {
+      const actualPort = await findAvailablePort(tunnel.localPort);
+      const dbName = DB_PORTS[tunnel.localPort];
+      const label = dbName || `port ${tunnel.localPort}`;
+      const portNote = actualPort !== tunnel.localPort
+        ? ` ${c.yellow}(${tunnel.localPort} busy → ${actualPort})${c.reset}`
+        : '';
+
+      const server = net.createServer((clientSocket) => {
+        const remoteSocket = net.createConnection({
+          host: data.tcpHost,
+          port: tunnel.tcpPort,
+        });
+
+        remoteSocket.on('connect', () => {
+          clientSocket.pipe(remoteSocket);
+          remoteSocket.pipe(clientSocket);
+        });
+
+        remoteSocket.on('error', () => {
+          clientSocket.destroy();
+        });
+
+        clientSocket.on('error', () => {
+          remoteSocket.destroy();
+        });
+      });
+
+      await new Promise<void>((res, rej) => {
+        server.on('error', rej);
+        server.listen(actualPort, '127.0.0.1', () => res());
+      });
+
+      servers.push(server);
+      portMappings.push({ localPort: tunnel.localPort, actualPort, label });
+
+      console.log(`    ${c.green}localhost:${actualPort}${c.reset} ${c.dim}→${c.reset} ${label}${portNote}`);
+    }
+
+    console.log();
+    console.log(`${c.gray}────────────────────────────────────${c.reset}`);
+    console.log();
+    console.log(`  ${c.green}${c.bold}Connected!${c.reset} Use these in your app:`);
+    console.log();
+
+    for (const mapping of portMappings) {
+      console.log(`    ${mapping.label}: ${c.cyan}localhost:${mapping.actualPort}${c.reset}`);
+    }
+
+    const expiresIn = Math.max(0, Math.floor((new Date(data.expiresAt).getTime() - Date.now()) / 60000));
+    console.log();
+    console.log(`  ${c.dim}Expires in ${expiresIn} minutes${c.reset}`);
+    console.log();
+    console.log(`  ${c.dim}Press Ctrl+C to disconnect${c.reset}`);
+    console.log();
+
+    await new Promise<void>((resolve) => {
+      process.on('SIGINT', () => {
+        console.log();
+        console.log(`  ${c.yellow}Disconnected${c.reset}`);
+        console.log();
+        for (const server of servers) {
+          server.close();
+        }
+        resolve();
+      });
+    });
+
+  } catch (err: any) {
+    console.log(`${fail}`);
+    console.log();
+    console.log(`  ${c.red}Error: ${err.message}${c.reset}`);
+    console.log();
+    process.exit(1);
+  }
+}
+
 function parseTunnelTarget(target: string): { host: string; port: number } {
   // Handle just port number
   if (/^\d+$/.test(target)) {
@@ -1475,7 +1834,22 @@ if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
 // Track usage (non-blocking)
 trackUsage(args[0] || 'help');
 
-if (args[0] === 'test' || args[0] === 'check') {
+if (args[0] === 'up') {
+  const ports = args.slice(1).filter(a => /^\d+$/.test(a)).map(Number);
+  if (ports.length === 0) {
+    console.error(`${c.red}Error: At least one port required${c.reset}`);
+    console.error(`Usage: npx private-connect up 3000 5432 6379`);
+    process.exit(1);
+  }
+  runUpCommand(ports).catch(console.error);
+} else if (args[0] === 'join') {
+  if (!args[1]) {
+    console.error(`${c.red}Error: Join code required${c.reset}`);
+    console.error(`Usage: npx private-connect join <code>`);
+    process.exit(1);
+  }
+  runJoinCommand(args[1]).catch(console.error);
+} else if (args[0] === 'test' || args[0] === 'check') {
   if (!args[1]) {
     console.error(`${c.red}Error: Target required${c.reset}`);
     console.error(`Usage: npx private-connect ${args[0]} <host:port>`);

@@ -713,6 +713,53 @@ POST /v1/tunnels/:id/share
 }
 ```
 
+### Bundles API (Environment Sharing)
+
+Share multiple local services at once with a short join code.
+
+```bash
+# Create a bundle (no auth required)
+POST /v1/tunnels/temporary/bundle
+{
+  "ports": [3000, 5432, 6379],
+  "ttlMinutes": 120
+}
+
+# Response:
+{
+  "code": "k7m2p9",
+  "tcpHost": "api.privateconnect.co",
+  "wsUrl": "wss://api.privateconnect.co/temp-tunnel",
+  "ttlMinutes": 120,
+  "expiresAt": "2026-02-24T23:00:00.000Z",
+  "tunnels": [
+    { "tunnelId": "abc123", "localPort": 3000, "tcpPort": 40001 },
+    { "tunnelId": "def456", "localPort": 5432, "tcpPort": 40002 },
+    { "tunnelId": "ghi789", "localPort": 6379, "tcpPort": 40003 }
+  ]
+}
+
+# Get bundle info by join code (no auth required)
+GET /v1/tunnels/temporary/bundle/:code
+
+# Response:
+{
+  "code": "k7m2p9",
+  "tcpHost": "api.privateconnect.co",
+  "expiresAt": "2026-02-24T23:00:00.000Z",
+  "tunnels": [
+    { "localPort": 3000, "tcpPort": 40001, "connected": true },
+    { "localPort": 5432, "tcpPort": 40002, "connected": true },
+    { "localPort": 6379, "tcpPort": 40003, "connected": true }
+  ]
+}
+```
+
+**Limits:**
+- Maximum 10 ports per bundle
+- Auto-expires in 2 hours (max)
+- No authentication required
+
 ### Audit API
 
 Query audit logs and activity statistics.

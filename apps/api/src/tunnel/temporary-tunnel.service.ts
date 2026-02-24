@@ -43,6 +43,13 @@ interface TcpConnection {
   dataBuffer: Buffer[];
 }
 
+export interface TunnelBundle {
+  code: string;
+  tunnels: Array<{ tunnelId: string; localPort: number; tcpPort: number }>;
+  createdAt: Date;
+  expiresAt: Date;
+}
+
 // TCP port range for temporary tunnels
 const TCP_PORT_MIN = 40000;
 const TCP_PORT_MAX = 50000;
@@ -59,9 +66,9 @@ export class TemporaryTunnelService implements OnModuleDestroy {
   private pendingRequests = new Map<string, PendingRequest>();
   private tcpConnections = new Map<string, TcpConnection>();
   private allocatedPorts = new Set<number>();
-  private usedSubdomains = new Set<string>(); // Track used subdomains
+  private usedSubdomains = new Set<string>();
+  private bundles = new Map<string, TunnelBundle>();
   
-  // Cleanup interval
   private cleanupInterval: NodeJS.Timeout;
   
   constructor(
@@ -137,6 +144,7 @@ export class TemporaryTunnelService implements OnModuleDestroy {
     this.tcpConnections.clear();
     this.allocatedPorts.clear();
     this.usedSubdomains.clear();
+    this.bundles.clear();
 
     this.logger.log(`Graceful shutdown complete - closed ${tunnelCount} tunnel(s)`);
   }
@@ -727,11 +735,82 @@ export class TemporaryTunnelService implements OnModuleDestroy {
   }
 
   /**
+   * Generate a short, typeable bundle code (6 chars, no ambiguous characters)
+   */
+  private generateBundleCode(): string {
+    const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+    let code = '';
+    const bytes = randomBytes(6);
+    for (let i = 0; i < 6; i++) {
+      code += chars[bytes[i] % chars.length];
+    }
+    return code;
+  }
+
+  /**
+   * Create a bundle of TCP tunnels for multi-port sharing.
+   * Allocates all tunnels atomically -- rolls back on failure.
+   */
+  async createBundle(ports: number[], ttlMinutes: number): Promise<TunnelBundle> {
+    let code: string;
+    let attempts = 0;
+    do {
+      code = this.generateBundleCode();
+      attempts++;
+      if (attempts > 10) throw new Error('Failed to generate unique bundle code');
+    } while (this.bundles.has(code));
+
+    const tunnels: Array<{ tunnelId: string; localPort: number; tcpPort: number }> = [];
+    const createdIds: string[] = [];
+
+    try {
+      for (const localPort of ports) {
+        const tunnelId = randomBytes(6).toString('hex');
+        const tunnel = await this.createTcpTunnel(tunnelId, 'localhost', localPort, ttlMinutes);
+        createdIds.push(tunnelId);
+        tunnels.push({ tunnelId, localPort, tcpPort: tunnel.tcpPort! });
+      }
+    } catch (err) {
+      for (const id of createdIds) {
+        this.closeTunnel(id);
+      }
+      throw err;
+    }
+
+    const now = new Date();
+    const bundle: TunnelBundle = {
+      code,
+      tunnels,
+      createdAt: now,
+      expiresAt: new Date(now.getTime() + ttlMinutes * 60 * 1000),
+    };
+
+    this.bundles.set(code, bundle);
+    this.logger.log(`Created bundle ${code} with ${tunnels.length} tunnels: ${ports.join(', ')}`);
+    return bundle;
+  }
+
+  /**
+   * Get a bundle by join code
+   */
+  getBundle(code: string): TunnelBundle | null {
+    const bundle = this.bundles.get(code);
+    if (!bundle) return null;
+
+    if (new Date() > bundle.expiresAt) {
+      this.bundles.delete(code);
+      return null;
+    }
+    return bundle;
+  }
+
+  /**
    * Get stats for monitoring
    */
   getStats() {
     return {
       activeTunnels: this.tunnels.size,
+      activeBundles: this.bundles.size,
       pendingRequests: this.pendingRequests.size,
     };
   }
@@ -800,6 +879,13 @@ export class TemporaryTunnelService implements OnModuleDestroy {
       }
     }
     
+    // Clean up expired bundles
+    for (const [code, bundle] of this.bundles) {
+      if (now > bundle.expiresAt) {
+        this.bundles.delete(code);
+      }
+    }
+
     if (cleaned > 0) {
       this.logger.log(`Cleaned up ${cleaned} expired tunnels`);
     }
