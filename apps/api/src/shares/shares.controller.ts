@@ -253,7 +253,7 @@ export class SharesController {
   @Get('share/:token')
   @ApiOperation({ summary: 'Redirect to share page', description: 'Redirects to the web app share page.' })
   async redirectToSharePage(@Param('token') token: string, @Res() res: Response) {
-    const webAppUrl = process.env.WEB_URL || 'https://privateconnect.co';
+    const webAppUrl = process.env.WEB_URL || 'https://app.privateconnect.co';
     res.redirect(302, `${webAppUrl}/share/${token}`);
   }
 
@@ -821,7 +821,7 @@ export class SharesController {
    */
   private generateTunnelWidget(subdomain: string, debugSessionId?: string): string {
     const inspectorUrl = debugSessionId 
-      ? `https://privateconnect.co/debug/${debugSessionId}` 
+      ? `https://app.privateconnect.co/debug/${debugSessionId}` 
       : 'https://privateconnect.co';
     
     return `

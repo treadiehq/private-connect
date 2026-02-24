@@ -60,7 +60,7 @@ export class DebugController {
     return {
       id: session.id,
       token: session.token,
-      url: `${process.env.PUBLIC_URL || 'https://privateconnect.co'}/debug/${session.token}`,
+      url: `${process.env.PUBLIC_URL || 'https://app.privateconnect.co'}/debug/${session.token}`,
       status: session.status,
       aiEnabled: session.aiEnabled,
       createdAt: session.createdAt,
@@ -364,7 +364,7 @@ export class DebugController {
     return {
       id: session.id,
       token: session.token,
-      url: `${process.env.PUBLIC_URL || 'https://privateconnect.co'}/debug/${session.token}`,
+      url: `${process.env.PUBLIC_URL || 'https://app.privateconnect.co'}/debug/${session.token}`,
       status: session.status,
       aiEnabled: session.aiEnabled,
       createdAt: session.createdAt,

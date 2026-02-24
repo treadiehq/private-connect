@@ -61,7 +61,8 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
   const existingConfig = loadConfig();
   if (!existingConfig && !options.apiKey) {
     console.error(chalk.red('\n[x] API key required for first-time setup'));
-    console.log(chalk.gray(`  Use: ${chalk.cyan('connect expose <target> --api-key <your-api-key>')}`));
+    console.log(chalk.gray(`  Run ${chalk.cyan('connect login <your-api-key>')} to save it once`));
+    console.log(chalk.gray(`  Or use: ${chalk.cyan('connect expose <target> --api-key <your-api-key>')}`));
     return null;
   }
 
@@ -196,7 +197,22 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
       if (response.success) {
         console.log(chalk.green('[ok] Tunnel established'));
         console.log(chalk.cyan(`\n📡 Service "${options.name}" is now accessible through the hub`));
-        console.log(chalk.gray(`   Hub can reach it at localhost:${service.tunnelPort}`));
+
+        // Show how to access the service
+        console.log();
+        if (service.publicUrl) {
+          console.log(chalk.green.bold(`   Public URL: ${service.publicUrl}`));
+          console.log(chalk.gray(`   Anyone can reach this service at the URL above`));
+          console.log();
+        }
+        console.log(chalk.white.bold(`   From another machine:`));
+        console.log(chalk.cyan(`   $ connect reach ${options.name}`));
+        console.log(chalk.gray(`   This creates a local tunnel so the service appears on localhost`));
+        if (!service.publicUrl) {
+          console.log();
+          console.log(chalk.white.bold(`   Want a public URL anyone can open?`));
+          console.log(chalk.cyan(`   $ connect link ${options.name}`));
+        }
         
         // Auto-run diagnostics to verify the tunnel works
         console.log(chalk.gray('\n   Running initial diagnostics...'));

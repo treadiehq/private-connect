@@ -123,7 +123,7 @@ async function bootstrap() {
       );
     } else if (isSharedRoute) {
       // Allow shared routes to be embedded from privateconnect.co
-      const webUrl = process.env.WEB_URL || 'https://privateconnect.co';
+      const webUrl = process.env.WEB_URL || 'https://app.privateconnect.co';
       res.setHeader(
         'Content-Security-Policy',
         `frame-ancestors 'self' ${webUrl} http://localhost:3000`

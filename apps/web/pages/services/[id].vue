@@ -159,7 +159,7 @@
               <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-300 mb-2">Subdomain</label>
                 <div class="flex items-center gap-2">
-                  <span class="text-gray-500 text-sm">privateconnect.co/w/</span>
+                  <span class="text-gray-500 text-sm">app.privateconnect.co/w/</span>
                   <input
                     v-model="subdomainInput"
                     type="text"
@@ -185,7 +185,18 @@
               <!-- Preview -->
               <div v-if="subdomainInput && subdomainAvailable" class="mb-4 p-3 bg-gray-500/10 border border-gray-500/10 rounded-lg">
                 <div class="text-xs text-gray-500 mb-1">Public URL</div>
-                <div class="text-sm text-cyan-300 font-mono">https://privateconnect.co/w/{{ subdomainInput }}</div>
+                <div class="flex items-center justify-between gap-2">
+                  <div class="text-sm text-cyan-300 font-mono truncate">https://app.privateconnect.co/w/{{ subdomainInput }}</div>
+                  <button
+                    @click="copyToClipboard(`https://app.privateconnect.co/w/${subdomainInput}`)"
+                    class="text-gray-500 hover:text-white transition-colors shrink-0 p-1"
+                    title="Copy URL"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                </div>
               </div>
               
               <!-- Actions -->
@@ -377,21 +388,36 @@
             <!-- Public URL row -->
             <div class="flex items-center px-5 py-3">
               <span class="flex-1 text-sm text-gray-400">Public URL</span>
-              <button
-                @click="showSubdomainModal = true"
-                class="text-sm text-right font-mono truncate transition-colors flex items-center gap-2"
-                :class="service.publicSubdomain ? 'text-cyan-300 hover:text-cyan-400' : 'text-gray-500 hover:text-gray-400'"
-              >
-                <template v-if="service.publicSubdomain">
-                  privateconnect.co/w/{{ service.publicSubdomain }}
-                </template>
-                <template v-else>
-                  Set custom URL
-                </template>
-                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-              </button>
+              <div class="flex items-center gap-2">
+                <button
+                  v-if="service.publicSubdomain"
+                  @click.stop="copyPublicUrl"
+                  class="text-gray-500 hover:text-white transition-colors p-1"
+                  :title="publicUrlCopied ? 'Copied!' : 'Copy URL'"
+                >
+                  <svg v-if="!publicUrlCopied" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  <svg v-else class="w-3.5 h-3.5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+                <button
+                  @click="showSubdomainModal = true"
+                  class="text-sm text-right font-mono truncate transition-colors flex items-center gap-2"
+                  :class="service.publicSubdomain ? 'text-cyan-300 hover:text-cyan-400' : 'text-gray-500 hover:text-gray-400'"
+                >
+                  <template v-if="service.publicSubdomain">
+                    app.privateconnect.co/w/{{ service.publicSubdomain }}
+                  </template>
+                  <template v-else>
+                    Set custom URL
+                  </template>
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+              </div>
             </div>
             <div v-if="service.agentId" class="flex items-center px-5 py-3">
               <span class="flex-1 text-sm text-gray-400">Agent</span>
@@ -605,7 +631,20 @@ const subdomainError = ref('');
 const subdomainAvailable = ref(false);
 const checkingSubdomain = ref(false);
 const savingSubdomain = ref(false);
+const publicUrlCopied = ref(false);
 let checkDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+function copyToClipboard(text: string) {
+  navigator.clipboard.writeText(text);
+}
+
+function copyPublicUrl() {
+  if (!service.value?.publicSubdomain) return;
+  const url = `https://app.privateconnect.co/w/${service.value.publicSubdomain}`;
+  navigator.clipboard.writeText(url);
+  publicUrlCopied.value = true;
+  setTimeout(() => { publicUrlCopied.value = false; }, 2000);
+}
 
 // Rename modal state
 const showRenameModal = ref(false);

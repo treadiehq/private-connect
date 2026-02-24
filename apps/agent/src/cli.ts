@@ -25,6 +25,7 @@ import { cloneCommand, cloneListCommand } from './commands/clone';
 import { brokerCommand } from './commands/broker';
 import { connectCommand } from './commands/connect';
 import { debugCommand } from './commands/debug';
+import { loginCommand } from './commands/login';
 import { setConfigPath } from './config';
 import { validateHubUrl } from './security';
 
@@ -236,6 +237,16 @@ program
   });
 
 program
+  .command('login <api-key>')
+  .description('Save your API key so you don\'t need --api-key on every command')
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-c, --config <path>', 'Config file path')
+  .action((apiKey, options) => {
+    if (options.config) setConfigPath(options.config);
+    loginCommand(apiKey, options);
+  });
+
+program
   .command('expose <target>')
   .description('Expose a local service through the tunnel (make something private available)')
   .option('-n, --name <name>', 'Service name', 'default')
@@ -244,7 +255,8 @@ program
   .option('-p, --protocol <protocol>', 'Protocol hint: auto|tcp|udp|http|https', 'auto')
   .option('--tcp', 'Use TCP protocol (shortcut for --protocol tcp)')
   .option('--udp', 'Use UDP protocol (shortcut for --protocol udp)')
-  .option('--public', 'Make service publicly accessible via URL (for webhooks)')
+  .option('--public', 'Generate a public URL for the service (default: true)', true)
+  .option('--no-public', 'Do not generate a public URL')
   .option('-d, --debug', 'Enable debug mode with shareable live traffic viewer')
   .option('--ai', 'Enable AI Copilot for debug session (requires --debug)')
   .option('-c, --config <path>', 'Config file path (for multiple agents)')

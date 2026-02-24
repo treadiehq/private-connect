@@ -77,7 +77,7 @@ export default defineNuxtConfig({
             'description': 'Access your private services and local database from Sprites, exe.dev, Cursor or anywhere. No VPN, no open ports.',
             'url': 'https://privateconnect.co',
             'downloadUrl': 'https://privateconnect.co/install.sh',
-            'softwareVersion': '0.6.4',
+            'softwareVersion': '0.6.6',
             'releaseNotes': 'https://github.com/treadiehq/private-connect/releases',
             'author': {
               '@type': 'Organization',

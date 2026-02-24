@@ -10,7 +10,7 @@ const TUNNEL_PORT_MIN = 23000;
 const TUNNEL_PORT_MAX = 23999;
 
 // Public URL base
-const PUBLIC_URL_BASE = process.env.PUBLIC_URL_BASE || 'https://privateconnect.co';
+const PUBLIC_URL_BASE = process.env.PUBLIC_URL_BASE || 'https://app.privateconnect.co';
 
 @Injectable()
 export class ServicesService implements OnModuleInit {

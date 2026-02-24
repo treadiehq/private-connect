@@ -128,7 +128,7 @@ export async function linkCommand(service: string, options: LinkOptions) {
     // For HTTP services: use subdomain-style URL (ngrok-style)
     // For databases: use privateconnect.co/share/ for web UI
     const token = share.token;
-    const webDomain = 'https://privateconnect.co';
+    const webDomain = 'https://app.privateconnect.co';
     
     // ngrok-style subdomain URL: {token}.privateconnect.co
     const proxyUrl = `https://${token}.privateconnect.co`;

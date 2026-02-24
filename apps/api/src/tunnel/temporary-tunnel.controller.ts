@@ -7,7 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { randomBytes } from 'crypto';
 
 const HUB_URL = process.env.HUB_URL || process.env.API_URL || 'https://api.privateconnect.co';
-const PUBLIC_URL = process.env.PUBLIC_URL || 'https://privateconnect.co';
+const PUBLIC_URL = process.env.PUBLIC_URL || 'https://app.privateconnect.co';
 const TEMP_WORKSPACE_ID = 'temp-tunnel-workspace';
 const TEMP_USER_EMAIL = 'system@privateconnect.co';
 
@@ -632,7 +632,7 @@ export class TemporaryTunnelController implements OnModuleInit {
       // Link debug session ID (UUID for packet capture) and token (s-xxxxx for widget URL)
       this.tempTunnelService.linkDebugSession(tunnelId, session.id, session.token);
 
-      const publicUrl = process.env.PUBLIC_URL || 'https://privateconnect.co';
+      const publicUrl = process.env.PUBLIC_URL || 'https://app.privateconnect.co';
       
       return {
         success: true,
@@ -661,7 +661,7 @@ export class TemporaryTunnelController implements OnModuleInit {
           // Link debug session ID (UUID for packet capture) and token (s-xxxxx for widget URL)
           this.tempTunnelService.linkDebugSession(tunnelId, session.id, session.token);
 
-          const publicUrl = process.env.PUBLIC_URL || 'https://privateconnect.co';
+          const publicUrl = process.env.PUBLIC_URL || 'https://app.privateconnect.co';
           
           return {
             success: true,

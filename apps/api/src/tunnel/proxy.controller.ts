@@ -28,7 +28,7 @@ const PROXY_REQUEST_TIMEOUT_MS = 30000;
  */
 function generateTunnelWidget(subdomain: string, debugSessionId?: string): string {
   const inspectorUrl = debugSessionId 
-    ? `https://privateconnect.co/debug/${debugSessionId}` 
+    ? `https://app.privateconnect.co/debug/${debugSessionId}` 
     : 'https://privateconnect.co';
   
   return `
@@ -514,7 +514,7 @@ export class ProxyController {
   ) {
     const isConnected = tunnel.socket?.connected ?? false;
     const expiresIn = Math.max(0, Math.round((tunnel.expiresAt.getTime() - Date.now()) / 60000));
-    const publicUrl = process.env.PUBLIC_URL_BASE || 'https://privateconnect.co';
+    const publicUrl = process.env.PUBLIC_URL_BASE || 'https://app.privateconnect.co';
     const fullUrl = `${publicUrl}/w/${subdomain}`;
     
     const html = `<!DOCTYPE html>
