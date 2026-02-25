@@ -77,8 +77,17 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
   // Register agent first if needed
   await registerAgent(config);
 
-  // When --link is used, skip --public to avoid two competing public URLs
-  const isPublic = options.link ? false : (options.public || false);
+  // Block --public and --link for non-HTTP services (databases, caches, etc.)
+  const nonHttpPorts = [5432, 3306, 27017, 6379, 6380, 26257, 9042, 8529, 7687, 1433, 1521, 50000];
+  const isNonHttpService = nonHttpPorts.includes(port);
+
+  if (isNonHttpService && (options.public || options.link)) {
+    const flag = options.public ? '--public' : '--link';
+    console.log(chalk.yellow(`\n   [!] ${flag} creates a public HTTP URL, which doesn't work for database/TCP services (port ${port}).`));
+    console.log(chalk.gray(`       To access this service remotely, use: connect reach ${options.name}`));
+  }
+
+  const isPublic = (options.link || isNonHttpService) ? false : (options.public || false);
   
   // Register service with hub
   const service = await registerService(config.agentId, options.name, host, port, options.protocol, isPublic, config);
@@ -257,14 +266,8 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
           await runInitialDiagnostics(service.id, options.name, config.hubUrl, config.apiKey);
           
           if (myGeneration !== connectGeneration) return;
-          if (options.link && !linkUrl) {
-            const nonHttpPorts = [5432, 3306, 27017, 6379, 6380, 26257, 9042, 8529, 7687, 1433, 1521, 50000];
-            if (nonHttpPorts.includes(port)) {
-              console.log(chalk.yellow(`\n   [!] --link creates a public HTTP URL, which doesn't work for database/TCP services (port ${port}).`));
-              console.log(chalk.gray(`       To access this service remotely, use: connect reach ${options.name}`));
-            } else {
-              linkUrl = await createAutoLink(service.id, options.name, options.linkExpires || '24h', config);
-            }
+          if (options.link && !linkUrl && !isNonHttpService) {
+            linkUrl = await createAutoLink(service.id, options.name, options.linkExpires || '24h', config);
           }
 
           console.log(chalk.gray('\n   Press Ctrl+C to stop exposing\n'));
