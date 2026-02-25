@@ -60,7 +60,8 @@ export class ServicesService implements OnModuleInit {
   }
 
   getPublicUrl(subdomain: string): string {
-    return `${PUBLIC_URL_BASE}/w/${subdomain}`;
+    const baseDomain = process.env.BASE_DOMAIN || 'privateconnect.co';
+    return `https://${subdomain}.${baseDomain}`;
   }
 
   // Validate service name

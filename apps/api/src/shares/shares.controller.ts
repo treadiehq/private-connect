@@ -570,11 +570,16 @@ export class SharesController {
     const validation = await this.sharesService.validateShare(token, path, req.method);
 
     if (!validation.valid || !validation.share) {
-      // Fallback: Check if this is a temporary tunnel subdomain
+      // Fallback 1: Check if this is a temporary tunnel subdomain
       const tempTunnel = this.tempTunnelService.getTunnelBySubdomain(token);
       if (tempTunnel) {
-        // Delegate to temporary tunnel proxy logic
         return this.proxyTemporaryTunnel(tempTunnel, path, req, res);
+      }
+
+      // Fallback 2: Check if this is a public subdomain (custom URL)
+      const publicService = await this.servicesService.findBySubdomain(token);
+      if (publicService && publicService.isPublic && publicService.agentId) {
+        return this.proxyPublicSubdomain(publicService, path, req, res, startTime);
       }
       
       res.status(403).json({ error: validation.reason || 'Access denied' });
@@ -823,6 +828,78 @@ export class SharesController {
           error: 'Failed to connect to service',
           message: err.message,
         });
+      }
+    }
+  }
+
+  /**
+   * Proxy a request for a service with a public subdomain (custom URL).
+   * Uses the same WebSocket forwarding as share proxying.
+   */
+  private async proxyPublicSubdomain(
+    service: any,
+    path: string,
+    req: Request,
+    res: Response,
+    startTime: number,
+  ) {
+    if (!this.tunnelService.isAgentConnected(service.agentId)) {
+      res.status(503).json({
+        error: 'Service unavailable',
+        message: 'The agent exposing this service is currently offline',
+      });
+      return;
+    }
+
+    try {
+      const chunks: Buffer[] = [];
+      for await (const chunk of req) {
+        chunks.push(chunk);
+      }
+      const requestBody = Buffer.concat(chunks).toString('utf-8');
+
+      const requestHeaders: Record<string, string> = {};
+      for (const [key, value] of Object.entries(req.headers)) {
+        if (typeof value === 'string' && !['host', 'connection', 'keep-alive'].includes(key.toLowerCase())) {
+          requestHeaders[key] = value;
+        }
+      }
+      requestHeaders['x-forwarded-for'] = req.ip || '';
+
+      const queryString = req.url.includes('?') ? '?' + req.url.split('?')[1] : '';
+      const requestPath = (path || '/') + queryString;
+
+      const response = await this.tunnelService.forwardHttpRequest(
+        service.agentId,
+        service.id,
+        {
+          method: req.method,
+          path: requestPath,
+          headers: requestHeaders,
+          body: requestBody,
+        },
+      );
+
+      for (const [key, value] of Object.entries(response.headers)) {
+        if (value && !['transfer-encoding', 'connection', 'content-length'].includes(key.toLowerCase())) {
+          res.setHeader(key, value);
+        }
+      }
+
+      const contentType = response.headers['content-type'] || '';
+      if (contentType.includes('text/html')) {
+        res.status(response.status).send(response.body.toString('utf-8'));
+      } else {
+        res.status(response.status).send(response.body);
+      }
+    } catch (err: any) {
+      this.logger.error(`Public subdomain proxy error for ${service.publicSubdomain}: ${err.message}`);
+      if (err.message === 'Agent not connected') {
+        res.status(503).json({ error: 'Service unavailable', message: 'The agent exposing this service is currently offline' });
+      } else if (err.message === 'Request timeout') {
+        res.status(504).json({ error: 'Gateway timeout', message: 'The service did not respond in time' });
+      } else {
+        res.status(502).json({ error: 'Failed to connect to service', message: err.message });
       }
     }
   }

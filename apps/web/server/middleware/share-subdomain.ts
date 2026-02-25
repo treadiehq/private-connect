@@ -1,4 +1,11 @@
-const KNOWN_SUBDOMAINS = ['api', 'www', 'link', 'app', 'mail', 'admin', 'docs', 'blog', 'help', 'support', 'status', 'doc', 'dashboard'];
+const KNOWN_SUBDOMAINS = [
+  'www', 'api', 'app', 'admin', 'dashboard', 'hub', 'docs', 'blog',
+  'help', 'support', 'status', 'mail', 'ftp', 'ssh', 'git', 'cdn',
+  'static', 'assets', 'media', 'images', 'files', 'download', 'upload',
+  'auth', 'login', 'logout', 'signup', 'register', 'account', 'settings',
+  'billing', 'pricing', 'about', 'contact', 'terms',  'privacy', 'legal',
+  'doc', 'link',
+];
 
 export default defineEventHandler(async (event) => {
   const host = getRequestHeader(event, 'host') || '';
@@ -28,20 +35,18 @@ export default defineEventHandler(async (event) => {
   }
 
   const method = event.method;
-  let body: ArrayBuffer | undefined;
+  let body: string | undefined;
   if (method !== 'GET' && method !== 'HEAD') {
-    const raw = await readRawBody(event, false);
-    if (raw) {
-      body = typeof raw === 'string' ? new TextEncoder().encode(raw).buffer : raw;
-    }
+    body = await readRawBody(event) || undefined;
   }
 
   try {
-    const response = await fetch(targetUrl, {
+    const response = await $fetch.raw(targetUrl, {
       method,
       headers,
-      body: body ? new Uint8Array(body as ArrayBuffer) : undefined,
+      body,
       redirect: 'manual',
+      responseType: 'arrayBuffer',
     });
 
     for (const [key, value] of response.headers.entries()) {
@@ -51,10 +56,12 @@ export default defineEventHandler(async (event) => {
     }
 
     setResponseStatus(event, response.status);
-
-    const responseBuffer = await response.arrayBuffer();
-    return new Uint8Array(responseBuffer);
+    return response._data;
   } catch (err: any) {
+    if (err?.response) {
+      setResponseStatus(event, err.response.status || 502);
+      return err.response._data || { error: 'Bad Gateway' };
+    }
     setResponseStatus(event, 502);
     return { error: 'Bad Gateway', message: 'Could not reach the API server' };
   }

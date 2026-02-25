@@ -158,19 +158,19 @@
               <!-- Subdomain input -->
               <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-300 mb-2">Subdomain</label>
-                <div class="flex items-center gap-2">
-                  <span class="text-gray-500 text-sm">app.privateconnect.co/w/</span>
+                <div class="flex items-center gap-0">
                   <input
                     v-model="subdomainInput"
                     type="text"
                     placeholder="my-staging-api"
-                    class="flex-1 bg-gray-500/10 border border-gray-500/10 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent"
+                    class="w-40 bg-gray-500/10 border border-gray-500/10 rounded-l-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent"
                     :class="{ 
                       'border-red-400': subdomainError,
                       'border-green-300': subdomainAvailable && subdomainInput
                     }"
                     @input="checkSubdomainDebounced"
                   />
+                  <span class="text-gray-500 text-sm font-mono bg-gray-500/5 border border-l-0 border-gray-500/10 rounded-r-lg px-3 py-2">.privateconnect.co</span>
                 </div>
                 
                 <!-- Status message -->
@@ -186,9 +186,9 @@
               <div v-if="subdomainInput && subdomainAvailable" class="mb-4 p-3 bg-gray-500/10 border border-gray-500/10 rounded-lg">
                 <div class="text-xs text-gray-500 mb-1">Public URL</div>
                 <div class="flex items-center justify-between gap-2">
-                  <div class="text-sm text-cyan-300 font-mono truncate">https://app.privateconnect.co/w/{{ subdomainInput }}</div>
+                  <div class="text-sm text-cyan-300 font-mono truncate">https://{{ subdomainInput }}.privateconnect.co</div>
                   <button
-                    @click="copyToClipboard(`https://app.privateconnect.co/w/${subdomainInput}`)"
+                    @click="copyToClipboard(`https://${subdomainInput}.privateconnect.co`)"
                     class="text-gray-500 hover:text-white transition-colors shrink-0 p-1"
                     title="Copy URL"
                   >
@@ -408,7 +408,7 @@
                   :class="service.publicSubdomain ? 'text-cyan-300 hover:text-cyan-400' : 'text-gray-500 hover:text-gray-400'"
                 >
                   <template v-if="service.publicSubdomain">
-                    app.privateconnect.co/w/{{ service.publicSubdomain }}
+                    {{ service.publicSubdomain }}.privateconnect.co
                   </template>
                   <template v-else>
                     Set custom URL
@@ -640,7 +640,7 @@ function copyToClipboard(text: string) {
 
 function copyPublicUrl() {
   if (!service.value?.publicSubdomain) return;
-  const url = `https://app.privateconnect.co/w/${service.value.publicSubdomain}`;
+  const url = `https://${service.value.publicSubdomain}.privateconnect.co`;
   navigator.clipboard.writeText(url);
   publicUrlCopied.value = true;
   setTimeout(() => { publicUrlCopied.value = false; }, 2000);
@@ -794,10 +794,14 @@ watch(showSubdomainModal, (open) => {
   }
 });
 
-// Normalize subdomain: accept pasted full URL (e.g. https://privateconnect.co/w/my-app) and extract subdomain
+// Normalize subdomain: accept pasted full URL and extract subdomain
 function normalizeSubdomainInput(raw: string): string {
   const trimmed = raw.trim();
   const lower = trimmed.toLowerCase();
+  // Handle subdomain format: https://my-app.privateconnect.co
+  const subdomainMatch = lower.match(/^https?:\/\/([a-z0-9-]+)\.privateconnect\.co/);
+  if (subdomainMatch) return subdomainMatch[1];
+  // Handle legacy path format: https://app.privateconnect.co/w/my-app
   const wMatch = lower.match(/\/w\/([a-z0-9-]+)\/?$/);
   if (wMatch) return wMatch[1];
   const pathMatch = lower.match(/privateconnect\.co\/w\/([a-z0-9-]+)/);

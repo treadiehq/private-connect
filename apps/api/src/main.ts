@@ -86,7 +86,14 @@ async function bootstrap() {
   app.use((req: any, res: any, next: any) => {
     const host = req.headers.host || '';
     const baseDomain = process.env.BASE_DOMAIN || 'privateconnect.co';
-    const knownSubdomains = ['api', 'www', 'link', 'app', 'mail', 'admin', 'docs', 'blog', 'help', 'support', 'status', 'doc', 'dashboard'];
+    const knownSubdomains = [
+      'www', 'api', 'app', 'admin', 'dashboard', 'hub', 'docs', 'blog',
+      'help', 'support', 'status', 'mail', 'ftp', 'ssh', 'git', 'cdn',
+      'static', 'assets', 'media', 'images', 'files', 'download', 'upload',
+      'auth', 'login', 'logout', 'signup', 'register', 'account', 'settings',
+      'billing', 'pricing', 'about', 'contact', 'terms', 'privacy', 'legal',
+      'doc', 'link',
+    ];
     
     // Check for subdomain-style URL: {token}.privateconnect.co
     const subdomainMatch = host.match(new RegExp(`^([^.]+)\\.${baseDomain.replace(/\./g, '\\.')}$`));
