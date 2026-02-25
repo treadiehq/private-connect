@@ -214,6 +214,8 @@ program
   .option('-c, --config <path>', 'Config file path')
   .option('-s, --share', 'Create shareable link after exposing')
   .option('--ttl <duration>', 'Share link TTL: 30m, 1h, 24h, 7d (default: 30m)', '30m')
+  .option('-l, --link', 'Create a public URL automatically after exposing')
+  .option('--link-expires <duration>', 'Public link expiry: 1h, 24h, 7d, 30d, never (default: 24h)', '24h')
   .action(async (target, options) => {
     if (options.config) setConfigPath(options.config);
     // Handle protocol shortcuts

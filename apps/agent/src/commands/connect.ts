@@ -35,6 +35,8 @@ interface ConnectOptions {
   config?: string;
   share?: boolean;
   ttl?: string;
+  link?: boolean;
+  linkExpires?: string;
 }
 
 interface ServiceInfo {
@@ -114,6 +116,8 @@ async function handleExpose(target: string, port: number, options: ConnectOption
     hub: options.hub,
     protocol: options.protocol || 'auto',
     public: options.public,
+    link: options.link,
+    linkExpires: options.linkExpires,
     config: options.config,
   });
 
