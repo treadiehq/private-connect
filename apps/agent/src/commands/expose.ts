@@ -10,6 +10,8 @@ interface ExposeOptions {
   apiKey?: string;
   protocol: string;
   public?: boolean;
+  link?: boolean;
+  linkExpires?: string;
   config?: string;
   debug?: boolean;
   aiEnabled?: boolean;
@@ -218,11 +220,89 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
         console.log(chalk.gray('\n   Running initial diagnostics...'));
         await runInitialDiagnostics(service.id, options.name, config.hubUrl, config.apiKey);
         
+        // Auto-create public link if --link flag is set
+        if (options.link) {
+          await createAutoLink(service.id, options.name, options.linkExpires || '24h', config);
+        }
+
         console.log(chalk.gray('\n   Press Ctrl+C to stop exposing\n'));
       } else {
         console.error(chalk.red(`[x] Tunnel setup failed: ${response.error}`));
       }
     });
+  });
+
+  // Handle HTTP requests forwarded through WebSocket (used by public links)
+  const http = await import('http');
+  socket.on('http_request', async (data: {
+    requestId: string;
+    serviceId: string;
+    method: string;
+    path: string;
+    headers: Record<string, string>;
+    body: string;
+  }) => {
+    try {
+      const proxyReq = http.request({
+        hostname: host,
+        port: port,
+        path: data.path || '/',
+        method: data.method,
+        headers: {
+          ...data.headers,
+          host: `${host}:${port}`,
+        },
+        timeout: 30000,
+      }, (proxyRes) => {
+        const chunks: Buffer[] = [];
+        proxyRes.on('data', (chunk: Buffer) => chunks.push(chunk));
+        proxyRes.on('end', () => {
+          const resHeaders: Record<string, string> = {};
+          for (const [key, value] of Object.entries(proxyRes.headers)) {
+            if (typeof value === 'string') resHeaders[key] = value;
+            else if (Array.isArray(value)) resHeaders[key] = value.join(', ');
+          }
+          socket.emit('http_response', {
+            requestId: data.requestId,
+            status: proxyRes.statusCode || 200,
+            headers: resHeaders,
+            body: Buffer.concat(chunks).toString('utf-8'),
+          });
+        });
+      });
+
+      proxyReq.on('error', (err: Error) => {
+        socket.emit('http_response', {
+          requestId: data.requestId,
+          status: 502,
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ error: 'Failed to connect to service', message: err.message }),
+        });
+      });
+
+      proxyReq.on('timeout', () => {
+        proxyReq.destroy();
+        socket.emit('http_response', {
+          requestId: data.requestId,
+          status: 504,
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ error: 'Gateway timeout', message: 'Service did not respond in time' }),
+        });
+      });
+
+      if (data.body && data.method !== 'GET' && data.method !== 'HEAD') {
+        proxyReq.write(data.body);
+      }
+      proxyReq.end();
+    } catch (err: unknown) {
+      const error = err as Error;
+      socket.emit('http_response', {
+        requestId: data.requestId,
+        status: 502,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ error: 'Failed to connect to service', message: error.message }),
+      });
+    }
   });
 
   // Handle dial requests
@@ -351,6 +431,47 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
   });
 
   return result;
+}
+
+async function createAutoLink(
+  serviceId: string,
+  serviceName: string,
+  expiresIn: string,
+  config: { hubUrl: string; apiKey: string },
+) {
+  try {
+    const response = await fetch(`${config.hubUrl}/v1/services/${serviceId}/shares`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': config.apiKey,
+      },
+      body: JSON.stringify({
+        name: `${serviceName}-link`,
+        expiresIn,
+      }),
+    });
+
+    if (!response.ok) {
+      console.log(chalk.yellow(`\n   [!] Could not create public link: ${response.statusText}`));
+      return;
+    }
+
+    const data = await response.json() as {
+      success: boolean;
+      share?: { token: string; expiresAt: string };
+    };
+
+    if (data.success && data.share) {
+      const publicUrl = `https://${data.share.token}.privateconnect.co`;
+      const expiresAt = new Date(data.share.expiresAt);
+      console.log(chalk.cyan(`\n   🌐 Public URL: ${chalk.bold(publicUrl)}`));
+      console.log(chalk.gray(`      Expires: ${expiresAt.toLocaleString()}`));
+    }
+  } catch (err: unknown) {
+    const error = err as Error;
+    console.log(chalk.yellow(`\n   [!] Auto-link failed: ${error.message}`));
+  }
 }
 
 async function registerAgent(config: { agentId: string; token: string; hubUrl: string; apiKey: string; label: string; name?: string }) {

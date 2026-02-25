@@ -63,12 +63,19 @@ interface AgentBridge {
   timeout: NodeJS.Timeout;
 }
 
+interface PendingHttpRequest {
+  resolve: (response: { status: number; headers: Record<string, string>; body: string }) => void;
+  reject: (error: Error) => void;
+  timeout: NodeJS.Timeout;
+}
+
 @Injectable()
 export class TunnelService {
   private readonly logger = new SecureLogger(TunnelService.name);
   private agents = new Map<string, AgentConnection>();
   private pendingConnections = new Map<string, PendingConnection>();
   private agentBridges = new Map<string, AgentBridge>();
+  private pendingHttpRequests = new Map<string, PendingHttpRequest>();
   
   // Track which connections have debug sessions
   private connectionDebugSessions = new Map<string, string>(); // connectionId -> sessionId
@@ -748,6 +755,57 @@ export class TunnelService {
    */
   getPendingConnection(connectionId: string) {
     return this.pendingConnections.get(connectionId);
+  }
+
+  /**
+   * Forward an HTTP request through the agent's WebSocket connection.
+   * Used by share proxying to avoid depending on the TCP tunnel listener.
+   */
+  async forwardHttpRequest(
+    agentId: string,
+    serviceId: string,
+    request: { method: string; path: string; headers: Record<string, string>; body: string | Buffer },
+  ): Promise<{ status: number; headers: Record<string, string>; body: string }> {
+    const agent = this.agents.get(agentId);
+    if (!agent) {
+      throw new Error('Agent not connected');
+    }
+
+    const requestId = uuidv4();
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.pendingHttpRequests.delete(requestId);
+        reject(new Error('Request timeout'));
+      }, 30000);
+
+      this.pendingHttpRequests.set(requestId, { resolve, reject, timeout });
+
+      agent.socket.emit('http_request', {
+        requestId,
+        serviceId,
+        method: request.method,
+        path: request.path,
+        headers: request.headers,
+        body: typeof request.body === 'string' ? request.body : request.body.toString('base64'),
+      });
+    });
+  }
+
+  /**
+   * Handle HTTP response from agent (callback for forwardHttpRequest)
+   */
+  handleHttpResponse(
+    requestId: string,
+    agentId: string,
+    response: { status: number; headers: Record<string, string>; body: string },
+  ): void {
+    const pending = this.pendingHttpRequests.get(requestId);
+    if (pending) {
+      clearTimeout(pending.timeout);
+      this.pendingHttpRequests.delete(requestId);
+      pending.resolve(response);
+    }
   }
 
   /**

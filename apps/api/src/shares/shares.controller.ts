@@ -22,6 +22,7 @@ import { SharesService } from './shares.service';
 import { ServicesService } from '../services/services.service';
 import { AuthService } from '../auth/auth.service';
 import { TemporaryTunnelService } from '../tunnel/temporary-tunnel.service';
+import { TunnelService } from '../tunnel/tunnel.service';
 import { CombinedAuthGuard } from '../auth/combined-auth.guard';
 import * as http from 'http';
 import * as https from 'https';
@@ -54,6 +55,8 @@ export class SharesController {
     private authService: AuthService,
     @Inject(forwardRef(() => TemporaryTunnelService))
     private tempTunnelService: TemporaryTunnelService,
+    @Inject(forwardRef(() => TunnelService))
+    private tunnelService: TunnelService,
   ) {}
 
   @Post('v1/services/:serviceId/shares')
@@ -581,26 +584,23 @@ export class SharesController {
     const share = validation.share;
     const service = share.service;
 
-    if (!service.tunnelPort && !service.isExternal) {
+    // For non-external services, use WebSocket forwarding through the agent
+    if (!service.isExternal && service.agentId) {
+      return this.proxyViaWebSocket(share, service, path, req, res, startTime);
+    }
+
+    // For external services, proxy directly
+    if (!service.isExternal && !service.tunnelPort) {
       res.status(503).json({ error: 'Service not available (no tunnel)' });
       return;
     }
 
-    // Determine target
-    const targetHost = service.isExternal ? service.targetHost : '127.0.0.1';
-    const targetPort = service.isExternal ? service.targetPort : service.tunnelPort!;
+    const targetHost = service.targetHost;
+    const targetPort = service.targetPort;
     const useHttps = service.protocol === 'https' || service.targetPort === 443;
 
-    // Proxy the request with proper timeout and TLS handling
     const protocol = useHttps ? https : http;
-    
-    // For external HTTPS targets, try with certificate validation first
-    // Fall back to no validation only if explicitly configured (self-signed certs)
-    const rejectUnauthorized = useHttps && service.isExternal; // Trust internal tunnel, verify external
-    
-    if (useHttps && !rejectUnauthorized) {
-      this.logger.warn(`Proxying to ${targetHost}:${targetPort} with TLS validation disabled`);
-    }
+    const rejectUnauthorized = useHttps;
     
     const proxyReq = protocol.request(
       {
@@ -621,7 +621,6 @@ export class SharesController {
       (proxyRes) => {
         const latencyMs = Date.now() - startTime;
 
-        // Log the access
         this.sharesService.logAccess(share.id, {
           ipAddress: req.ip,
           userAgent: req.headers['user-agent'],
@@ -631,59 +630,14 @@ export class SharesController {
           latencyMs,
         });
 
-        // Check if response is HTML - we'll inject branding
-        const contentType = proxyRes.headers['content-type'] || '';
-        const isHtml = contentType.includes('text/html');
-
         res.status(proxyRes.statusCode || 200);
-
-        if (isHtml) {
-          // Buffer HTML response to inject branding banner
-          const chunks: Buffer[] = [];
-          proxyRes.on('data', (chunk) => chunks.push(chunk));
-          proxyRes.on('end', () => {
-            let html = Buffer.concat(chunks).toString('utf-8');
-            
-            // Inject floating banner before </body>
-            const banner = `
-<div id="pc-banner" style="position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:999999;display:flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(17,17,17,0.95);backdrop-filter:blur(8px);border-radius:999px;border:1px solid rgba(255,255,255,0.1);font-family:-apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,0.4);">
-  <span style="width:6px;height:6px;border-radius:50%;background:#34d399;animation:pc-pulse 2s infinite;"></span>
-  <span style="font-size:12px;color:#d1d5db;">${share.name}</span>
-  <span style="width:1px;height:12px;background:rgba(255,255,255,0.2);"></span>
-  <a href="https://privateconnect.co" target="_blank" style="font-size:12px;color:#60a5fa;text-decoration:none;">Private Connect</a>
-  <button onclick="document.getElementById('pc-banner').remove()" style="background:none;border:none;padding:0;margin-left:4px;cursor:pointer;color:#6b7280;font-size:14px;">&times;</button>
-</div>
-<style>@keyframes pc-pulse{0%,100%{opacity:1}50%{opacity:0.5}}</style>
-`;
-            
-            // Inject before </body> or at the end
-            if (html.includes('</body>')) {
-              html = html.replace('</body>', banner + '</body>');
-            } else {
-              html += banner;
-            }
-            
-            // Update content-length and send
-            res.setHeader('content-length', Buffer.byteLength(html, 'utf-8'));
-            // Copy other headers except content-length (we set it above)
-            Object.entries(proxyRes.headers).forEach(([key, value]) => {
-              if (value && key.toLowerCase() !== 'content-length') {
-                res.setHeader(key, value);
-              }
-            });
-            res.send(html);
-          });
-        } else {
-          // Non-HTML: stream directly
-          Object.entries(proxyRes.headers).forEach(([key, value]) => {
-            if (value) res.setHeader(key, value);
-          });
-          proxyRes.pipe(res);
-        }
+        Object.entries(proxyRes.headers).forEach(([key, value]) => {
+          if (value) res.setHeader(key, value);
+        });
+        proxyRes.pipe(res);
       },
     );
 
-    // Handle request timeout
     proxyReq.on('timeout', () => {
       proxyReq.destroy();
       const latencyMs = Date.now() - startTime;
@@ -718,7 +672,6 @@ export class SharesController {
         latencyMs,
       });
 
-      // Provide helpful error messages based on error type
       if (errorType === NetworkErrorType.TLS_ERROR) {
         res.status(502).json({ 
           error: 'TLS error', 
@@ -739,11 +692,137 @@ export class SharesController {
       }
     });
 
-    // Forward request body if present
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       req.pipe(proxyReq);
     } else {
       proxyReq.end();
+    }
+  }
+
+  /**
+   * Proxy a share request through the agent's WebSocket connection.
+   * This is more reliable than the TCP tunnel port approach because
+   * it doesn't depend on a TCP listener being active on the hub.
+   */
+  private async proxyViaWebSocket(
+    share: any,
+    service: any,
+    path: string,
+    req: Request,
+    res: Response,
+    startTime: number,
+  ) {
+    if (!this.tunnelService.isAgentConnected(service.agentId)) {
+      res.status(503).json({
+        error: 'Service unavailable',
+        message: 'The agent exposing this service is currently offline',
+      });
+      return;
+    }
+
+    try {
+      // Collect request body
+      const chunks: Buffer[] = [];
+      for await (const chunk of req) {
+        chunks.push(chunk);
+      }
+      const requestBody = Buffer.concat(chunks).toString('utf-8');
+
+      // Filter headers
+      const requestHeaders: Record<string, string> = {};
+      for (const [key, value] of Object.entries(req.headers)) {
+        if (typeof value === 'string' && !['host', 'connection', 'keep-alive'].includes(key.toLowerCase())) {
+          requestHeaders[key] = value;
+        }
+      }
+      requestHeaders['x-forwarded-for'] = req.ip || '';
+      requestHeaders['x-shared-access'] = 'true';
+      requestHeaders['x-share-name'] = share.name;
+
+      const queryString = req.url.includes('?') ? '?' + req.url.split('?')[1] : '';
+      const requestPath = (path || '/') + queryString;
+
+      const response = await this.tunnelService.forwardHttpRequest(
+        service.agentId,
+        service.id,
+        {
+          method: req.method,
+          path: requestPath,
+          headers: requestHeaders,
+          body: requestBody,
+        },
+      );
+
+      const latencyMs = Date.now() - startTime;
+
+      this.sharesService.logAccess(share.id, {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        path,
+        method: req.method,
+        statusCode: response.status,
+        latencyMs,
+      });
+
+      // Set response headers
+      for (const [key, value] of Object.entries(response.headers)) {
+        if (value && !['transfer-encoding', 'connection', 'content-length'].includes(key.toLowerCase())) {
+          res.setHeader(key, value);
+        }
+      }
+
+      // Inject branding banner into HTML responses
+      const contentType = response.headers['content-type'] || '';
+      let responseBody = response.body;
+
+      if (contentType.includes('text/html') && typeof responseBody === 'string') {
+        const banner = `
+<div id="pc-banner" style="position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:999999;display:flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(17,17,17,0.95);backdrop-filter:blur(8px);border-radius:999px;border:1px solid rgba(255,255,255,0.1);font-family:-apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,0.4);">
+  <span style="width:6px;height:6px;border-radius:50%;background:#34d399;animation:pc-pulse 2s infinite;"></span>
+  <span style="font-size:12px;color:#d1d5db;">${share.name}</span>
+  <span style="width:1px;height:12px;background:rgba(255,255,255,0.2);"></span>
+  <a href="https://privateconnect.co" target="_blank" style="font-size:12px;color:#60a5fa;text-decoration:none;">Private Connect</a>
+  <button onclick="document.getElementById('pc-banner').remove()" style="background:none;border:none;padding:0;margin-left:4px;cursor:pointer;color:#6b7280;font-size:14px;">&times;</button>
+</div>
+<style>@keyframes pc-pulse{0%,100%{opacity:1}50%{opacity:0.5}}</style>
+`;
+        if (responseBody.includes('</body>')) {
+          responseBody = responseBody.replace('</body>', banner + '</body>');
+        } else {
+          responseBody += banner;
+        }
+      }
+
+      res.status(response.status).send(responseBody);
+    } catch (err: any) {
+      const latencyMs = Date.now() - startTime;
+      this.logger.error(`WebSocket proxy error for ${share.name}: ${err.message}`);
+
+      this.sharesService.logAccess(share.id, {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        path,
+        method: req.method,
+        statusCode: 502,
+        latencyMs,
+      });
+
+      if (err.message === 'Agent not connected') {
+        res.status(503).json({
+          error: 'Service unavailable',
+          message: 'The agent exposing this service is currently offline',
+        });
+      } else if (err.message === 'Request timeout') {
+        res.status(504).json({
+          error: 'Gateway timeout',
+          message: 'The service did not respond in time',
+        });
+      } else {
+        res.status(502).json({
+          error: 'Failed to connect to service',
+          message: err.message,
+        });
+      }
     }
   }
 

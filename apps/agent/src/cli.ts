@@ -257,6 +257,8 @@ program
   .option('--udp', 'Use UDP protocol (shortcut for --protocol udp)')
   .option('--public', 'Generate a public URL for the service (default: true)', true)
   .option('--no-public', 'Do not generate a public URL')
+  .option('-l, --link', 'Create a public URL automatically after exposing')
+  .option('--link-expires <duration>', 'Public link expiry: 1h, 24h, 7d, 30d, never (default: 24h)', '24h')
   .option('-d, --debug', 'Enable debug mode with shareable live traffic viewer')
   .option('--ai', 'Enable AI Copilot for debug session (requires --debug)')
   .option('-c, --config <path>', 'Config file path (for multiple agents)')

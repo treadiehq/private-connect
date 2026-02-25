@@ -218,6 +218,20 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.tunnelService.handleAgentClose(data.connectionId, agentId);
   }
 
+  @SubscribeMessage('http_response')
+  handleHttpResponse(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { requestId: string; status: number; headers: Record<string, string>; body: string },
+  ) {
+    const agentId = this.socketToAgent.get(client.id);
+    if (!agentId) {
+      this.logger.warn('HTTP response from unregistered socket');
+      return;
+    }
+
+    this.tunnelService.handleHttpResponse(data.requestId, agentId, data);
+  }
+
   // ─────────────────────────────────────────────────────────────────────────────
   // UDP Tunnel Events
   // ─────────────────────────────────────────────────────────────────────────────

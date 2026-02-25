@@ -2,6 +2,7 @@ import { Controller, All, Req, Res, Param, Inject, forwardRef } from '@nestjs/co
 import { Request, Response } from 'express';
 import { ServicesService } from '../services/services.service';
 import { TemporaryTunnelService } from '../tunnel/temporary-tunnel.service';
+import { TunnelService } from '../tunnel/tunnel.service';
 import { DebugService } from '../debug/debug.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { proxyRateLimiter, proxySubdomainLimiter } from '../common/rate-limiter';
@@ -105,6 +106,8 @@ export class ProxyController {
     private servicesService: ServicesService,
     @Inject(forwardRef(() => TemporaryTunnelService))
     private tempTunnelService: TemporaryTunnelService,
+    @Inject(forwardRef(() => TunnelService))
+    private tunnelService: TunnelService,
     @Inject(forwardRef(() => DebugService))
     private debugService: DebugService,
     private prisma: PrismaService,
@@ -289,66 +292,59 @@ export class ProxyController {
       });
     }
 
-    // Check if agent is online
-    if (!service.agent?.isOnline) {
+    if (!service.agentId || !this.tunnelService.isAgentConnected(service.agentId)) {
       return res.status(503).json({ 
         error: 'Service unavailable',
         message: 'The agent exposing this service is currently offline',
       });
     }
 
-    if (!service.tunnelPort) {
-      return res.status(503).json({ 
-        error: 'Tunnel not ready',
-        message: 'The tunnel for this service is not established',
-      });
-    }
-
-    // Forward request through the tunnel
+    // Forward request through the agent's WebSocket connection
     try {
-      const response = await this.forwardRequest(service.tunnelPort, targetPath, req);
+      const requestBody = await this.getRequestBody(req);
+      const queryString = req.url.includes('?') ? '?' + req.url.split('?')[1] : '';
+      const requestPath = (targetPath || '/') + queryString;
+      const requestHeaders = this.filterHeaders(req.headers as Record<string, string>);
+
+      const response = await this.tunnelService.forwardHttpRequest(
+        service.agentId,
+        service.id,
+        {
+          method: req.method,
+          path: requestPath,
+          headers: requestHeaders,
+          body: requestBody,
+        },
+      );
       
       // Set response headers
       for (const [key, value] of Object.entries(response.headers)) {
-        if (value && !['transfer-encoding', 'connection'].includes(key.toLowerCase())) {
+        if (value && !['transfer-encoding', 'connection', 'content-length'].includes(key.toLowerCase())) {
           res.setHeader(key, value);
         }
       }
       
-      // Add rate limit headers
       res.setHeader('X-RateLimit-Remaining', proxyRateLimiter.getRemaining(clientIp).toString());
       
       res.status(response.status).send(response.body);
     } catch (error) {
-      const err = error as Error & { code?: string };
-      const errorType = classifyNetworkError(err);
+      const err = error as Error;
+      this.logger.error(`Proxy error for ${subdomain}: ${err.message}`);
       
-      this.logger.error(`Proxy error for ${subdomain}: ${err.message} (type: ${errorType})`);
-      
-      // Provide helpful error messages based on error type
-      if (errorType === NetworkErrorType.BLOCKED) {
-        return res.status(502).json({ 
-          error: 'Connection blocked',
-          message: 'The connection to the service was blocked. A firewall or proxy may be interfering.',
-          hint: 'Check that no firewall rules are blocking traffic to the tunnel port.',
+      if (err.message === 'Agent not connected') {
+        return res.status(503).json({ 
+          error: 'Service unavailable',
+          message: 'The agent exposing this service is currently offline',
         });
-      } else if (errorType === NetworkErrorType.TLS_ERROR) {
-        return res.status(502).json({ 
-          error: 'TLS error',
-          message: 'A TLS/SSL error occurred when connecting to the service.',
-          hint: 'Check that the service certificate is valid and not expired.',
-        });
-      } else if (err.message.includes('timeout')) {
+      } else if (err.message === 'Request timeout') {
         return res.status(504).json({ 
           error: 'Gateway timeout',
           message: 'The service did not respond in time.',
-          hint: 'The service may be overloaded or experiencing network issues.',
         });
       } else {
         return res.status(502).json({ 
           error: 'Bad gateway',
           message: 'Failed to forward request to the service.',
-          hint: 'The tunnel connection may have been interrupted.',
         });
       }
     }
