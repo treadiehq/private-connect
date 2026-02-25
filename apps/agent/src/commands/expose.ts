@@ -230,9 +230,9 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
         if (isReconnect) {
           console.log(chalk.cyan(`\n📡 Service "${options.name}" is accessible through the hub`));
           if (linkUrl) {
-            console.log(chalk.magenta(`\n🔗 Public URL: ${chalk.bold(linkUrl)}`));
+            console.log(chalk.gray(`   Public URL: ${linkUrl}`));
           } else if (service.publicUrl) {
-            console.log(chalk.green.bold(`\n   Public URL: ${service.publicUrl}`));
+            console.log(chalk.gray(`   Public URL: ${service.publicUrl}`));
           }
           console.log(chalk.gray('\n   Press Ctrl+C to stop exposing\n'));
         } else {
@@ -258,7 +258,13 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
           
           if (myGeneration !== connectGeneration) return;
           if (options.link && !linkUrl) {
-            linkUrl = await createAutoLink(service.id, options.name, options.linkExpires || '24h', config);
+            const nonHttpPorts = [5432, 3306, 27017, 6379, 6380, 26257, 9042, 8529, 7687, 1433, 1521, 50000];
+            if (nonHttpPorts.includes(port)) {
+              console.log(chalk.yellow(`\n   [!] --link creates a public HTTP URL, which doesn't work for database/TCP services (port ${port}).`));
+              console.log(chalk.gray(`       To access this service remotely, use: connect reach ${options.name}`));
+            } else {
+              linkUrl = await createAutoLink(service.id, options.name, options.linkExpires || '24h', config);
+            }
           }
 
           console.log(chalk.gray('\n   Press Ctrl+C to stop exposing\n'));
@@ -304,7 +310,8 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
             requestId: data.requestId,
             status: proxyRes.statusCode || 200,
             headers: resHeaders,
-            body: Buffer.concat(chunks).toString('utf-8'),
+            body: Buffer.concat(chunks).toString('base64'),
+            bodyEncoding: 'base64',
           });
         });
       });
@@ -314,7 +321,8 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
           requestId: data.requestId,
           status: 502,
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ error: 'Failed to connect to service', message: err.message }),
+          body: Buffer.from(JSON.stringify({ error: 'Failed to connect to service', message: err.message })).toString('base64'),
+          bodyEncoding: 'base64',
         });
       });
 
@@ -324,7 +332,8 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
           requestId: data.requestId,
           status: 504,
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ error: 'Gateway timeout', message: 'Service did not respond in time' }),
+          body: Buffer.from(JSON.stringify({ error: 'Gateway timeout', message: 'Service did not respond in time' })).toString('base64'),
+          bodyEncoding: 'base64',
         });
       });
 
@@ -338,7 +347,8 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
         requestId: data.requestId,
         status: 502,
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ error: 'Failed to connect to service', message: error.message }),
+        body: Buffer.from(JSON.stringify({ error: 'Failed to connect to service', message: error.message })).toString('base64'),
+        bodyEncoding: 'base64',
       });
     }
   });

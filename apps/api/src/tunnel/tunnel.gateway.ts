@@ -231,7 +231,7 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('http_response')
   handleHttpResponse(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { requestId: string; status: number; headers: Record<string, string>; body: string },
+    @MessageBody() data: { requestId: string; status: number; headers: Record<string, string>; body: string; bodyEncoding?: string },
   ) {
     const agentId = this.socketToAgent.get(client.id);
     if (!agentId) {

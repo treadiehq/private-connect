@@ -773,9 +773,9 @@ export class SharesController {
 
       // Inject branding banner into HTML responses
       const contentType = response.headers['content-type'] || '';
-      let responseBody = response.body;
 
-      if (contentType.includes('text/html') && typeof responseBody === 'string') {
+      if (contentType.includes('text/html')) {
+        let htmlBody = response.body.toString('utf-8');
         const banner = `
 <div id="pc-banner" style="position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:999999;display:flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(17,17,17,0.95);backdrop-filter:blur(8px);border-radius:999px;border:1px solid rgba(255,255,255,0.1);font-family:-apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,0.4);">
   <span style="width:6px;height:6px;border-radius:50%;background:#34d399;animation:pc-pulse 2s infinite;"></span>
@@ -786,14 +786,15 @@ export class SharesController {
 </div>
 <style>@keyframes pc-pulse{0%,100%{opacity:1}50%{opacity:0.5}}</style>
 `;
-        if (responseBody.includes('</body>')) {
-          responseBody = responseBody.replace('</body>', banner + '</body>');
+        if (htmlBody.includes('</body>')) {
+          htmlBody = htmlBody.replace('</body>', banner + '</body>');
         } else {
-          responseBody += banner;
+          htmlBody += banner;
         }
+        res.status(response.status).send(htmlBody);
+      } else {
+        res.status(response.status).send(response.body);
       }
-
-      res.status(response.status).send(responseBody);
     } catch (err: any) {
       const latencyMs = Date.now() - startTime;
       this.logger.error(`WebSocket proxy error for ${share.name}: ${err.message}`);

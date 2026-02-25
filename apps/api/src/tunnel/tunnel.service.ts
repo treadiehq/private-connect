@@ -64,7 +64,7 @@ interface AgentBridge {
 }
 
 interface PendingHttpRequest {
-  resolve: (response: { status: number; headers: Record<string, string>; body: string }) => void;
+  resolve: (response: { status: number; headers: Record<string, string>; body: Buffer }) => void;
   reject: (error: Error) => void;
   timeout: NodeJS.Timeout;
 }
@@ -794,7 +794,7 @@ export class TunnelService {
     agentId: string,
     serviceId: string,
     request: { method: string; path: string; headers: Record<string, string>; body: string | Buffer },
-  ): Promise<{ status: number; headers: Record<string, string>; body: string }> {
+  ): Promise<{ status: number; headers: Record<string, string>; body: Buffer }> {
     const agent = this.agents.get(agentId);
     if (!agent) {
       throw new Error('Agent not connected');
@@ -831,13 +831,20 @@ export class TunnelService {
   handleHttpResponse(
     requestId: string,
     agentId: string,
-    response: { status: number; headers: Record<string, string>; body: string },
+    response: { status: number; headers: Record<string, string>; body: string; bodyEncoding?: string },
   ): void {
     const pending = this.pendingHttpRequests.get(requestId);
     if (pending) {
       clearTimeout(pending.timeout);
       this.pendingHttpRequests.delete(requestId);
-      pending.resolve(response);
+      const bodyBuffer = response.bodyEncoding === 'base64'
+        ? Buffer.from(response.body, 'base64')
+        : Buffer.from(response.body, 'utf-8');
+      pending.resolve({
+        status: response.status,
+        headers: response.headers,
+        body: bodyBuffer,
+      });
     }
   }
 

@@ -326,7 +326,13 @@ export class ProxyController {
       
       res.setHeader('X-RateLimit-Remaining', proxyRateLimiter.getRemaining(clientIp).toString());
       
-      res.status(response.status).send(response.body);
+      // For HTML responses, inject widget; for binary, send Buffer directly
+      const contentType = response.headers['content-type'] || '';
+      if (contentType.includes('text/html')) {
+        res.status(response.status).send(response.body.toString('utf-8'));
+      } else {
+        res.status(response.status).send(response.body);
+      }
     } catch (error) {
       const err = error as Error;
       this.logger.error(`Proxy error for ${subdomain}: ${err.message}`);
