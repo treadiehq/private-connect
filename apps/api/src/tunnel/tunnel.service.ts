@@ -135,8 +135,25 @@ export class TunnelService {
     const existing = this.agents.get(agentId);
     if (existing) {
       this.logger.log(`Agent ${agentId} reconnecting, closing stale listeners`);
-      existing.services.forEach((listener) => listener.server.close());
-      existing.udpServices.forEach((listener) => listener.server.close());
+      existing.services.forEach((listener) => {
+        try {
+          listener.server.close();
+          // Force-close all existing connections on this listener
+          listener.server.unref();
+        } catch { /* ignore close errors */ }
+      });
+      existing.udpServices.forEach((listener) => {
+        try {
+          listener.server.close();
+        } catch { /* ignore close errors */ }
+      });
+      
+      // Reject any pending HTTP requests for this agent
+      for (const [requestId, pending] of this.pendingHttpRequests.entries()) {
+        clearTimeout(pending.timeout);
+        pending.reject(new Error('Agent reconnecting'));
+        this.pendingHttpRequests.delete(requestId);
+      }
     }
 
     this.logger.log(`Agent registered: ${agentId}`);
@@ -235,7 +252,9 @@ export class TunnelService {
   }
 
   isAgentConnected(agentId: string): boolean {
-    return this.agents.has(agentId);
+    const agent = this.agents.get(agentId);
+    if (!agent) return false;
+    return agent.socket?.connected === true;
   }
 
   /**
@@ -317,6 +336,7 @@ export class TunnelService {
     tunnelPort: number,
     targetHost: string,
     targetPort: number,
+    retryCount = 0,
   ): Promise<void> {
     const agent = this.agents.get(agentId);
     if (!agent) {
@@ -330,7 +350,6 @@ export class TunnelService {
         this.logger.log(`Tunnel listener already exists for ${serviceName} on port ${tunnelPort}`);
         return;
       }
-      // Close old listener
       existing.server.close();
     }
 
@@ -339,7 +358,17 @@ export class TunnelService {
     });
 
     return new Promise((resolve, reject) => {
-      server.on('error', (err) => {
+      server.on('error', (err: NodeJS.ErrnoException) => {
+        if (err.code === 'EADDRINUSE' && retryCount < 3) {
+          this.logger.warn(`Port ${tunnelPort} in use for ${serviceName}, retrying in ${(retryCount + 1) * 500}ms...`);
+          server.close();
+          setTimeout(() => {
+            this.startTunnelListener(agentId, serviceId, serviceName, tunnelPort, targetHost, targetPort, retryCount + 1)
+              .then(resolve)
+              .catch(reject);
+          }, (retryCount + 1) * 500);
+          return;
+        }
         this.logger.error(`Tunnel listener error on port ${tunnelPort}: ${err.message}`);
         reject(err);
       });
@@ -768,6 +797,10 @@ export class TunnelService {
   ): Promise<{ status: number; headers: Record<string, string>; body: string }> {
     const agent = this.agents.get(agentId);
     if (!agent) {
+      throw new Error('Agent not connected');
+    }
+
+    if (!agent.socket?.connected) {
       throw new Error('Agent not connected');
     }
 

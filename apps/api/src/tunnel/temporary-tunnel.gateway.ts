@@ -16,8 +16,10 @@ import { SecureLogger } from '../common/security';
   cors: {
     origin: '*',
   },
-  pingTimeout: 60000,
-  pingInterval: 25000,
+  pingTimeout: 30000,
+  pingInterval: 10000,
+  transports: ['websocket'],
+  allowUpgrades: false,
 })
 export class TemporaryTunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()

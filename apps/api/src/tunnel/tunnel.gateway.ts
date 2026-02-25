@@ -17,8 +17,10 @@ import { SecureLogger, extractClientIp, maskIpAddress } from '../common/security
   cors: {
     origin: '*',
   },
-  pingTimeout: 60000,    // 60 seconds to wait for pong
-  pingInterval: 25000,   // Send ping every 25 seconds
+  pingTimeout: 30000,    // 30 seconds to wait for pong
+  pingInterval: 10000,   // Send ping every 10 seconds (keeps Railway proxy alive)
+  transports: ['websocket'],
+  allowUpgrades: false,
 })
 export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
@@ -57,61 +59,69 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    // Validate token with full audit logging
-    const validation = await this.agentsService.validateTokenWithAudit(
-      agentId, 
-      token, 
-      clientIp,
-      userAgent
-    );
+    try {
+      // Validate token with full audit logging
+      const validation = await this.agentsService.validateTokenWithAudit(
+        agentId, 
+        token, 
+        clientIp,
+        userAgent
+      );
 
-    if (!validation.valid) {
-      if (validation.expired) {
-        this.logger.warn(`Agent connection rejected: expired token for ${agentId}`);
-        client.emit('error', { 
-          code: 'TOKEN_EXPIRED',
-          message: 'Token has expired. Please rotate your token.',
-        });
-      } else {
-        this.logger.warn(`Agent connection rejected: invalid token for ${agentId}`);
-        client.emit('error', { 
-          code: 'INVALID_TOKEN',
-          message: 'Invalid credentials',
+      if (!validation.valid) {
+        if (validation.expired) {
+          this.logger.warn(`Agent connection rejected: expired token for ${agentId}`);
+          client.emit('error', { 
+            code: 'TOKEN_EXPIRED',
+            message: 'Token has expired. Please rotate your token.',
+          });
+        } else {
+          this.logger.warn(`Agent connection rejected: invalid token for ${agentId}`);
+          client.emit('error', { 
+            code: 'INVALID_TOKEN',
+            message: 'Invalid credentials',
+          });
+        }
+        client.disconnect();
+        return;
+      }
+
+      // Warn about expiring token
+      if (validation.expiringSoon) {
+        this.logger.log(`Agent ${agentId} token expiring soon: ${validation.expiresAt?.toISOString()}`);
+        client.emit('token_warning', {
+          message: 'Token expiring soon',
+          expiresAt: validation.expiresAt?.toISOString(),
         });
       }
+
+      // Log IP change notification (not blocking, just informational)
+      if (validation.ipChanged) {
+        client.emit('security_notice', {
+          type: 'IP_CHANGED',
+          message: 'Connection detected from a new IP address',
+        });
+      }
+
+      const clientTypeLabel = validation.clientType ? ` (${validation.clientType})` : '';
+      this.logger.log(`Agent connected: ${agentId}${clientTypeLabel} from ${maskIpAddress(clientIp)}`);
+      this.socketToAgent.set(client.id, agentId);
+      this.tunnelService.registerAgent(agentId, client);
+
+      // Update last seen (non-blocking to avoid delaying the connection)
+      this.agentsService.heartbeat(agentId, clientIp).catch((err) => {
+        this.logger.warn(`Heartbeat failed for ${agentId}: ${err.message}`);
+      });
+
+      client.emit('connected', { 
+        message: 'Connected to hub',
+        tokenExpiresAt: validation.expiresAt?.toISOString(),
+      });
+    } catch (err: unknown) {
+      const error = err as Error;
+      this.logger.error(`Error handling connection for agent ${agentId}: ${error.message}`);
       client.disconnect();
-      return;
     }
-
-    // Warn about expiring token
-    if (validation.expiringSoon) {
-      this.logger.log(`Agent ${agentId} token expiring soon: ${validation.expiresAt?.toISOString()}`);
-      client.emit('token_warning', {
-        message: 'Token expiring soon',
-        expiresAt: validation.expiresAt?.toISOString(),
-      });
-    }
-
-    // Log IP change notification (not blocking, just informational)
-    if (validation.ipChanged) {
-      client.emit('security_notice', {
-        type: 'IP_CHANGED',
-        message: 'Connection detected from a new IP address',
-      });
-    }
-
-    const clientTypeLabel = validation.clientType ? ` (${validation.clientType})` : '';
-    this.logger.log(`Agent connected: ${agentId}${clientTypeLabel} from ${maskIpAddress(clientIp)}`);
-    this.socketToAgent.set(client.id, agentId);
-    this.tunnelService.registerAgent(agentId, client);
-
-    // Update last seen with IP
-    await this.agentsService.heartbeat(agentId, clientIp);
-
-    client.emit('connected', { 
-      message: 'Connected to hub',
-      tokenExpiresAt: validation.expiresAt?.toISOString(),
-    });
   }
 
   async handleDisconnect(client: Socket) {

@@ -77,8 +77,11 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
   // Register agent first if needed
   await registerAgent(config);
 
+  // When --link is used, skip --public to avoid two competing public URLs
+  const isPublic = options.link ? false : (options.public || false);
+  
   // Register service with hub
-  const service = await registerService(config.agentId, options.name, host, port, options.protocol, options.public || false, config);
+  const service = await registerService(config.agentId, options.name, host, port, options.protocol, isPublic, config);
   
   if (!service) {
     console.error(chalk.red('[x] Failed to register service'));
@@ -119,6 +122,10 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
     }
   }
 
+  // Track state to avoid duplicate work on reconnect
+  let isFirstConnect = true;
+  let linkUrl: string | null = null;
+
   // Connect via WebSocket and set up tunnel
   const socket = io(`${config.hubUrl}/agent`, {
     auth: {
@@ -127,25 +134,31 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
     },
     transports: ['websocket'],
     reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 10000,
+    timeout: 30000,
   });
 
   socket.on('connect', () => {
     const timestamp = new Date().toLocaleTimeString();
-    console.log(chalk.green(`[${timestamp}] Connected to hub`));
+    if (isFirstConnect) {
+      console.log(chalk.green(`[${timestamp}] Connected to hub`));
+    } else {
+      console.log(chalk.green(`[${timestamp}] Reconnected to hub`));
+    }
   });
 
   socket.on('disconnect', (reason: string) => {
     const timestamp = new Date().toLocaleTimeString();
-    console.log(chalk.yellow(`[${timestamp}] Disconnected: ${reason}`));
-  });
-
-  socket.on('reconnect', (attempt: number) => {
-    const timestamp = new Date().toLocaleTimeString();
-    console.log(chalk.green(`[${timestamp}] Reconnected after ${attempt} attempt(s)`));
+    if (reason === 'io server disconnect') {
+      console.log(chalk.red(`[${timestamp}] Disconnected by server`));
+    } else {
+      console.log(chalk.yellow(`[${timestamp}] Connection interrupted, reconnecting...`));
+    }
   });
 
   socket.on('reconnect_attempt', (attempt: number) => {
-    if (attempt === 1 || attempt % 5 === 0) {
+    if (attempt === 1 || attempt % 10 === 0) {
       const timestamp = new Date().toLocaleTimeString();
       console.log(chalk.gray(`[${timestamp}] Reconnecting... (attempt ${attempt})`));
     }
@@ -153,7 +166,10 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
 
   socket.on('connect_error', (err: Error) => {
     const timestamp = new Date().toLocaleTimeString();
-    console.log(chalk.red(`[${timestamp}] Connection error: ${err.message}`));
+    // Only show connection errors on first attempt or periodically
+    if (isFirstConnect) {
+      console.log(chalk.red(`[${timestamp}] Connection error: ${err.message}`));
+    }
   });
 
   // Handle token expiry warnings
@@ -161,9 +177,11 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
     handleTokenExpiry({ expiresAt: data.expiresAt });
   });
 
-  // Handle security notices
+  // Handle security notices (only show on first connect to avoid noise on reconnect)
   socket.on('security_notice', (data: { type: string; message: string }) => {
-    handleSecurityEvent(data);
+    if (isFirstConnect) {
+      handleSecurityEvent(data);
+    }
   });
 
   // Handle auth errors
@@ -180,7 +198,13 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
 
   // Wait for server to confirm connection before setting up tunnel
   socket.on('connected', (data: { message: string; tokenExpiresAt?: string }) => {
-    console.log(chalk.gray('   Connection confirmed, setting up tunnel...'));
+    const isReconnect = !isFirstConnect;
+    
+    if (isReconnect) {
+      console.log(chalk.gray('   Re-establishing tunnel...'));
+    } else {
+      console.log(chalk.gray('   Connection confirmed, setting up tunnel...'));
+    }
     
     // Check token expiry on connect
     if (data.tokenExpiresAt) {
@@ -198,34 +222,46 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
     }, async (response: { success: boolean; error?: string }) => {
       if (response.success) {
         console.log(chalk.green('[ok] Tunnel established'));
-        console.log(chalk.cyan(`\n📡 Service "${options.name}" is now accessible through the hub`));
-
-        // Show how to access the service
-        console.log();
-        if (service.publicUrl) {
-          console.log(chalk.green.bold(`   Public URL: ${service.publicUrl}`));
-          console.log(chalk.gray(`   Anyone can reach this service at the URL above`));
-          console.log();
-        }
-        console.log(chalk.white.bold(`   From another machine:`));
-        console.log(chalk.cyan(`   $ connect reach ${options.name}`));
-        console.log(chalk.gray(`   This creates a local tunnel so the service appears on localhost`));
-        if (!service.publicUrl) {
-          console.log();
-          console.log(chalk.white.bold(`   Want a public URL anyone can open?`));
-          console.log(chalk.cyan(`   $ connect link ${options.name}`));
-        }
         
-        // Auto-run diagnostics to verify the tunnel works
-        console.log(chalk.gray('\n   Running initial diagnostics...'));
-        await runInitialDiagnostics(service.id, options.name, config.hubUrl, config.apiKey);
-        
-        // Auto-create public link if --link flag is set
-        if (options.link) {
-          await createAutoLink(service.id, options.name, options.linkExpires || '24h', config);
-        }
+        if (isReconnect) {
+          // On reconnect, just show a brief status
+          console.log(chalk.cyan(`\n📡 Service "${options.name}" is accessible through the hub`));
+          if (linkUrl) {
+            console.log(chalk.magenta(`\n🔗 Public URL: ${chalk.bold(linkUrl)}`));
+          } else if (service.publicUrl) {
+            console.log(chalk.green.bold(`\n   Public URL: ${service.publicUrl}`));
+          }
+          console.log(chalk.gray('\n   Press Ctrl+C to stop exposing\n'));
+        } else {
+          // First connect: show full banner
+          console.log(chalk.cyan(`\n📡 Service "${options.name}" is now accessible through the hub`));
+          console.log();
+          if (service.publicUrl) {
+            console.log(chalk.green.bold(`   Public URL: ${service.publicUrl}`));
+            console.log(chalk.gray(`   Anyone can reach this service at the URL above`));
+            console.log();
+          }
+          console.log(chalk.white.bold(`   From another machine:`));
+          console.log(chalk.cyan(`   $ connect reach ${options.name}`));
+          console.log(chalk.gray(`   This creates a local tunnel so the service appears on localhost`));
+          if (!service.publicUrl && !options.link) {
+            console.log();
+            console.log(chalk.white.bold(`   Want a public URL anyone can open?`));
+            console.log(chalk.cyan(`   $ connect link ${options.name}`));
+          }
+          
+          // Auto-run diagnostics to verify the tunnel works
+          console.log(chalk.gray('\n   Running initial diagnostics...'));
+          await runInitialDiagnostics(service.id, options.name, config.hubUrl, config.apiKey);
+          
+          // Auto-create public link if --link flag is set (only on first connect)
+          if (options.link) {
+            linkUrl = await createAutoLink(service.id, options.name, options.linkExpires || '24h', config);
+          }
 
-        console.log(chalk.gray('\n   Press Ctrl+C to stop exposing\n'));
+          console.log(chalk.gray('\n   Press Ctrl+C to stop exposing\n'));
+          isFirstConnect = false;
+        }
       } else {
         console.error(chalk.red(`[x] Tunnel setup failed: ${response.error}`));
       }
@@ -438,7 +474,7 @@ async function createAutoLink(
   serviceName: string,
   expiresIn: string,
   config: { hubUrl: string; apiKey: string },
-) {
+): Promise<string | null> {
   try {
     const response = await fetch(`${config.hubUrl}/v1/services/${serviceId}/shares`, {
       method: 'POST',
@@ -454,7 +490,7 @@ async function createAutoLink(
 
     if (!response.ok) {
       console.log(chalk.yellow(`\n   [!] Could not create public link: ${response.statusText}`));
-      return;
+      return null;
     }
 
     const data = await response.json() as {
@@ -465,12 +501,15 @@ async function createAutoLink(
     if (data.success && data.share) {
       const publicUrl = `https://${data.share.token}.privateconnect.co`;
       const expiresAt = new Date(data.share.expiresAt);
-      console.log(chalk.cyan(`\n   🌐 Public URL: ${chalk.bold(publicUrl)}`));
+      console.log(chalk.magenta(`\n   🔗 Public URL: ${chalk.bold(publicUrl)}`));
       console.log(chalk.gray(`      Expires: ${expiresAt.toLocaleString()}`));
+      return publicUrl;
     }
+    return null;
   } catch (err: unknown) {
     const error = err as Error;
     console.log(chalk.yellow(`\n   [!] Auto-link failed: ${error.message}`));
+    return null;
   }
 }
 
