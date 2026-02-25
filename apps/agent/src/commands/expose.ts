@@ -162,8 +162,10 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
     const timestamp = new Date().toLocaleTimeString();
     if (reason === 'io server disconnect') {
       console.log(chalk.yellow(`[${timestamp}] Server restarting, reconnecting...`));
+    } else if (reason === 'io client disconnect') {
+      // Intentional disconnect, no message needed
     } else {
-      console.log(chalk.yellow(`[${timestamp}] Connection interrupted, reconnecting...`));
+      console.log(chalk.gray(`[${timestamp}] Reconnecting... (${reason})`));
     }
   });
 
@@ -281,6 +283,32 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
 
   // Handle HTTP requests forwarded through WebSocket (used by public links)
   const http = await import('http');
+  const CHUNK_THRESHOLD = 5 * 1024 * 1024; // 5MB — chunk larger responses
+  const CHUNK_SIZE = 4 * 1024 * 1024;       // 4MB per chunk
+
+  function sendResponse(
+    sock: typeof socket,
+    requestId: string,
+    status: number,
+    headers: Record<string, string>,
+    body: Buffer,
+  ) {
+    if (body.length <= CHUNK_THRESHOLD) {
+      sock.emit('http_response', { requestId, status, headers, body, bodyEncoding: 'binary' });
+    } else {
+      const totalChunks = Math.ceil(body.length / CHUNK_SIZE);
+      sock.emit('http_response_start', { requestId, status, headers, totalChunks });
+      for (let i = 0; i < totalChunks; i++) {
+        sock.emit('http_response_chunk', {
+          requestId,
+          index: i,
+          data: body.subarray(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE),
+        });
+      }
+      sock.emit('http_response_end', { requestId });
+    }
+  }
+
   socket.on('http_request', async (data: {
     requestId: string;
     serviceId: string;
@@ -311,35 +339,23 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
             if (typeof value === 'string') resHeaders[key] = value;
             else if (Array.isArray(value)) resHeaders[key] = value.join(', ');
           }
-          socket.emit('http_response', {
-            requestId: data.requestId,
-            status: proxyRes.statusCode || 200,
-            headers: resHeaders,
-            body: Buffer.concat(chunks),
-            bodyEncoding: 'binary',
-          });
+          sendResponse(socket, data.requestId, proxyRes.statusCode || 200, resHeaders, Buffer.concat(chunks));
         });
       });
 
       proxyReq.on('error', (err: Error) => {
-        socket.emit('http_response', {
-          requestId: data.requestId,
-          status: 502,
-          headers: { 'content-type': 'application/json' },
-          body: Buffer.from(JSON.stringify({ error: 'Failed to connect to service', message: err.message })),
-          bodyEncoding: 'binary',
-        });
+        sendResponse(socket, data.requestId, 502,
+          { 'content-type': 'application/json' },
+          Buffer.from(JSON.stringify({ error: 'Failed to connect to service', message: err.message })),
+        );
       });
 
       proxyReq.on('timeout', () => {
         proxyReq.destroy();
-        socket.emit('http_response', {
-          requestId: data.requestId,
-          status: 504,
-          headers: { 'content-type': 'application/json' },
-          body: Buffer.from(JSON.stringify({ error: 'Gateway timeout', message: 'Service did not respond in time' })),
-          bodyEncoding: 'binary',
-        });
+        sendResponse(socket, data.requestId, 504,
+          { 'content-type': 'application/json' },
+          Buffer.from(JSON.stringify({ error: 'Gateway timeout', message: 'Service did not respond in time' })),
+        );
       });
 
       if (data.body && data.method !== 'GET' && data.method !== 'HEAD') {
@@ -348,13 +364,10 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
       proxyReq.end();
     } catch (err: unknown) {
       const error = err as Error;
-      socket.emit('http_response', {
-        requestId: data.requestId,
-        status: 502,
-        headers: { 'content-type': 'application/json' },
-        body: Buffer.from(JSON.stringify({ error: 'Failed to connect to service', message: error.message })),
-        bodyEncoding: 'binary',
-      });
+      sendResponse(socket, data.requestId, 502,
+        { 'content-type': 'application/json' },
+        Buffer.from(JSON.stringify({ error: 'Failed to connect to service', message: error.message })),
+      );
     }
   });
 
@@ -470,7 +483,6 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
   });
 
   socket.on('disconnect', () => {
-    console.log(chalk.yellow('[!] Disconnected from hub'));
     if (udpSocket) {
       udpSocket.close();
     }
@@ -486,7 +498,7 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
       if (socket.connected) {
         socket.emit('heartbeat');
       }
-    }, 8000);
+    }, 15000);
   });
 
   socket.on('disconnect', () => {

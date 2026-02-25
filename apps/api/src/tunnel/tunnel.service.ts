@@ -69,6 +69,16 @@ interface PendingHttpRequest {
   timeout: NodeJS.Timeout;
 }
 
+interface PendingChunkedResponse {
+  status: number;
+  headers: Record<string, string>;
+  totalChunks: number;
+  chunks: Map<number, Buffer>;
+  resolve: (response: { status: number; headers: Record<string, string>; body: Buffer }) => void;
+  reject: (error: Error) => void;
+  timeout: NodeJS.Timeout;
+}
+
 @Injectable()
 export class TunnelService {
   private readonly logger = new SecureLogger(TunnelService.name);
@@ -76,6 +86,7 @@ export class TunnelService {
   private pendingConnections = new Map<string, PendingConnection>();
   private agentBridges = new Map<string, AgentBridge>();
   private pendingHttpRequests = new Map<string, PendingHttpRequest>();
+  private pendingChunkedResponses = new Map<string, PendingChunkedResponse>();
   
   // Track which connections have debug sessions
   private connectionDebugSessions = new Map<string, string>(); // connectionId -> sessionId
@@ -153,6 +164,11 @@ export class TunnelService {
         clearTimeout(pending.timeout);
         pending.reject(new Error('Agent reconnecting'));
         this.pendingHttpRequests.delete(requestId);
+      }
+      for (const [requestId, pending] of this.pendingChunkedResponses.entries()) {
+        clearTimeout(pending.timeout);
+        pending.reject(new Error('Agent reconnecting'));
+        this.pendingChunkedResponses.delete(requestId);
       }
     }
 
@@ -862,6 +878,59 @@ export class TunnelService {
         body: bodyBuffer,
       });
     }
+  }
+
+  handleHttpResponseStart(
+    requestId: string,
+    data: { status: number; headers: Record<string, string>; totalChunks: number },
+  ): void {
+    const pending = this.pendingHttpRequests.get(requestId);
+    if (!pending) return;
+
+    clearTimeout(pending.timeout);
+    this.pendingHttpRequests.delete(requestId);
+
+    const timeout = setTimeout(() => {
+      this.pendingChunkedResponses.delete(requestId);
+      pending.reject(new Error('Request timeout'));
+    }, 120000);
+
+    this.pendingChunkedResponses.set(requestId, {
+      status: data.status,
+      headers: data.headers,
+      totalChunks: data.totalChunks,
+      chunks: new Map(),
+      resolve: pending.resolve,
+      reject: pending.reject,
+      timeout,
+    });
+  }
+
+  handleHttpResponseChunk(
+    requestId: string,
+    data: { index: number; data: Buffer | string },
+  ): void {
+    const pending = this.pendingChunkedResponses.get(requestId);
+    if (!pending) return;
+    pending.chunks.set(data.index, Buffer.isBuffer(data.data) ? data.data : Buffer.from(data.data));
+  }
+
+  handleHttpResponseEnd(requestId: string): void {
+    const pending = this.pendingChunkedResponses.get(requestId);
+    if (!pending) return;
+
+    clearTimeout(pending.timeout);
+    this.pendingChunkedResponses.delete(requestId);
+
+    const sorted = Array.from(pending.chunks.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([, buf]) => buf);
+
+    pending.resolve({
+      status: pending.status,
+      headers: pending.headers,
+      body: Buffer.concat(sorted),
+    });
   }
 
   /**

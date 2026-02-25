@@ -17,9 +17,9 @@ import { SecureLogger, extractClientIp, maskIpAddress } from '../common/security
   cors: {
     origin: '*',
   },
-  maxHttpBufferSize: 50e6, // 50MB - needed for base64-encoded HTTP responses (images, pages)
-  pingTimeout: 30000,
-  pingInterval: 10000,
+  maxHttpBufferSize: 200e6, // 200MB - large game assets, binary transport
+  pingTimeout: 120000,
+  pingInterval: 25000,
   transports: ['websocket'],
   allowUpgrades: false,
 })
@@ -241,6 +241,36 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     this.tunnelService.handleHttpResponse(data.requestId, agentId, data);
+  }
+
+  @SubscribeMessage('http_response_start')
+  handleHttpResponseStart(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { requestId: string; status: number; headers: Record<string, string>; totalChunks: number },
+  ) {
+    const agentId = this.socketToAgent.get(client.id);
+    if (!agentId) return;
+    this.tunnelService.handleHttpResponseStart(data.requestId, data);
+  }
+
+  @SubscribeMessage('http_response_chunk')
+  handleHttpResponseChunk(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { requestId: string; index: number; data: Buffer | string },
+  ) {
+    const agentId = this.socketToAgent.get(client.id);
+    if (!agentId) return;
+    this.tunnelService.handleHttpResponseChunk(data.requestId, data);
+  }
+
+  @SubscribeMessage('http_response_end')
+  handleHttpResponseEnd(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { requestId: string },
+  ) {
+    const agentId = this.socketToAgent.get(client.id);
+    if (!agentId) return;
+    this.tunnelService.handleHttpResponseEnd(data.requestId);
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
