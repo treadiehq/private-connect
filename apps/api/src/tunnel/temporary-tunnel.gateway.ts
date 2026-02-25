@@ -16,6 +16,7 @@ import { SecureLogger } from '../common/security';
   cors: {
     origin: '*',
   },
+  maxHttpBufferSize: 50e6, // 50MB - needed for base64-encoded HTTP responses
   pingTimeout: 30000,
   pingInterval: 10000,
   transports: ['websocket'],

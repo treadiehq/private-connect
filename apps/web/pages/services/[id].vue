@@ -159,11 +159,12 @@
               <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-300 mb-2">Subdomain</label>
                 <div class="flex items-center gap-0">
+                  <span class="text-gray-500 text-sm font-mono bg-gray-500/5 border border-r-0 border-gray-500/10 rounded-l-lg px-3 py-2">pc-</span>
                   <input
                     v-model="subdomainInput"
                     type="text"
                     placeholder="my-staging-api"
-                    class="w-40 bg-gray-500/10 border border-gray-500/10 rounded-l-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent"
+                    class="w-36 bg-gray-500/10 border border-gray-500/10 px-3 py-2 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent"
                     :class="{ 
                       'border-red-400': subdomainError,
                       'border-green-300': subdomainAvailable && subdomainInput
@@ -186,9 +187,9 @@
               <div v-if="subdomainInput && subdomainAvailable" class="mb-4 p-3 bg-gray-500/10 border border-gray-500/10 rounded-lg">
                 <div class="text-xs text-gray-500 mb-1">Public URL</div>
                 <div class="flex items-center justify-between gap-2">
-                  <div class="text-sm text-cyan-300 font-mono truncate">https://{{ subdomainInput }}.privateconnect.co</div>
+                  <div class="text-sm text-cyan-300 font-mono truncate">https://pc-{{ subdomainInput }}.privateconnect.co</div>
                   <button
-                    @click="copyToClipboard(`https://${subdomainInput}.privateconnect.co`)"
+                    @click="copyToClipboard(`https://pc-${subdomainInput}.privateconnect.co`)"
                     class="text-gray-500 hover:text-white transition-colors shrink-0 p-1"
                     title="Copy URL"
                   >
@@ -787,26 +788,30 @@ const handleReachCheck = async (agentId: string) => {
 // Subdomain functions
 watch(showSubdomainModal, (open) => {
   if (open) {
-    // Pre-fill with existing subdomain
-    subdomainInput.value = service.value?.publicSubdomain || '';
+    // Pre-fill with existing subdomain (strip pc- prefix for the input)
+    const existing = service.value?.publicSubdomain || '';
+    subdomainInput.value = existing.startsWith('pc-') ? existing.slice(3) : existing;
     subdomainError.value = '';
     subdomainAvailable.value = !!service.value?.publicSubdomain;
   }
 });
 
-// Normalize subdomain: accept pasted full URL and extract subdomain
+// Normalize subdomain: accept pasted full URL and extract the user part (without pc- prefix)
 function normalizeSubdomainInput(raw: string): string {
   const trimmed = raw.trim();
   const lower = trimmed.toLowerCase();
-  // Handle subdomain format: https://my-app.privateconnect.co
+  let result = lower;
+  // Handle subdomain format: https://pc-my-app.privateconnect.co
   const subdomainMatch = lower.match(/^https?:\/\/([a-z0-9-]+)\.privateconnect\.co/);
-  if (subdomainMatch) return subdomainMatch[1];
+  if (subdomainMatch) result = subdomainMatch[1];
   // Handle legacy path format: https://app.privateconnect.co/w/my-app
   const wMatch = lower.match(/\/w\/([a-z0-9-]+)\/?$/);
-  if (wMatch) return wMatch[1];
+  if (wMatch) result = wMatch[1];
   const pathMatch = lower.match(/privateconnect\.co\/w\/([a-z0-9-]+)/);
-  if (pathMatch) return pathMatch[1];
-  return lower;
+  if (pathMatch) result = pathMatch[1];
+  // Strip pc- prefix so the input only shows the user-chosen part
+  if (result.startsWith('pc-')) result = result.slice(3);
+  return result;
 }
 
 const checkSubdomainDebounced = () => {

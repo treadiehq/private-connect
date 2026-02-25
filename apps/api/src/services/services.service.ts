@@ -55,8 +55,12 @@ export class ServicesService implements OnModuleInit {
   }
 
   private generateSubdomain(): string {
-    // Generate a short, URL-safe random subdomain (8 chars)
-    return randomBytes(4).toString('hex');
+    return `pc-${randomBytes(4).toString('hex')}`;
+  }
+
+  /** Ensure a subdomain has the required pc- prefix */
+  ensurePcPrefix(subdomain: string): string {
+    return subdomain.startsWith('pc-') ? subdomain : `pc-${subdomain}`;
   }
 
   getPublicUrl(subdomain: string): string {
@@ -148,31 +152,30 @@ export class ServicesService implements OnModuleInit {
   ]);
 
   validateSubdomain(subdomain: string): { valid: boolean; error?: string } {
-    // Length check: 3-32 characters
-    if (subdomain.length < 3) {
+    // Strip pc- prefix for validation of the user-chosen part
+    const userPart = subdomain.startsWith('pc-') ? subdomain.slice(3) : subdomain;
+
+    if (userPart.length < 3) {
       return { valid: false, error: 'Subdomain must be at least 3 characters' };
     }
-    if (subdomain.length > 32) {
+    if (userPart.length > 32) {
       return { valid: false, error: 'Subdomain must be 32 characters or less' };
     }
 
-    // Only lowercase alphanumeric and hyphens
-    if (!/^[a-z0-9-]+$/.test(subdomain)) {
+    if (!/^[a-z0-9-]+$/.test(userPart)) {
       return { valid: false, error: 'Subdomain can only contain lowercase letters, numbers, and hyphens' };
     }
 
-    // Can't start or end with hyphen
-    if (subdomain.startsWith('-') || subdomain.endsWith('-')) {
+    if (userPart.startsWith('-') || userPart.endsWith('-')) {
       return { valid: false, error: 'Subdomain cannot start or end with a hyphen' };
     }
 
-    // No consecutive hyphens
-    if (subdomain.includes('--')) {
+    if (userPart.includes('--')) {
       return { valid: false, error: 'Subdomain cannot contain consecutive hyphens' };
     }
 
-    // Check reserved
-    if (this.RESERVED_SUBDOMAINS.has(subdomain)) {
+    const fullSubdomain = this.ensurePcPrefix(subdomain);
+    if (this.RESERVED_SUBDOMAINS.has(fullSubdomain)) {
       return { valid: false, error: 'This subdomain is reserved' };
     }
 
@@ -225,8 +228,11 @@ export class ServicesService implements OnModuleInit {
       return { success: false, error: validation.error };
     }
 
+    // Ensure pc- prefix
+    const fullSubdomain = this.ensurePcPrefix(subdomain);
+
     // Check availability
-    const available = await this.isSubdomainAvailable(subdomain, serviceId);
+    const available = await this.isSubdomainAvailable(fullSubdomain, serviceId);
     if (!available) {
       return { success: false, error: 'This subdomain is already taken' };
     }
@@ -235,7 +241,7 @@ export class ServicesService implements OnModuleInit {
     const updated = await this.prisma.service.update({
       where: { id: serviceId },
       data: {
-        publicSubdomain: subdomain,
+        publicSubdomain: fullSubdomain,
         isPublic: true,
       },
       include: { agent: true },

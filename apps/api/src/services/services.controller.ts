@@ -557,14 +557,15 @@ export class ServicesController {
       return { available: false, valid: false, error: validation.error };
     }
     
-    // Check availability
-    const available = await this.servicesService.isSubdomainAvailable(normalizedSubdomain, id);
+    // Check availability with pc- prefix
+    const fullSubdomain = this.servicesService.ensurePcPrefix(normalizedSubdomain);
+    const available = await this.servicesService.isSubdomainAvailable(fullSubdomain, id);
     
     return { 
       available, 
       valid: true,
-      subdomain: normalizedSubdomain,
-      publicUrl: available ? this.servicesService.getPublicUrl(normalizedSubdomain) : null,
+      subdomain: fullSubdomain,
+      publicUrl: available ? this.servicesService.getPublicUrl(fullSubdomain) : null,
     };
   }
 

@@ -3,8 +3,8 @@ const KNOWN_SUBDOMAINS = [
   'help', 'support', 'status', 'mail', 'ftp', 'ssh', 'git', 'cdn',
   'static', 'assets', 'media', 'images', 'files', 'download', 'upload',
   'auth', 'login', 'logout', 'signup', 'register', 'account', 'settings',
-  'billing', 'pricing', 'about', 'contact', 'terms',  'privacy', 'legal',
-  'doc', 'link',
+  'billing', 'pricing', 'about', 'contact', 'terms', 'faq', 'changelog', 'roadmap', 'team', 'team-members', 'team-leader', 'privacy', 'legal',
+  'doc', 'link', 'privateconnect', 'connect', 'cli'
 ];
 
 export default defineEventHandler(async (event) => {

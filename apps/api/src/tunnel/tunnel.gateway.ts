@@ -17,8 +17,9 @@ import { SecureLogger, extractClientIp, maskIpAddress } from '../common/security
   cors: {
     origin: '*',
   },
-  pingTimeout: 30000,    // 30 seconds to wait for pong
-  pingInterval: 10000,   // Send ping every 10 seconds (keeps Railway proxy alive)
+  maxHttpBufferSize: 50e6, // 50MB - needed for base64-encoded HTTP responses (images, pages)
+  pingTimeout: 30000,
+  pingInterval: 10000,
   transports: ['websocket'],
   allowUpgrades: false,
 })
