@@ -459,9 +459,30 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
     }
   });
 
+  // Application-level keepalive to prevent Railway/proxy idle timeouts.
+  // Engine.IO ping/pong may not be recognized as activity by all reverse proxies.
+  let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  
+  socket.on('connect', () => {
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    heartbeatInterval = setInterval(() => {
+      if (socket.connected) {
+        socket.emit('heartbeat');
+      }
+    }, 8000);
+  });
+
+  socket.on('disconnect', () => {
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+      heartbeatInterval = null;
+    }
+  });
+
   // Handle process signals
   process.on('SIGINT', () => {
     console.log(chalk.yellow('\n👋 Stopping exposure...'));
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
     socket.disconnect();
     process.exit(0);
   });

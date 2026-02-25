@@ -230,6 +230,9 @@ async function createLocalTunnel(
     },
     transports: ['websocket'],
     reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 10000,
+    timeout: 30000,
   });
 
   const connections = new Map<string, { localSocket: net.Socket; ready: boolean; buffer: Buffer[] }>();
@@ -401,9 +404,29 @@ async function createLocalTunnel(
     });
   });
 
+  // Application-level keepalive to prevent proxy idle timeouts
+  let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  
+  socket.on('connect', () => {
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    heartbeatInterval = setInterval(() => {
+      if (socket.connected) {
+        socket.emit('heartbeat');
+      }
+    }, 8000);
+  });
+
+  socket.on('disconnect', () => {
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+      heartbeatInterval = null;
+    }
+  });
+
   // Handle shutdown
   process.on('SIGINT', () => {
     console.log(chalk.yellow('\n👋 Disconnecting...'));
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
     try { unregisterRoute(service.name); } catch { /* cleanup best-effort */ }
     server.close();
     socket.disconnect();
@@ -411,6 +434,7 @@ async function createLocalTunnel(
   });
 
   process.on('SIGTERM', () => {
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
     try { unregisterRoute(service.name); } catch { /* cleanup best-effort */ }
     server.close();
     socket.disconnect();
