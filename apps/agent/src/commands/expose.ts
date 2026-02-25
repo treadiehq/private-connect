@@ -123,8 +123,9 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
   }
 
   // Track state to avoid duplicate work on reconnect
-  let isFirstConnect = true;
+  let tunnelReady = false;
   let linkUrl: string | null = null;
+  let connectGeneration = 0; // Incremented on each connect to cancel stale handlers
 
   // Connect via WebSocket and set up tunnel
   const socket = io(`${config.hubUrl}/agent`, {
@@ -141,7 +142,7 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
 
   socket.on('connect', () => {
     const timestamp = new Date().toLocaleTimeString();
-    if (isFirstConnect) {
+    if (!tunnelReady) {
       console.log(chalk.green(`[${timestamp}] Connected to hub`));
     } else {
       console.log(chalk.green(`[${timestamp}] Reconnected to hub`));
@@ -151,7 +152,7 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
   socket.on('disconnect', (reason: string) => {
     const timestamp = new Date().toLocaleTimeString();
     if (reason === 'io server disconnect') {
-      console.log(chalk.red(`[${timestamp}] Disconnected by server`));
+      console.log(chalk.yellow(`[${timestamp}] Server restarting, reconnecting...`));
     } else {
       console.log(chalk.yellow(`[${timestamp}] Connection interrupted, reconnecting...`));
     }
@@ -166,8 +167,7 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
 
   socket.on('connect_error', (err: Error) => {
     const timestamp = new Date().toLocaleTimeString();
-    // Only show connection errors on first attempt or periodically
-    if (isFirstConnect) {
+    if (!tunnelReady) {
       console.log(chalk.red(`[${timestamp}] Connection error: ${err.message}`));
     }
   });
@@ -177,9 +177,9 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
     handleTokenExpiry({ expiresAt: data.expiresAt });
   });
 
-  // Handle security notices (only show on first connect to avoid noise on reconnect)
+  // Handle security notices (only show on first connect)
   socket.on('security_notice', (data: { type: string; message: string }) => {
-    if (isFirstConnect) {
+    if (!tunnelReady) {
       handleSecurityEvent(data);
     }
   });
@@ -196,9 +196,11 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
     }
   });
 
-  // Wait for server to confirm connection before setting up tunnel
+  // Wait for server to confirm connection before setting up tunnel.
+  // Uses a generation counter so rapid reconnects don't race.
   socket.on('connected', (data: { message: string; tokenExpiresAt?: string }) => {
-    const isReconnect = !isFirstConnect;
+    const isReconnect = tunnelReady;
+    const myGeneration = ++connectGeneration;
     
     if (isReconnect) {
       console.log(chalk.gray('   Re-establishing tunnel...'));
@@ -206,12 +208,11 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
       console.log(chalk.gray('   Connection confirmed, setting up tunnel...'));
     }
     
-    // Check token expiry on connect
     if (data.tokenExpiresAt) {
       handleTokenExpiry({ expiresAt: data.tokenExpiresAt });
     }
     
-    // Request tunnel setup
+    // Always re-send expose to ensure the tunnel is set up on the current socket
     socket.emit('expose', {
       serviceId: service.id,
       serviceName: options.name,
@@ -220,11 +221,13 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
       targetPort: port,
       protocol: options.protocol,
     }, async (response: { success: boolean; error?: string }) => {
+      // If another connect happened since we started, abandon this callback
+      if (myGeneration !== connectGeneration) return;
+      
       if (response.success) {
         console.log(chalk.green('[ok] Tunnel established'));
         
         if (isReconnect) {
-          // On reconnect, just show a brief status
           console.log(chalk.cyan(`\n📡 Service "${options.name}" is accessible through the hub`));
           if (linkUrl) {
             console.log(chalk.magenta(`\n🔗 Public URL: ${chalk.bold(linkUrl)}`));
@@ -233,7 +236,6 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
           }
           console.log(chalk.gray('\n   Press Ctrl+C to stop exposing\n'));
         } else {
-          // First connect: show full banner
           console.log(chalk.cyan(`\n📡 Service "${options.name}" is now accessible through the hub`));
           console.log();
           if (service.publicUrl) {
@@ -250,17 +252,17 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
             console.log(chalk.cyan(`   $ connect link ${options.name}`));
           }
           
-          // Auto-run diagnostics to verify the tunnel works
           console.log(chalk.gray('\n   Running initial diagnostics...'));
+          if (myGeneration !== connectGeneration) return;
           await runInitialDiagnostics(service.id, options.name, config.hubUrl, config.apiKey);
           
-          // Auto-create public link if --link flag is set (only on first connect)
-          if (options.link) {
+          if (myGeneration !== connectGeneration) return;
+          if (options.link && !linkUrl) {
             linkUrl = await createAutoLink(service.id, options.name, options.linkExpires || '24h', config);
           }
 
           console.log(chalk.gray('\n   Press Ctrl+C to stop exposing\n'));
-          isFirstConnect = false;
+          tunnelReady = true;
         }
       } else {
         console.error(chalk.red(`[x] Tunnel setup failed: ${response.error}`));

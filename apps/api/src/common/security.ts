@@ -180,19 +180,25 @@ export function maskIpAddress(ip: string | undefined): string {
  * value is trivially spoofable by the client.
  */
 export function extractClientIp(headers: Record<string, string | string[] | undefined>): string | undefined {
+  // Prefer Cloudflare's true client IP header (not affected by proxy rotation)
+  const cfIp = headers['cf-connecting-ip'];
+  if (cfIp) {
+    return Array.isArray(cfIp) ? cfIp[0] : cfIp;
+  }
+
   const forwardedFor = headers['x-forwarded-for'];
   if (forwardedFor) {
     const raw = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
     const ips = raw.split(',').map(ip => ip.trim()).filter(Boolean);
-    // Rightmost IP is the one appended by the nearest trusted proxy
-    return ips[ips.length - 1];
+    // Leftmost IP is the original client; rightmost is the nearest proxy
+    return ips[0];
   }
-  
+
   const realIp = headers['x-real-ip'];
   if (realIp) {
     return Array.isArray(realIp) ? realIp[0] : realIp;
   }
-  
+
   return undefined;
 }
 
