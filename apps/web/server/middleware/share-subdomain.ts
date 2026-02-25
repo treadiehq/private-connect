@@ -47,6 +47,7 @@ export default defineEventHandler(async (event) => {
       body,
       redirect: 'manual',
       responseType: 'arrayBuffer',
+      timeout: 65000,
     });
 
     for (const [key, value] of response.headers.entries()) {

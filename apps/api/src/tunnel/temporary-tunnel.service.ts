@@ -703,21 +703,28 @@ export class TemporaryTunnelService implements OnModuleDestroy {
     tunnel.requestCount++;
     
     return new Promise((resolve, reject) => {
-      // Set timeout for request
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(requestId);
         reject(new Error('Request timeout'));
-      }, 30000);
+      }, 60000);
       
       this.pendingRequests.set(requestId, { resolve, reject, timeout });
       
-      // Send request to CLI via WebSocket
-      tunnel.socket.emit('http_request', {
+      tunnel.socket.timeout(5000).emit('http_request', {
         requestId,
         method: request.method,
         path: request.path,
         headers: request.headers,
         body: request.body,
+      }, (err: Error | null) => {
+        if (err) {
+          const pending = this.pendingRequests.get(requestId);
+          if (pending) {
+            clearTimeout(pending.timeout);
+            this.pendingRequests.delete(requestId);
+            reject(new Error('Tunnel not connected'));
+          }
+        }
       });
     });
   }

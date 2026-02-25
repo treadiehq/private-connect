@@ -288,7 +288,9 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
     path: string;
     headers: Record<string, string>;
     body: string;
-  }) => {
+  }, ack?: (resp: { received: boolean }) => void) => {
+    if (ack) ack({ received: true });
+
     try {
       const proxyReq = http.request({
         hostname: host,
@@ -299,7 +301,7 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
           ...data.headers,
           host: `${host}:${port}`,
         },
-        timeout: 30000,
+        timeout: 55000,
       }, (proxyRes) => {
         const chunks: Buffer[] = [];
         proxyRes.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -313,8 +315,8 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
             requestId: data.requestId,
             status: proxyRes.statusCode || 200,
             headers: resHeaders,
-            body: Buffer.concat(chunks).toString('base64'),
-            bodyEncoding: 'base64',
+            body: Buffer.concat(chunks),
+            bodyEncoding: 'binary',
           });
         });
       });
@@ -324,8 +326,8 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
           requestId: data.requestId,
           status: 502,
           headers: { 'content-type': 'application/json' },
-          body: Buffer.from(JSON.stringify({ error: 'Failed to connect to service', message: err.message })).toString('base64'),
-          bodyEncoding: 'base64',
+          body: Buffer.from(JSON.stringify({ error: 'Failed to connect to service', message: err.message })),
+          bodyEncoding: 'binary',
         });
       });
 
@@ -335,8 +337,8 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
           requestId: data.requestId,
           status: 504,
           headers: { 'content-type': 'application/json' },
-          body: Buffer.from(JSON.stringify({ error: 'Gateway timeout', message: 'Service did not respond in time' })).toString('base64'),
-          bodyEncoding: 'base64',
+          body: Buffer.from(JSON.stringify({ error: 'Gateway timeout', message: 'Service did not respond in time' })),
+          bodyEncoding: 'binary',
         });
       });
 
@@ -350,8 +352,8 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
         requestId: data.requestId,
         status: 502,
         headers: { 'content-type': 'application/json' },
-        body: Buffer.from(JSON.stringify({ error: 'Failed to connect to service', message: error.message })).toString('base64'),
-        bodyEncoding: 'base64',
+        body: Buffer.from(JSON.stringify({ error: 'Failed to connect to service', message: error.message })),
+        bodyEncoding: 'binary',
       });
     }
   });

@@ -810,17 +810,28 @@ export class TunnelService {
       const timeout = setTimeout(() => {
         this.pendingHttpRequests.delete(requestId);
         reject(new Error('Request timeout'));
-      }, 30000);
+      }, 60000);
 
       this.pendingHttpRequests.set(requestId, { resolve, reject, timeout });
 
-      agent.socket.emit('http_request', {
+      const payload = {
         requestId,
         serviceId,
         method: request.method,
         path: request.path,
         headers: request.headers,
         body: typeof request.body === 'string' ? request.body : request.body.toString('base64'),
+      };
+
+      agent.socket.timeout(5000).emit('http_request', payload, (err: Error | null) => {
+        if (err) {
+          const pending = this.pendingHttpRequests.get(requestId);
+          if (pending) {
+            clearTimeout(pending.timeout);
+            this.pendingHttpRequests.delete(requestId);
+            reject(new Error('Agent not connected'));
+          }
+        }
       });
     });
   }
@@ -831,15 +842,20 @@ export class TunnelService {
   handleHttpResponse(
     requestId: string,
     agentId: string,
-    response: { status: number; headers: Record<string, string>; body: string; bodyEncoding?: string },
+    response: { status: number; headers: Record<string, string>; body: string | Buffer; bodyEncoding?: string },
   ): void {
     const pending = this.pendingHttpRequests.get(requestId);
     if (pending) {
       clearTimeout(pending.timeout);
       this.pendingHttpRequests.delete(requestId);
-      const bodyBuffer = response.bodyEncoding === 'base64'
-        ? Buffer.from(response.body, 'base64')
-        : Buffer.from(response.body, 'utf-8');
+      let bodyBuffer: Buffer;
+      if (Buffer.isBuffer(response.body)) {
+        bodyBuffer = response.body;
+      } else if (response.bodyEncoding === 'base64') {
+        bodyBuffer = Buffer.from(response.body, 'base64');
+      } else {
+        bodyBuffer = Buffer.from(response.body, 'utf-8');
+      }
       pending.resolve({
         status: response.status,
         headers: response.headers,
