@@ -24,6 +24,7 @@ import { AuthService } from '../auth/auth.service';
 import { TemporaryTunnelService } from '../tunnel/temporary-tunnel.service';
 import { TunnelService } from '../tunnel/tunnel.service';
 import { CombinedAuthGuard } from '../auth/combined-auth.guard';
+import { DebugService } from '../debug/debug.service';
 import * as http from 'http';
 import * as https from 'https';
 import * as net from 'net';
@@ -57,6 +58,8 @@ export class SharesController {
     private tempTunnelService: TemporaryTunnelService,
     @Inject(forwardRef(() => TunnelService))
     private tunnelService: TunnelService,
+    @Inject(forwardRef(() => DebugService))
+    private debugService: DebugService,
   ) {}
 
   @Post('v1/services/:serviceId/shares')
@@ -725,6 +728,12 @@ export class SharesController {
       return;
     }
 
+    // Check for active debug session on this service
+    const debugSessionId = this.debugService.getSessionForService(service.id);
+    const connectionId = debugSessionId
+      ? `share-${share.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      : '';
+
     try {
       // Collect request body
       const chunks: Buffer[] = [];
@@ -747,6 +756,18 @@ export class SharesController {
       const queryString = req.url.includes('?') ? '?' + req.url.split('?')[1] : '';
       const requestPath = (path || '/') + queryString;
 
+      // Capture inbound request for debug inspector
+      if (debugSessionId) {
+        const reqPayload = `${req.method} ${requestPath} HTTP/1.1\r\n${Object.entries(requestHeaders).map(([k, v]) => `${k}: ${v}`).join('\r\n')}\r\n\r\n${requestBody}`;
+        this.debugService.capturePacket({
+          sessionId: debugSessionId,
+          connectionId,
+          direction: 'inbound',
+          payload: Buffer.from(reqPayload),
+          timestamp: new Date(),
+        }).catch(err => this.logger.warn(`Failed to capture request: ${err.message}`));
+      }
+
       const response = await this.tunnelService.forwardHttpRequest(
         service.agentId,
         service.id,
@@ -757,6 +778,18 @@ export class SharesController {
           body: requestBody,
         },
       );
+
+      // Capture outbound response for debug inspector
+      if (debugSessionId) {
+        const resPayload = `HTTP/1.1 ${response.status}\r\n${Object.entries(response.headers).map(([k, v]) => `${k}: ${v}`).join('\r\n')}\r\n\r\n${response.body.toString('utf-8').slice(0, 10000)}`;
+        this.debugService.capturePacket({
+          sessionId: debugSessionId,
+          connectionId,
+          direction: 'outbound',
+          payload: Buffer.from(resPayload),
+          timestamp: new Date(),
+        }).catch(err => this.logger.warn(`Failed to capture response: ${err.message}`));
+      }
 
       const latencyMs = Date.now() - startTime;
 
@@ -851,6 +884,11 @@ export class SharesController {
       return;
     }
 
+    const debugSessionId = this.debugService.getSessionForService(service.id);
+    const connectionId = debugSessionId
+      ? `public-${service.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      : '';
+
     try {
       const chunks: Buffer[] = [];
       for await (const chunk of req) {
@@ -869,6 +907,17 @@ export class SharesController {
       const queryString = req.url.includes('?') ? '?' + req.url.split('?')[1] : '';
       const requestPath = (path || '/') + queryString;
 
+      if (debugSessionId) {
+        const reqPayload = `${req.method} ${requestPath} HTTP/1.1\r\n${Object.entries(requestHeaders).map(([k, v]) => `${k}: ${v}`).join('\r\n')}\r\n\r\n${requestBody}`;
+        this.debugService.capturePacket({
+          sessionId: debugSessionId,
+          connectionId,
+          direction: 'inbound',
+          payload: Buffer.from(reqPayload),
+          timestamp: new Date(),
+        }).catch(err => this.logger.warn(`Failed to capture request: ${err.message}`));
+      }
+
       const response = await this.tunnelService.forwardHttpRequest(
         service.agentId,
         service.id,
@@ -879,6 +928,17 @@ export class SharesController {
           body: requestBody,
         },
       );
+
+      if (debugSessionId) {
+        const resPayload = `HTTP/1.1 ${response.status}\r\n${Object.entries(response.headers).map(([k, v]) => `${k}: ${v}`).join('\r\n')}\r\n\r\n${response.body.toString('utf-8').slice(0, 10000)}`;
+        this.debugService.capturePacket({
+          sessionId: debugSessionId,
+          connectionId,
+          direction: 'outbound',
+          payload: Buffer.from(resPayload),
+          timestamp: new Date(),
+        }).catch(err => this.logger.warn(`Failed to capture response: ${err.message}`));
+      }
 
       for (const [key, value] of Object.entries(response.headers)) {
         if (value && !['transfer-encoding', 'connection', 'content-length'].includes(key.toLowerCase())) {

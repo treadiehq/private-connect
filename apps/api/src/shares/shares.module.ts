@@ -5,9 +5,10 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { ServicesModule } from '../services/services.module';
 import { AuthModule } from '../auth/auth.module';
 import { TunnelModule } from '../tunnel/tunnel.module';
+import { DebugModule } from '../debug/debug.module';
 
 @Module({
-  imports: [PrismaModule, ServicesModule, AuthModule, forwardRef(() => TunnelModule)],
+  imports: [PrismaModule, ServicesModule, AuthModule, forwardRef(() => TunnelModule), forwardRef(() => DebugModule)],
   controllers: [SharesController],
   providers: [SharesService],
   exports: [SharesService],
