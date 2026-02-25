@@ -307,18 +307,18 @@ program
   });
 
 program
-  .command('link <service>')
-  .description('Create a public URL for a service (no account needed to access)')
+  .command('link [target]')
+  .description('Create a public URL — auto-detects and exposes the service if needed')
   .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-e, --expires <duration>', 'Expiration: 1h, 24h, 7d, 30d, never', parseDuration, '24h')
   .option('-m, --methods <methods>', 'Allowed HTTP methods (comma-separated)', parseMethods)
   .option('-p, --paths <paths>', 'Allowed paths (comma-separated, e.g., /api,/health)', parsePaths)
   .option('-r, --rate-limit <rpm>', 'Rate limit per minute', parseLimit)
-  .option('-n, --name <name>', 'Link name (for identification)')
+  .option('-n, --name <name>', 'Service name (auto-detected if not provided)')
   .option('-c, --config <path>', 'Config file path (for multiple agents)')
-  .action((service, options) => {
+  .action((target, options) => {
     if (options.config) setConfigPath(options.config);
-    linkCommand(service, options);
+    linkCommand(target, options);
   });
 
 program
