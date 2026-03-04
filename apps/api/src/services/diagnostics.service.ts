@@ -7,8 +7,8 @@ import * as http from 'http';
 
 export interface TlsDetails {
   valid: boolean;
-  issuer?: string;
-  subject?: string;
+  issuer?: string | string[];
+  subject?: string | string[];
   validFrom?: string;
   validTo?: string;
   daysUntilExpiry?: number;
