@@ -1,7 +1,11 @@
 import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
+
+function hashApiKey(key: string): string {
+  return createHash('sha256').update(key).digest('hex');
+}
 
 @Injectable()
 export class ApiKeysService {
@@ -17,13 +21,14 @@ export class ApiKeysService {
   }> {
     const key = `pc_${randomBytes(24).toString('hex')}`;
     const keyPrefix = key.slice(0, 11); // "pc_" + first 8 chars
+    const keyHash = hashApiKey(key);
 
     try {
       const apiKey = await this.prisma.apiKey.create({
         data: {
           workspaceId,
           name: name.trim(),
-          key,
+          keyHash,
           keyPrefix,
         },
       });
@@ -91,10 +96,11 @@ export class ApiKeysService {
 
   // Validate an API key and return the workspace
   async validateApiKey(key: string) {
+    const keyHash = hashApiKey(key);
     // Use withoutRls() for API key validation - we don't know the workspace yet
     const apiKey = await this.prisma.withoutRls(() =>
       this.prisma.apiKey.findUnique({
-        where: { key },
+        where: { keyHash },
         include: { workspace: true },
       })
     );

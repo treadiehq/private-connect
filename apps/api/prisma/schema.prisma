@@ -62,7 +62,7 @@ model Workspace {
   // AI Copilot settings (workspace-level defaults)
   aiProvider    String?   // ollama | openai | anthropic
   aiModel       String?   // Model name (e.g., llama3, gpt-4o, claude-sonnet)
-  aiApiKey      String?   // Encrypted API key for cloud providers
+  aiApiKey      String?   // AES-256-GCM encrypted API key for cloud providers (see encryptField/decryptField in security.ts)
   aiAutoAnalyze Boolean   @default(false) // Auto-analyze errors
   aiOllamaUrl   String?   // Custom Ollama URL (default: http://localhost:11434)
   
@@ -78,8 +78,8 @@ model ApiKey {
   id               String    @id @default(uuid())
   workspaceId      String
   name             String
-  key              String    @unique
-  keyPrefix        String    // First 8 chars for display (pc_xxxxxxxx...)
+  keyHash          String    @unique  // SHA-256 hash of the key (never store plaintext)
+  keyPrefix        String    // First 11 chars for display (pc_xxxxxxxx...)
   allowedIpRanges  String[]  // CIDR ranges: ["10.0.0.0/8", "192.168.1.0/24"]
   createdAt        DateTime  @default(now())
   lastUsedAt       DateTime?

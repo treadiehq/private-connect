@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
+
+function hashApiKey(key: string): string {
+  return createHash('sha256').update(key).digest('hex');
+}
 
 // User code format: XXXX-XXXX (easy to type)
 function generateUserCode(): string {
@@ -153,19 +157,20 @@ export class DeviceService {
     const keyName = targetDevice.agentName || targetDevice.label || 'CLI Agent';
     const uniqueSuffix = randomBytes(3).toString('hex'); // Ensure unique name
 
-    // Create API key record - use withWorkspace for RLS context
+    // Create API key record — store hash only, pass raw key back via DeviceCode
     await this.prisma.withWorkspace(workspaceId, () =>
       this.prisma.apiKey.create({
         data: {
           workspaceId,
           name: `${keyName} (${uniqueSuffix})`,
-          key: apiKey,
+          keyHash: hashApiKey(apiKey),
           keyPrefix,
         },
       })
     );
 
-    // Mark device code as verified
+    // Store the raw key temporarily in DeviceCode so the CLI can retrieve it once.
+    // The DeviceCode record is deleted immediately after the CLI polls it (see checkDeviceCode).
     await this.prisma.deviceCode.update({
       where: { id: targetDevice.id },
       data: {

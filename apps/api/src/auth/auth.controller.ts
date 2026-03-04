@@ -3,7 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
-import { authRateLimiter } from '../common/rate-limiter';
+import { authRateLimiter, authEmailRateLimiter } from '../common/rate-limiter';
 
 interface RegisterDto {
   email: string;
@@ -51,6 +51,16 @@ export class AuthController {
     if (!body.email || !body.workspaceName) {
       throw new UnauthorizedException('Email and workspace name are required');
     }
+
+    // Rate limit by email address to prevent magic-link spam to a target inbox
+    const normalizedEmail = body.email.toLowerCase().trim();
+    if (!authEmailRateLimiter.isAllowed(`register-email:${normalizedEmail}`)) {
+      throw new HttpException(
+        { error: 'Too many requests', message: 'Please wait before trying again.', retryAfter: authEmailRateLimiter.getResetTime(`register-email:${normalizedEmail}`) },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     return this.authService.register(body.email, body.workspaceName);
   }
 
@@ -85,6 +95,16 @@ export class AuthController {
     if (!body.email) {
       throw new UnauthorizedException('Email is required');
     }
+
+    // Rate limit by email address to prevent magic-link spam to a target inbox
+    const normalizedEmail = body.email.toLowerCase().trim();
+    if (!authEmailRateLimiter.isAllowed(`login-email:${normalizedEmail}`)) {
+      throw new HttpException(
+        { error: 'Too many requests', message: 'Please wait before trying again.', retryAfter: authEmailRateLimiter.getResetTime(`login-email:${normalizedEmail}`) },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     return this.authService.login(body.email);
   }
 

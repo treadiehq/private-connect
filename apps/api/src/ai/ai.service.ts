@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { SecureLogger } from '../common/security';
+import { SecureLogger, encryptField, decryptField } from '../common/security';
 
 export interface AIConfig {
   provider: 'ollama' | 'openai' | 'anthropic';
@@ -66,7 +66,7 @@ export class AIService {
     return {
       provider: workspace.aiProvider as AIConfig['provider'],
       model: workspace.aiModel || this.getDefaultModel(workspace.aiProvider),
-      apiKey: workspace.aiApiKey || undefined,
+      apiKey: workspace.aiApiKey ? decryptField(workspace.aiApiKey) : undefined,
       ollamaUrl: workspace.aiOllamaUrl || this.defaultOllamaUrl,
     };
   }
@@ -80,7 +80,7 @@ export class AIService {
       data: {
         aiProvider: config.provider,
         aiModel: config.model,
-        aiApiKey: config.apiKey,
+        aiApiKey: config.apiKey != null ? encryptField(config.apiKey) : config.apiKey,
         aiOllamaUrl: config.ollamaUrl,
       },
     });

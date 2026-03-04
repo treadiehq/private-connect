@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
 /**
  * Security utilities for Private Connect
@@ -200,6 +201,65 @@ export function extractClientIp(headers: Record<string, string | string[] | unde
   }
 
   return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Field-level encryption (AES-256-GCM)
+// ---------------------------------------------------------------------------
+// Set FIELD_ENCRYPTION_KEY to a 64-character hex string (32 bytes).
+// Generate one with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+// ---------------------------------------------------------------------------
+
+const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
+const IV_LENGTH = 12;   // 96-bit IV recommended for GCM
+const AUTH_TAG_LENGTH = 16;
+
+function getEncryptionKey(): Buffer {
+  const hex = process.env.FIELD_ENCRYPTION_KEY;
+  if (!hex || hex.length !== 64) {
+    throw new Error(
+      'FIELD_ENCRYPTION_KEY must be set to a 64-character hex string (32 bytes). ' +
+      'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
+    );
+  }
+  return Buffer.from(hex, 'hex');
+}
+
+/**
+ * Encrypt a plaintext string for storage.
+ * Returns a base64-encoded string containing the IV, auth tag, and ciphertext.
+ * Returns null if value is null/undefined.
+ */
+export function encryptField(plaintext: string): string;
+export function encryptField(plaintext: null | undefined): null;
+export function encryptField(plaintext: string | null | undefined): string | null {
+  if (plaintext == null) return null;
+  const key = getEncryptionKey();
+  const iv = randomBytes(IV_LENGTH);
+  const cipher = createCipheriv(ENCRYPTION_ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  // Format: iv (12 bytes) + authTag (16 bytes) + ciphertext — all base64-encoded together
+  return Buffer.concat([iv, authTag, encrypted]).toString('base64');
+}
+
+/**
+ * Decrypt a value produced by encryptField.
+ * Returns null if value is null/undefined.
+ * Throws if decryption fails (tampered or wrong key).
+ */
+export function decryptField(ciphertext: string): string;
+export function decryptField(ciphertext: null | undefined): null;
+export function decryptField(ciphertext: string | null | undefined): string | null {
+  if (ciphertext == null) return null;
+  const key = getEncryptionKey();
+  const buf = Buffer.from(ciphertext, 'base64');
+  const iv = buf.subarray(0, IV_LENGTH);
+  const authTag = buf.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
+  const encrypted = buf.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
+  const decipher = createDecipheriv(ENCRYPTION_ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
+  decipher.setAuthTag(authTag);
+  return decipher.update(encrypted) + decipher.final('utf8');
 }
 
 /**

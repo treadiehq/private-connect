@@ -1,5 +1,10 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+
+function hashApiKey(key: string): string {
+  return createHash('sha256').update(key).digest('hex');
+}
 
 /**
  * Check if an IP address matches a CIDR range
@@ -69,7 +74,7 @@ export class ApiKeyGuard implements CanActivate {
     // Use withoutRls() because we don't know the workspace yet - we're authenticating
     const key = await this.prisma.withoutRls(() =>
       this.prisma.apiKey.findUnique({
-        where: { key: apiKey },
+        where: { keyHash: hashApiKey(apiKey) },
         include: { workspace: true },
       })
     );

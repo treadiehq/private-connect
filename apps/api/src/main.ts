@@ -5,11 +5,13 @@ import { PrismaService } from './prisma/prisma.service';
 import cookieParser from 'cookie-parser';
 import * as http from 'http';
 
-// Immediate logging before any async operations - use stderr for unbuffered output
-console.error('=== MAIN.TS LOADED ===');
-console.error('Node version:', process.version);
-console.error('CWD:', process.cwd());
-console.error('Files in dist:', require('fs').readdirSync('.').join(', '));
+// Immediate logging — development only
+if (process.env.NODE_ENV !== 'production') {
+  console.error('=== MAIN.TS LOADED ===');
+  console.error('Node version:', process.version);
+  console.error('CWD:', process.cwd());
+  console.error('Files in dist:', require('fs').readdirSync('.').join(', '));
+}
 
 const port = parseInt(process.env.PORT || '3001', 10);
 const isProduction = process.env.NODE_ENV === 'production';
@@ -23,15 +25,10 @@ function startHealthServer(): Promise<void> {
     healthServer = http.createServer((req, res) => {
       if (req.url === '/health' || req.url === '/healthz') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ 
-          status: 'ok', 
-          appReady: false,
-          dbConnected,
-          timestamp: new Date().toISOString() 
-        }));
+        res.end(JSON.stringify({ status: 'ok' }));
       } else {
         res.writeHead(503, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'App starting up...', timestamp: new Date().toISOString() }));
+        res.end(JSON.stringify({ status: 'starting' }));
       }
     });
     healthServer.listen(port, '0.0.0.0', () => {
@@ -56,11 +53,13 @@ function stopHealthServer(): Promise<void> {
 }
 
 async function bootstrap() {
-  console.log('=== BOOTSTRAP STARTING ===');
-  console.log('Starting NestJS application...');
-  console.log('PORT:', port);
-  console.log('NODE_ENV:', process.env.NODE_ENV);
-  console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+  if (!isProduction) {
+    console.log('=== BOOTSTRAP STARTING ===');
+    console.log('Starting NestJS application...');
+    console.log('PORT:', port);
+    console.log('NODE_ENV:', process.env.NODE_ENV);
+    console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+  }
   
   const app = await NestFactory.create(AppModule);
 
@@ -74,8 +73,9 @@ async function bootstrap() {
     const host = (req.headers.host || '').toLowerCase();
     const baseDomain = process.env.BASE_DOMAIN || 'privateconnect.co';
     if (host === `www.${baseDomain}`) {
-      const protocol = req.headers['x-forwarded-proto'] || 'https';
-      return res.redirect(301, `${protocol}://${baseDomain}${req.originalUrl || req.url}`);
+      // Use req.protocol which respects the trust proxy setting rather than reading
+      // the raw X-Forwarded-Proto header directly (which is trivially spoofable).
+      return res.redirect(301, `${req.protocol}://${baseDomain}${req.originalUrl || req.url}`);
     }
     next();
   });
@@ -123,10 +123,11 @@ async function bootstrap() {
     const isProxyRoute = req.url.startsWith('/w/') || req.url.startsWith('/t/');
     
     if (isSwaggerRoute) {
-      // Relaxed CSP for Swagger UI
+      // Swagger UI needs unsafe-inline for its dynamically injected styles.
+      // unsafe-eval is not needed by Swagger UI 5.x and is intentionally omitted.
       res.setHeader(
         'Content-Security-Policy',
-        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:"
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:"
       );
     } else if (isSharedRoute) {
       // Allow shared routes to be embedded from privateconnect.co
@@ -243,14 +244,9 @@ All endpoints are prefixed with \`/v1/\`. Future breaking changes will use \`/v2
     customSiteTitle: 'Private Connect API Docs',
   });
 
-  // Health check endpoint with DB status
+  // Health check endpoint — returns minimal info to avoid leaking internal state
   expressApp.get('/health', (req: any, res: any) => {
-    res.status(200).json({ 
-      status: 'ok', 
-      appReady: true,
-      dbConnected,
-      timestamp: new Date().toISOString() 
-    });
+    res.status(200).json({ status: 'ok' });
   });
 
   // Close health server BEFORE NestJS tries to listen (production only)

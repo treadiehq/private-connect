@@ -1,7 +1,12 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from './auth.service';
 import { isIpAllowed } from './api-key.guard';
+
+function hashApiKey(key: string): string {
+  return createHash('sha256').update(key).digest('hex');
+}
 
 /**
  * Guard that accepts either:
@@ -25,7 +30,7 @@ export class CombinedAuthGuard implements CanActivate {
     if (apiKey) {
       const key = await this.prisma.withoutRls(() =>
         this.prisma.apiKey.findUnique({
-          where: { key: apiKey },
+          where: { keyHash: hashApiKey(apiKey) },
           include: { workspace: true },
         })
       );

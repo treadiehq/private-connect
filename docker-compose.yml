@@ -6,13 +6,13 @@ services:
     ports:
       - "5433:5432"   # host 5433 to avoid conflict with local Postgres on 5432
     environment:
-      POSTGRES_USER: privateconnect
-      POSTGRES_PASSWORD: privateconnect
-      POSTGRES_DB: privateconnect
+      POSTGRES_USER: ${POSTGRES_USER:-privateconnect}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-privateconnect}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U privateconnect"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-privateconnect}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -25,7 +25,7 @@ services:
       - "3001:3001"
       - "23000-23100:23000-23100"  # Tunnel ports range
     environment:
-      - DATABASE_URL=postgresql://privateconnect:privateconnect@postgres:5432/privateconnect
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-privateconnect}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-privateconnect}
       - PORT=3001
     depends_on:
       postgres:

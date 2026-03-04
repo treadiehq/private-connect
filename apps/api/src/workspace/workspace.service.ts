@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 
 // Plan limits
@@ -20,11 +21,12 @@ export class WorkspaceService {
   constructor(private prisma: PrismaService) {}
 
   async findByApiKey(apiKey: string) {
+    const keyHash = createHash('sha256').update(apiKey).digest('hex');
     // Find the API key and return its workspace
     // Use withoutRls() for API key validation - we don't know the workspace yet
     const key = await this.prisma.withoutRls(() =>
       this.prisma.apiKey.findUnique({
-        where: { key: apiKey },
+        where: { keyHash },
         include: {
           workspace: {
             include: {

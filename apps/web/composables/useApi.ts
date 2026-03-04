@@ -4,27 +4,9 @@ export function useApi() {
   const config = useRuntimeConfig();
   const baseUrl = config.public.apiUrl;
 
-  // Get API key from localStorage (for demo purposes)
-  const getApiKey = () => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('privateconnect_apikey') || '';
-    }
-    return '';
-  };
-
-  const setApiKey = (key: string) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('privateconnect_apikey', key);
-    }
-  };
-
-  const headers = () => ({
-    'x-api-key': getApiKey(),
-  });
-
-  // Base fetch options - always include credentials for session cookie auth
+  // Base fetch options - use session cookie for authentication
   const fetchOptions = () => ({
-    headers: headers(),
+    headers: {} as Record<string, string>,
     credentials: 'include' as RequestCredentials,
   });
 
@@ -79,7 +61,6 @@ export function useApi() {
       method: 'POST',
       ...fetchOptions(),
       headers: {
-        ...headers(),
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -132,7 +113,6 @@ export function useApi() {
       method: 'POST',
       ...fetchOptions(),
       headers: {
-        ...headers(),
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -167,7 +147,6 @@ export function useApi() {
       method: 'POST',
       ...fetchOptions(),
       headers: {
-        ...headers(),
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),
@@ -234,7 +213,6 @@ export function useApi() {
       method: 'PATCH',
       ...fetchOptions(),
       headers: {
-        ...headers(),
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ subdomain: subdomain?.toLowerCase().trim() || null }),
@@ -257,7 +235,6 @@ export function useApi() {
       method: 'PATCH',
       ...fetchOptions(),
       headers: {
-        ...headers(),
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),
@@ -328,7 +305,6 @@ export function useApi() {
       method: 'POST',
       ...fetchOptions(),
       headers: {
-        ...headers(),
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),
@@ -351,7 +327,6 @@ export function useApi() {
       ...fetchOptions(),
       ...options,
       headers: {
-        ...headers(),
         ...(options?.body ? { 'Content-Type': 'application/json' } : {}),
         ...(options?.headers as Record<string, string> | undefined),
       },
@@ -364,8 +339,6 @@ export function useApi() {
   };
 
   return {
-    getApiKey,
-    setApiKey,
     apiFetch,
     fetchWorkspace,
     upgradeWorkspace,

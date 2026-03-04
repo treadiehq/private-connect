@@ -340,10 +340,11 @@ export class AgentsService {
   }
 
   async validateWorkspaceApiKey(apiKey: string, clientIp?: string) {
+    const keyHash = createHash('sha256').update(apiKey).digest('hex');
     // Use withoutRls() for API key validation - we don't know the workspace yet
     const key = await this.prisma.withoutRls(() =>
       this.prisma.apiKey.findUnique({
-        where: { key: apiKey },
+        where: { keyHash },
         include: { workspace: true },
       })
     );

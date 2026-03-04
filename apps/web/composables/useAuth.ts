@@ -81,11 +81,6 @@ export function useAuth() {
     authState.user = data.user;
     authState.workspace = data.workspace;
     authState.isAuthenticated = true;
-    
-    // Also store API key in localStorage for backward compatibility
-    if (data.workspace?.apiKey) {
-      localStorage.setItem('privateconnect_apikey', data.workspace.apiKey);
-    }
 
     return {
       user: data.user,
@@ -109,7 +104,7 @@ export function useAuth() {
     authState.workspace = null;
     authState.isAuthenticated = false;
     
-    // Clear localStorage
+    // Clear any legacy localStorage entry from before this was removed
     localStorage.removeItem('privateconnect_apikey');
   };
 
@@ -132,11 +127,6 @@ export function useAuth() {
       authState.user = data.user;
       authState.workspace = data.workspace;
       authState.isAuthenticated = true;
-      
-      // Also store API key in localStorage for backward compatibility
-      if (data.workspace?.apiKey) {
-        localStorage.setItem('privateconnect_apikey', data.workspace.apiKey);
-      }
 
       return data;
     } catch (e) {

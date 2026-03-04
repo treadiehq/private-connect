@@ -1,8 +1,12 @@
 import { Injectable, UnauthorizedException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from './email.service';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 import { isAdminEmail } from '../common/admin';
+
+function hashApiKey(key: string): string {
+  return createHash('sha256').update(key).digest('hex');
+}
 
 // Reserved workspace names that cannot be used
 const RESERVED_WORKSPACE_NAMES = [
@@ -108,14 +112,14 @@ export class AuthService {
           },
         });
 
-        // Create initial API key
+        // Create initial API key — store only the hash, return raw key once
         const key = `pc_${randomBytes(24).toString('hex')}`;
         const keyPrefix = key.slice(0, 11);
         const apiKey = await tx.apiKey.create({
           data: {
             workspaceId: workspace.id,
             name: 'Default',
-            key,
+            keyHash: hashApiKey(key),
             keyPrefix,
           },
         });
@@ -281,7 +285,7 @@ export class AuthService {
           workspace: workspace ? {
             id: workspace.id,
             name: workspace.name,
-            apiKey: apiKey?.key || '',
+            apiKey: apiKey?.keyPrefix ? `${apiKey.keyPrefix}...` : '',
           } : null,
         };
       } catch (error) {

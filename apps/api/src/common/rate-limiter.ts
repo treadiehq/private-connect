@@ -80,6 +80,7 @@ export class RateLimiter {
 export const proxyRateLimiter = new RateLimiter(60000, 1000); // 1000 req/min per IP (web apps load many assets)
 export const proxySubdomainLimiter = new RateLimiter(60000, 5000); // 5000 req/min per subdomain
 export const authRateLimiter = new RateLimiter(60000, 10); // 10 req/min per IP for auth
+export const authEmailRateLimiter = new RateLimiter(60000, 3); // 3 magic-link emails/min per address
 export const debugPublicRateLimiter = new RateLimiter(60000, 60); // 60 req/min per IP for public debug endpoints
 export const debugAIRateLimiter = new RateLimiter(60000, 20); // 20 AI requests/min per IP (expensive)
 export const askRateLimiter = new RateLimiter(60000, 20); // 20 req/min per IP for public /ask endpoint
