@@ -1,11 +1,18 @@
 {
   "name": "private-connect",
-  "version": "0.6.18",
+  "version": "0.6.19",
   "description": "Access private services by name from anywhere. No VPN setup, no firewall rules. Open source alternative to ngrok and Tailscale for service-level connectivity.",
   "bin": {
-    "private-connect": "./dist/index.js"
+    "private-connect": "dist/index.js"
   },
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "files": [
     "dist",
     "README.md"
@@ -35,7 +42,7 @@
   "license": "FSL-1.1-MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/treadiehq/private-connect.git",
+    "url": "git+https://github.com/treadiehq/private-connect.git",
     "directory": "packages/cli"
   },
   "dependencies": {

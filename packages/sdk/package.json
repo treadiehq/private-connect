@@ -22,7 +22,7 @@
   "license": "FSL-1.1-MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/treadiehq/private-connect.git",
+    "url": "git+https://github.com/treadiehq/private-connect.git",
     "directory": "packages/sdk"
   },
   "devDependencies": {

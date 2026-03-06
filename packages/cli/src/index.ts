@@ -7,7 +7,16 @@
  * Usage:
  *   npx private-connect test vault.internal:8200
  *   npx private-connect tunnel 3000
+ *
+ * Programmatic API:
+ *   import { createTunnel } from 'private-connect';
+ *   const tunnel = await createTunnel({ port: 3000 });
+ *   console.log(tunnel.url);
  */
+
+// Re-export the programmatic API so the package is importable as a library.
+export { createTunnel } from './tunnel';
+export type { TunnelOptions, TunnelHandle, TunnelType } from './tunnel';
 
 import * as net from 'net';
 import * as dgram from 'dgram';
