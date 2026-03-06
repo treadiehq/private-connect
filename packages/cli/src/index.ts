@@ -317,6 +317,7 @@ function printHelp(): void {
 ${c.bold}Private Connect${c.reset} - Zero-friction connectivity tools
 
 ${c.bold}Commands:${c.reset}
+  scan               Detect private services running locally
   up <ports...>      Share local services with a join code
   join <code>        Connect to a shared environment
   check <target>     Test connectivity to any service
@@ -330,6 +331,7 @@ ${c.bold}Commands:${c.reset}
   pair               Generate QR code for mobile pairing
 
 ${c.bold}Examples:${c.reset}
+  ${c.green}npx private-connect scan${c.reset}
   ${c.green}npx private-connect up 3000 5432 6379${c.reset}
   ${c.green}npx private-connect join abc123${c.reset}
   npx private-connect test vault.internal:8200
@@ -423,7 +425,7 @@ const WEBHOOK_PROVIDERS: Record<string, WebhookProvider> = {
 };
 
 // Reserved CLI commands that should NOT be treated as provider names
-const RESERVED_COMMANDS = ['test', 'check', 'tunnel', 'list', 'ls', 'close', 'kill', 'up', 'join', 'setup-openclaw', 'openclaw-setup', 'setup-moltbot', 'moltbot-setup', 'pair', 'qr', '--help', '-h'];
+const RESERVED_COMMANDS = ['scan', 'test', 'check', 'tunnel', 'list', 'ls', 'close', 'kill', 'up', 'join', 'setup-openclaw', 'openclaw-setup', 'setup-moltbot', 'moltbot-setup', 'pair', 'qr', '--help', '-h'];
 
 function getProviderInstructions(provider: WebhookProvider): string[] {
   return provider.instructions.map(line =>
@@ -1824,6 +1826,184 @@ function generateAsciiQR(data: string): string {
 }
 
 // Main
+// ─────────────────────────────────────────────────────────────────────────────
+// Scan — detect private services running locally
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ScannedService {
+  port: number;
+  host: string;
+  type: 'http' | 'https' | 'redis' | 'postgres' | 'mysql' | 'mongodb' | 'ssh' | 'unknown';
+  name: string;
+  title?: string;
+}
+
+const SCAN_PORTS: { port: number; likely: ScannedService['type'] }[] = [
+  { port: 80,    likely: 'http'     },
+  { port: 443,   likely: 'https'    },
+  { port: 3000,  likely: 'http'     },
+  { port: 3001,  likely: 'http'     },
+  { port: 4000,  likely: 'http'     },
+  { port: 5000,  likely: 'http'     },
+  { port: 5173,  likely: 'http'     },
+  { port: 5174,  likely: 'http'     },
+  { port: 8000,  likely: 'http'     },
+  { port: 8080,  likely: 'http'     },
+  { port: 8443,  likely: 'https'    },
+  { port: 9000,  likely: 'http'     },
+  { port: 5432,  likely: 'postgres' },
+  { port: 3306,  likely: 'mysql'    },
+  { port: 27017, likely: 'mongodb'  },
+  { port: 6379,  likely: 'redis'    },
+  { port: 22,    likely: 'ssh'      },
+];
+
+const SCAN_TIMEOUT = 800;
+
+async function scanPortOpen(host: string, port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    const t = setTimeout(() => { socket.destroy(); resolve(false); }, SCAN_TIMEOUT);
+    socket.on('connect', () => { clearTimeout(t); socket.destroy(); resolve(true); });
+    socket.on('error',   () => { clearTimeout(t); socket.destroy(); resolve(false); });
+    socket.connect(port, host);
+  });
+}
+
+async function scanProbeRedis(host: string, port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    const t = setTimeout(() => { socket.destroy(); resolve(false); }, SCAN_TIMEOUT);
+    socket.on('connect', () => { socket.write('PING\r\n'); });
+    socket.on('data',    (d) => { clearTimeout(t); socket.destroy(); resolve(d.toString().includes('+PONG')); });
+    socket.on('error',   () => { clearTimeout(t); socket.destroy(); resolve(false); });
+    socket.connect(port, host);
+  });
+}
+
+async function scanProbePostgres(host: string, port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    const t = setTimeout(() => { socket.destroy(); resolve(false); }, SCAN_TIMEOUT);
+    socket.on('connect', () => {
+      const buf = Buffer.alloc(8);
+      buf.writeInt32BE(8, 0);
+      buf.writeInt32BE(80877103, 4);
+      socket.write(buf);
+    });
+    socket.on('data',  (d) => { clearTimeout(t); socket.destroy(); resolve(d[0] === 83 || d[0] === 78); });
+    socket.on('error', () => { clearTimeout(t); socket.destroy(); resolve(false); });
+    socket.connect(port, host);
+  });
+}
+
+async function scanProbeHttp(host: string, port: number, useHttps: boolean): Promise<{ title?: string } | null> {
+  return new Promise((resolve) => {
+    const protocol = useHttps ? https : http;
+    const t = setTimeout(() => resolve(null), SCAN_TIMEOUT);
+    const req = protocol.request(
+      { hostname: host, port, path: '/', method: 'GET', timeout: SCAN_TIMEOUT, rejectUnauthorized: false },
+      (res) => {
+        clearTimeout(t);
+        let body = '';
+        res.on('data', (chunk) => { body += chunk.toString().slice(0, 500); });
+        res.on('end', () => {
+          const m = body.match(/<title[^>]*>([^<]+)<\/title>/i);
+          resolve({ title: m?.[1]?.trim() });
+        });
+      }
+    );
+    req.on('error',   () => { clearTimeout(t); resolve(null); });
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+    req.end();
+  });
+}
+
+function scanServiceName(type: ScannedService['type'], port: number, title?: string): string {
+  if (title) {
+    return title.replace(/[^\w\s-]/g, '').trim().toLowerCase().replace(/\s+/g, '-').slice(0, 30);
+  }
+  const names: Record<string, string> = {
+    http: 'web', https: 'web-secure', redis: 'redis', postgres: 'postgres',
+    mysql: 'mysql', mongodb: 'mongodb', ssh: 'ssh', unknown: 'service',
+  };
+  return `${names[type] || 'service'}-${port}`;
+}
+
+function scanServiceIcon(type: ScannedService['type']): string {
+  const icons: Record<string, string> = {
+    http: '🌐', https: '🔒', redis: '📦', postgres: '🐘',
+    mysql: '🐬', mongodb: '🍃', ssh: '🔑', unknown: '❓',
+  };
+  return icons[type] || '❓';
+}
+
+async function runScan(customPorts?: number[]): Promise<void> {
+  const host = 'localhost';
+  const portsToScan = customPorts
+    ? customPorts.map((p) => ({ port: p, likely: 'unknown' as const }))
+    : SCAN_PORTS;
+
+  process.stdout.write(`\n${c.bold}Private Connect${c.reset} ${c.dim}— Private Service Detector${c.reset}\n\n`);
+  process.stdout.write(`${c.dim}Scanning ${host} for private services...${c.reset}\n`);
+
+  const found: ScannedService[] = [];
+
+  // Scan in batches of 8 for speed
+  const batchSize = 8;
+  for (let i = 0; i < portsToScan.length; i += batchSize) {
+    const batch = portsToScan.slice(i, i + batchSize);
+    const results = await Promise.all(
+      batch.map(async ({ port, likely }) => {
+        const open = await scanPortOpen(host, port);
+        if (!open) return null;
+
+        let type: ScannedService['type'] = likely;
+        let title: string | undefined;
+
+        if (likely === 'redis' || port === 6379) {
+          if (await scanProbeRedis(host, port)) type = 'redis';
+        } else if (likely === 'postgres' || port === 5432) {
+          if (await scanProbePostgres(host, port)) type = 'postgres';
+        } else if (likely === 'https' || port === 443 || port === 8443) {
+          const r = await scanProbeHttp(host, port, true);
+          if (r) { type = 'https'; title = r.title; }
+        } else if (likely === 'http' || [80, 3000, 3001, 4000, 5000, 5173, 5174, 8000, 8080, 9000].includes(port)) {
+          const r = await scanProbeHttp(host, port, false) ?? await scanProbeHttp(host, port, true);
+          if (r) { type = 'http'; title = r.title; }
+        }
+
+        return { port, host, type, name: scanServiceName(type, port, title), title } as ScannedService;
+      })
+    );
+    found.push(...results.filter((r): r is ScannedService => r !== null));
+  }
+
+  if (found.length === 0) {
+    console.log(`\n  ${c.dim}No services detected on common ports.${c.reset}`);
+    console.log(`  ${c.dim}Try: npx private-connect scan --ports 8080,9090,4000${c.reset}\n`);
+    return;
+  }
+
+  console.log(`\n${c.bold}Detected private services:${c.reset}\n`);
+  for (const svc of found) {
+    const icon = scanServiceIcon(svc.type);
+    const label = svc.title ? ` ${c.dim}(${svc.title})${c.reset}` : '';
+    console.log(`  ${icon} ${c.cyan}${svc.name}${c.reset}${label}`);
+    console.log(`     ${c.dim}${svc.host}:${svc.port} · ${svc.type}${c.reset}`);
+  }
+
+  console.log(`\n${c.bold}Share them instantly with:${c.reset}\n`);
+  for (const svc of found) {
+    console.log(`  ${c.green}connect expose ${svc.host}:${svc.port}${c.reset}  ${c.dim}# ${svc.name}${c.reset}`);
+  }
+
+  console.log(`\n${c.dim}Or install Private Connect for permanent access:${c.reset}`);
+  console.log(`  ${c.cyan}curl -fsSL https://privateconnect.co/install.sh | bash${c.reset}\n`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const args = process.argv.slice(2);
 
 if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
@@ -1834,7 +2014,15 @@ if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
 // Track usage (non-blocking)
 trackUsage(args[0] || 'help');
 
-if (args[0] === 'up') {
+if (args[0] === 'scan') {
+  const portsFlag = args.find(a => a.startsWith('--ports=') || a.startsWith('--ports'));
+  let customPorts: number[] | undefined;
+  if (portsFlag) {
+    const val = portsFlag.includes('=') ? portsFlag.split('=')[1] : args[args.indexOf(portsFlag) + 1];
+    customPorts = val?.split(',').map(Number).filter(n => n > 0 && n < 65536);
+  }
+  runScan(customPorts).catch(console.error);
+} else if (args[0] === 'up') {
   const ports = args.slice(1).filter(a => /^\d+$/.test(a)).map(Number);
   if (ports.length === 0) {
     console.error(`${c.red}Error: At least one port required${c.reset}`);
