@@ -44,12 +44,16 @@ export interface TunnelOptions {
   ttl?: number;
   /** Override hub URL (default: https://api.privateconnect.co) */
   hubUrl?: string;
+  /** AbortSignal to cancel a pending createTunnel() call */
+  signal?: AbortSignal;
 }
 
 export type TunnelType = 'http' | 'tcp' | 'udp';
 
+export type TunnelEvent = 'disconnect' | 'reconnect' | 'expire' | 'error' | 'url';
+
 export interface TunnelHandle {
-  /** Public URL for HTTP tunnels (e.g. https://abc123.tunnel.privateconnect.co) */
+  /** Public URL for HTTP tunnels. Updates automatically if the hub reassigns after reconnect. */
   readonly url: string;
   /** Tunnel type determined at creation time */
   readonly type: TunnelType;
@@ -74,24 +78,34 @@ export interface TunnelHandle {
    * - `'reconnect'` — tunnel WebSocket re-established
    * - `'expire'`    — tunnel TTL elapsed; close() is called automatically
    * - `'error'`     — non-fatal connection error (string message)
+   * - `'url'`       — public URL changed (string new URL); update any stored references
    */
-  on(event: 'disconnect' | 'reconnect' | 'expire' | 'error', listener: (detail?: string) => void): this;
+  on(event: TunnelEvent, listener: (detail?: string) => void): this;
 
-  /** Cleanly disconnect from the hub and stop forwarding */
+  /** Remove a previously registered listener */
+  off(event: TunnelEvent, listener: (detail?: string) => void): this;
+
+  /** Cleanly disconnect from the hub and stop forwarding. Resolves once the socket is closed. */
   close(): Promise<void>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Internal helpers (mirrored from index.ts, kept dependency-free)
+// Internal helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DB_PORTS = new Set([5432, 3306, 27017, 6379, 9200, 5984, 8529, 7687, 9042]);
 
+const HUB_REQUEST_TIMEOUT_MS = 10_000;
+
 function httpRequest(
   url: string,
-  options: { method?: string; headers?: Record<string, string>; body?: string },
+  options: { method?: string; headers?: Record<string, string>; body?: string; signal?: AbortSignal },
 ): Promise<{ ok: boolean; status: number; body: string }> {
   return new Promise((resolve, reject) => {
+    if (options.signal?.aborted) {
+      return reject(new Error('Aborted'));
+    }
+
     const parsed = new URL(url);
     const client = parsed.protocol === 'https:' ? https : http;
     const req = client.request(url, { method: options.method || 'GET', headers: options.headers }, (res) => {
@@ -99,8 +113,21 @@ function httpRequest(
       res.on('data', (chunk) => (body += chunk));
       res.on('end', () => resolve({ ok: res.statusCode! >= 200 && res.statusCode! < 300, status: res.statusCode!, body }));
     });
+
+    // Actually activate the timeout
+    req.setTimeout(HUB_REQUEST_TIMEOUT_MS, () => {
+      req.destroy(new Error('Request timeout'));
+    });
+
     req.on('error', reject);
-    req.on('timeout', () => reject(new Error('Request timeout')));
+
+    if (options.signal) {
+      options.signal.addEventListener('abort', () => {
+        req.destroy(new Error('Aborted'));
+        reject(new Error('Aborted'));
+      }, { once: true });
+    }
+
     if (options.body) req.write(options.body);
     req.end();
   });
@@ -110,15 +137,22 @@ function forwardHttpToLocal(
   host: string,
   port: number,
   request: { method: string; path: string; headers: Record<string, string>; body: string },
-): Promise<{ status: number; headers: Record<string, string>; body: string }> {
+): Promise<{ status: number; headers: Record<string, string>; body: Buffer }> {
   return new Promise((resolve, reject) => {
     const req = http.request(
-      { hostname: host, port, path: request.path, method: request.method, headers: { ...request.headers, host: `${host}:${port}` }, timeout: 30000 },
+      {
+        hostname: host,
+        port,
+        path: request.path,
+        method: request.method,
+        headers: { ...request.headers, host: `${host}:${port}` },
+        timeout: 30000,
+      },
       (res) => {
         const chunks: Buffer[] = [];
-        res.on('data', (c) => chunks.push(c));
+        res.on('data', (c: Buffer) => chunks.push(c));
         res.on('end', () => {
-          const body = Buffer.concat(chunks).toString('utf-8');
+          const body = Buffer.concat(chunks);
           const headers: Record<string, string> = {};
           for (const [k, v] of Object.entries(res.headers)) {
             headers[k] = Array.isArray(v) ? v.join(', ') : (v ?? '');
@@ -145,10 +179,16 @@ function makeSocket(wsUrl: string): Socket {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Proxy runners — same logic as index.ts but emit events instead of console.log
+// Proxy runners
 // ─────────────────────────────────────────────────────────────────────────────
 
-function runHttpProxy(tunnelId: string, wsUrl: string, host: string, port: number, emitter: EventEmitter): () => void {
+function runHttpProxy(
+  tunnelId: string,
+  wsUrl: string,
+  host: string,
+  port: number,
+  emitter: EventEmitter,
+): (onClose: () => void) => void {
   const socket = makeSocket(wsUrl);
 
   socket.on('connect', () => {
@@ -168,7 +208,8 @@ function runHttpProxy(tunnelId: string, wsUrl: string, host: string, port: numbe
     emitter.emit('error', err.message);
   });
 
-  socket.on('reconnect', () => {
+  // socket.io v4: reconnect fires on the manager, not the socket
+  socket.io.on('reconnect', () => {
     emitter.emit('reconnect');
   });
 
@@ -181,24 +222,47 @@ function runHttpProxy(tunnelId: string, wsUrl: string, host: string, port: numbe
     emitter.emit('disconnect', 'server_shutdown');
   });
 
-  socket.on('http_request', async (data: { requestId: string; method: string; path: string; headers: Record<string, string>; body: string }) => {
+  socket.on('http_request', async (data: {
+    requestId: string;
+    method: string;
+    path: string;
+    headers: Record<string, string>;
+    body: string;
+  }) => {
     try {
       const response = await forwardHttpToLocal(host, port, data);
-      socket.emit('http_response', { requestId: data.requestId, status: response.status, headers: response.headers, body: response.body });
+      socket.emit('http_response', {
+        requestId: data.requestId,
+        status: response.status,
+        headers: response.headers,
+        // Send binary body as base64 to preserve binary integrity
+        body: response.body.toString('base64'),
+        encoding: 'base64',
+      });
     } catch (err: any) {
       socket.emit('http_response', {
         requestId: data.requestId,
         status: 502,
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ error: 'Bad Gateway', message: err.message }),
+        body: Buffer.from(JSON.stringify({ error: 'Bad Gateway', message: err.message })).toString('base64'),
+        encoding: 'base64',
       });
     }
   });
 
-  return () => socket.disconnect();
+  return (onClose: () => void) => {
+    socket.once('disconnect', () => onClose());
+    socket.disconnect();
+  };
 }
 
-function runTcpProxy(tunnelId: string, wsUrl: string, host: string, port: number, emitter: EventEmitter): () => void {
+function runTcpProxy(
+  tunnelId: string,
+  wsUrl: string,
+  host: string,
+  port: number,
+  emitter: EventEmitter,
+): (onClose: () => void) => void {
   const socket = makeSocket(wsUrl);
   const connections = new Map<string, net.Socket>();
 
@@ -217,7 +281,7 @@ function runTcpProxy(tunnelId: string, wsUrl: string, host: string, port: number
     emitter.emit('disconnect', reason);
   });
 
-  socket.on('reconnect', () => emitter.emit('reconnect'));
+  socket.io.on('reconnect', () => emitter.emit('reconnect'));
   socket.on('connect_error', (err: Error) => emitter.emit('error', err.message));
   socket.on('tunnel_expired', () => { emitter.emit('expire'); socket.disconnect(); });
   socket.on('server_shutdown', () => emitter.emit('disconnect', 'server_shutdown'));
@@ -241,10 +305,20 @@ function runTcpProxy(tunnelId: string, wsUrl: string, host: string, port: number
     connections.delete(data.connectionId);
   });
 
-  return () => { for (const conn of connections.values()) conn.end(); socket.disconnect(); };
+  return (onClose: () => void) => {
+    for (const conn of connections.values()) conn.end();
+    socket.once('disconnect', () => onClose());
+    socket.disconnect();
+  };
 }
 
-function runUdpProxy(tunnelId: string, wsUrl: string, host: string, port: number, emitter: EventEmitter): () => void {
+function runUdpProxy(
+  tunnelId: string,
+  wsUrl: string,
+  host: string,
+  port: number,
+  emitter: EventEmitter,
+): (onClose: () => void) => void {
   const socket = makeSocket(wsUrl);
   const udp = dgram.createSocket('udp4');
   const sessions = new Map<string, { address: string; port: number }>();
@@ -258,10 +332,14 @@ function runUdpProxy(tunnelId: string, wsUrl: string, host: string, port: number
     });
   });
 
-  socket.on('disconnect', (reason: string) => { udp.close(); emitter.emit('disconnect', reason); });
-  socket.on('reconnect', () => emitter.emit('reconnect'));
+  socket.on('disconnect', (reason: string) => {
+    try { udp.close(); } catch {}
+    emitter.emit('disconnect', reason);
+  });
+
+  socket.io.on('reconnect', () => emitter.emit('reconnect'));
   socket.on('connect_error', (err: Error) => emitter.emit('error', err.message));
-  socket.on('tunnel_expired', () => { emitter.emit('expire'); udp.close(); socket.disconnect(); });
+  socket.on('tunnel_expired', () => { emitter.emit('expire'); try { udp.close(); } catch {} socket.disconnect(); });
   socket.on('server_shutdown', () => emitter.emit('disconnect', 'server_shutdown'));
 
   socket.on('udp_datagram', (data: { sessionId: string; data: string; remoteAddress: string; remotePort: number }) => {
@@ -277,7 +355,11 @@ function runUdpProxy(tunnelId: string, wsUrl: string, host: string, port: number
   udp.on('error', (err) => emitter.emit('error', err.message));
   udp.bind();
 
-  return () => { try { udp.close(); } catch {} socket.disconnect(); };
+  return (onClose: () => void) => {
+    try { udp.close(); } catch {}
+    socket.once('disconnect', () => onClose());
+    socket.disconnect();
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -288,7 +370,8 @@ function runUdpProxy(tunnelId: string, wsUrl: string, host: string, port: number
  * Create a temporary public tunnel to a local port.
  *
  * Resolves with a {@link TunnelHandle} once the public URL is ready.
- * Rejects if the hub is unreachable or the tunnel cannot be registered.
+ * Rejects if the hub is unreachable, the request is aborted, or the tunnel
+ * cannot be registered.
  *
  * @example
  * ```typescript
@@ -302,6 +385,11 @@ function runUdpProxy(tunnelId: string, wsUrl: string, host: string, port: number
  *
  * // Explicit TCP
  * const t = await createTunnel({ port: 8080, tcp: true });
+ *
+ * // Cancellable
+ * const ac = new AbortController();
+ * setTimeout(() => ac.abort(), 5000);
+ * const tunnel = await createTunnel({ port: 3000, signal: ac.signal });
  * ```
  */
 export async function createTunnel(options: TunnelOptions): Promise<TunnelHandle> {
@@ -311,6 +399,7 @@ export async function createTunnel(options: TunnelOptions): Promise<TunnelHandle
     udp = false,
     ttl = 120,
     hubUrl = process.env.CONNECT_HUB_URL || 'https://api.privateconnect.co',
+    signal,
   } = options;
 
   const isDbPort = DB_PORTS.has(port);
@@ -322,6 +411,7 @@ export async function createTunnel(options: TunnelOptions): Promise<TunnelHandle
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ tunnelId, localHost: host, localPort: port, ttlMinutes: ttl, type: tunnelType }),
+    signal,
   });
 
   if (!response.ok) {
@@ -352,8 +442,11 @@ export async function createTunnel(options: TunnelOptions): Promise<TunnelHandle
   }
 
   const emitter = new EventEmitter();
-  let stopProxy: () => void;
 
+  // Mutable URL — updated if hub reassigns on reconnect
+  let currentUrl = t.publicUrl;
+
+  let stopProxy: (onClose: () => void) => void;
   if (tunnelType === 'udp') {
     stopProxy = runUdpProxy(t.tunnelId, wsUrl, host, port, emitter);
   } else if (tunnelType === 'tcp') {
@@ -362,10 +455,18 @@ export async function createTunnel(options: TunnelOptions): Promise<TunnelHandle
     stopProxy = runHttpProxy(t.tunnelId, wsUrl, host, port, emitter);
   }
 
+  // If the hub emits a new URL after reconnect, update and notify
+  emitter.on('_url_update', (newUrl: string) => {
+    if (newUrl !== currentUrl) {
+      currentUrl = newUrl;
+      emitter.emit('url', newUrl);
+    }
+  });
+
   let closed = false;
 
   const handle: TunnelHandle = {
-    url: t.publicUrl,
+    get url() { return currentUrl; },
     type: t.type,
     expiresAt: t.expiresAt,
     ttlMinutes: t.ttlMinutes,
@@ -380,10 +481,17 @@ export async function createTunnel(options: TunnelOptions): Promise<TunnelHandle
       return this;
     },
 
-    async close() {
-      if (closed) return;
+    off(event, listener) {
+      emitter.off(event, listener);
+      return this;
+    },
+
+    close() {
+      if (closed) return Promise.resolve();
       closed = true;
-      stopProxy();
+      return new Promise<void>((resolve) => {
+        stopProxy(() => resolve());
+      });
     },
   };
 
