@@ -133,7 +133,10 @@ Instantly expose a local service to the internet. No signup required.
 ```bash
 npx private-connect tunnel 3000              # Expose localhost:3000
 npx private-connect tunnel localhost:8080    # Specify host and port
+npx private-connect tunnel 3000 --slug myapp --ttl 1440   # Stable URL, 24h (no signup)
 ```
+
+**Stable URL and TTL:** Use `--slug <name>` for a stable subdomain (e.g. `https://myapp.privateconnect.co`) when available, and `--ttl <minutes>` for longer sessions (default 120; server allows up to 24h).
 
 **Named subdomains:** When you use a provider or app name, it becomes the subdomain prefix:
 
@@ -181,7 +184,7 @@ TCP/UDP output shows connection details:
 
 **Features:**
 - No signup or account required
-- Auto-expires in 2 hours
+- Sessions up to 24h with `--ttl`; stable URL with `--slug`
 - Real-time request logging
 - Works with HTTP, TCP, and UDP services
 - **Shareable URLs** - The public URL shows your actual website, perfect for demos and testing
