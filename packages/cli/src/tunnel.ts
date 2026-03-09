@@ -40,8 +40,10 @@ export interface TunnelOptions {
   tcp?: boolean;
   /** Force raw UDP mode */
   udp?: boolean;
-  /** Tunnel TTL in minutes (default: 120) */
+  /** Tunnel TTL in minutes (default: 120, max set by server e.g. 1440 for 24h) */
   ttl?: number;
+  /** Optional stable subdomain: use as-is if available (e.g. "mygame" → https://mygame.privateconnect.co) */
+  slug?: string;
   /** Override hub URL (default: https://api.privateconnect.co) */
   hubUrl?: string;
   /** AbortSignal to cancel a pending createTunnel() call */
@@ -410,7 +412,14 @@ export async function createTunnel(options: TunnelOptions): Promise<TunnelHandle
   const response = await httpRequest(`${hubUrl}/v1/tunnels/temporary`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tunnelId, localHost: host, localPort: port, ttlMinutes: ttl, type: tunnelType }),
+    body: JSON.stringify({
+    tunnelId,
+    localHost: host,
+    localPort: port,
+    ttlMinutes: ttl,
+    type: tunnelType,
+    ...(options.slug && { slug: options.slug.trim().toLowerCase() }),
+  }),
     signal,
   });
 

@@ -356,7 +356,7 @@ ${c.bold}Share (up/join):${c.reset}
 
 ${c.bold}Tunnel:${c.reset}
   • No signup required
-  • Auto-expires in 2 hours
+  • Sessions up to 24h (--ttl minutes); stable URL with --slug
   • HTTP, TCP (--tcp), or UDP (--udp)
 
 ${c.bold}Webhooks:${c.reset}
@@ -467,18 +467,20 @@ const DB_PORTS: Record<number, string> = {
 interface TunnelOptions {
   host: string;
   port: number;
-  ttl?: number; // minutes, default 120
+  ttl?: number; // minutes, default 120 (server allows up to e.g. 24h)
   tcp?: boolean; // raw TCP mode instead of HTTP
   udp?: boolean; // raw UDP mode instead of HTTP
   provider?: string; // webhook provider name (e.g. 'polar', 'stripe')
+  slug?: string; // stable subdomain (e.g. "mygame" → https://mygame.privateconnect.co)
 }
 
 async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
-  const { host, port, ttl = 120, udp = false, provider: providerName } = options;
+  const { host, port, ttl = 120, udp = false, provider: providerName, slug: slugOpt } = options;
   const isDbPort = port in DB_PORTS;
   const tcp = options.tcp || (isDbPort && !udp);
   const tunnelType = udp ? 'udp' : (tcp ? 'tcp' : 'http');
   const provider = providerName ? WEBHOOK_PROVIDERS[providerName.toLowerCase()] : undefined;
+  const slug = slugOpt ?? (providerName || undefined);
   
   console.log();
   if (provider) {
@@ -535,7 +537,7 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
         localPort: port,
         ttlMinutes: ttl,
         type: tunnelType,
-        ...(providerName && { slug: providerName }),
+        ...(slug && { slug }),
       }),
     });
     
@@ -2060,18 +2062,26 @@ if (args[0] === 'scan') {
     console.error(`       npx private-connect tunnel localhost:3000`);
     console.error(`       npx private-connect tunnel 4096 --tcp`);
     console.error(`       npx private-connect tunnel 27015 --udp`);
+    console.error(`       npx private-connect tunnel 3000 --slug myapp --ttl 1440`);
     process.exit(1);
   }
   const { host, port } = parseTunnelTarget(args[1]);
   const tcp = args.includes('--tcp') || args.includes('-t');
   const udp = args.includes('--udp') || args.includes('-u');
-  
+  const slugIdx = args.indexOf('--slug');
+  const slug = slugIdx >= 0 && args[slugIdx + 1] ? args[slugIdx + 1] : undefined;
+  const ttlIdx = args.indexOf('--ttl');
+  const ttlArg = ttlIdx >= 0 && args[ttlIdx + 1] ? args[ttlIdx + 1] : undefined;
+  const ttl = ttlArg ? parseInt(ttlArg, 10) : 120;
+  if (ttlArg && (isNaN(ttl) || ttl < 1)) {
+    console.error(`${c.red}Error: --ttl must be a positive number (minutes)${c.reset}`);
+    process.exit(1);
+  }
   if (tcp && udp) {
     console.error(`${c.red}Error: Cannot use both --tcp and --udp${c.reset}`);
     process.exit(1);
   }
-  
-  createTemporaryTunnel({ host, port, tcp, udp }).catch(console.error);
+  createTemporaryTunnel({ host, port, tcp, udp, slug, ttl }).catch(console.error);
 } else if (args[0] === 'list' || args[0] === 'ls') {
   listTunnels().catch(console.error);
 } else if (args[0] === 'close' || args[0] === 'kill') {

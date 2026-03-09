@@ -11,6 +11,9 @@ const PUBLIC_URL = process.env.PUBLIC_URL || 'https://app.privateconnect.co';
 const TEMP_WORKSPACE_ID = 'temp-tunnel-workspace';
 const TEMP_USER_EMAIL = 'system@privateconnect.co';
 
+/** Max TTL for temporary tunnels (minutes). Default 24h. Set MAX_TEMP_TUNNEL_TTL_MINUTES to override. */
+const MAX_TEMP_TUNNEL_TTL_MINUTES = Math.max(60, Math.min(10080, parseInt(process.env.MAX_TEMP_TUNNEL_TTL_MINUTES || '1440', 10) || 1440));
+
 const DB_PORTS: Record<number, string> = {
   5432: 'PostgreSQL',
   3306: 'MySQL',
@@ -129,7 +132,7 @@ export class TemporaryTunnelController implements OnModuleInit {
   @Post('v1/tunnels/temporary')
   async createTunnel(@Body() body: CreateTunnelDto) {
     const tunnelId = body.tunnelId || randomBytes(6).toString('hex');
-    const ttlMinutes = Math.min(body.ttlMinutes || 120, 120); // Max 2 hours
+    const ttlMinutes = Math.min(body.ttlMinutes || 120, MAX_TEMP_TUNNEL_TTL_MINUTES);
     const tunnelType = body.type || 'http';
     
     // Validate
@@ -286,7 +289,7 @@ export class TemporaryTunnelController implements OnModuleInit {
       }
     }
 
-    const ttlMinutes = Math.min(body.ttlMinutes || 120, 120);
+    const ttlMinutes = Math.min(body.ttlMinutes || 120, MAX_TEMP_TUNNEL_TTL_MINUTES);
     const hubHost = new URL(HUB_URL).hostname;
 
     try {

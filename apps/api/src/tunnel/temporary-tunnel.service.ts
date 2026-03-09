@@ -175,12 +175,29 @@ export class TemporaryTunnelService implements OnModuleDestroy {
   }
 
   /**
+   * Try to claim a stable subdomain (slug only, no random suffix) if valid and available.
+   * Subdomain must be 3–32 chars, lowercase alphanumeric and hyphens, not reserved.
+   */
+  private tryClaimStableSubdomain(slug: string): string | null {
+    const sanitized = slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
+    if (sanitized.length < 3 || sanitized.length > 32) return null;
+    if (/^-|-$/.test(sanitized) || /--/.test(sanitized)) return null;
+    if (this.usedSubdomains.has(sanitized)) return null;
+    this.usedSubdomains.add(sanitized);
+    return sanitized;
+  }
+
+  /**
    * Get a unique subdomain with a user-provided prefix (e.g. "stripe" → "stripe-a1b2")
    */
   private getUniqueSubdomainWithPrefix(prefix: string): string {
     // Sanitize: lowercase, alphanumeric + hyphens only, max 20 chars
     const sanitized = prefix.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 20);
     if (!sanitized) return this.getUniqueSubdomain();
+
+    // If slug is valid and available, use it as stable subdomain (no suffix)
+    const stable = this.tryClaimStableSubdomain(sanitized);
+    if (stable !== null) return stable;
 
     let subdomain: string;
     let attempts = 0;
@@ -204,7 +221,7 @@ export class TemporaryTunnelService implements OnModuleDestroy {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + ttlMinutes * 60 * 1000);
     
-    // Generate a unique subdomain for public access (with optional slug prefix)
+    // Generate a unique subdomain: optional stable claim (slug as subdomain) or slug-xxx or random
     const subdomain = slug
       ? this.getUniqueSubdomainWithPrefix(slug)
       : this.getUniqueSubdomain();
