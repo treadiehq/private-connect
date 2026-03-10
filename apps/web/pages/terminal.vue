@@ -53,7 +53,13 @@
             <span>Private Connect</span>
           </a>
         </span>
-        <span class="text-sm text-gray-400">Connected to shell via share code: {{ code }}</span>
+        <span class="text-sm text-gray-400">
+          Connected to shell via share code:
+          <span class="group relative ml-1 inline-block font-mono text-gray-200">
+            <span class="transition-opacity duration-150 group-hover:opacity-0">{{ maskedCode }}</span>
+            <span class="absolute inset-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100">{{ code }}</span>
+          </span>
+        </span>
         <button
           type="button"
           @click="disconnect"
@@ -81,10 +87,20 @@ const authError = ref('');
 const connectionId = ref('');
 const socket = ref<Socket | null>(null);
 const terminalEl = ref<HTMLElement | null>(null);
+const maskedCode = computed(() => '*'.repeat(code.value.length || 6));
 
 let term: any = null;
 let fitAddon: any = null;
 let resizeHandler: (() => void) | null = null;
+let pendingOutput = '';
+
+function writeTerminal(data: string) {
+  if (term) {
+    term.write(data);
+    return;
+  }
+  pendingOutput += data;
+}
 
 function connect() {
   authError.value = '';
@@ -99,34 +115,33 @@ function connect() {
     socket.value?.emit('auth', { code: code.value.trim().toLowerCase() });
   });
 
+  socket.value.on('reach_ready', () => {
+    writeTerminal('\r\n[Shell ready]\r\n');
+  });
+  socket.value.on('reach_data', (payload: { connectionId: string; data: string }) => {
+    if (payload.connectionId !== connectionId.value) return;
+    try {
+      const decoded = typeof atob !== 'undefined'
+        ? decodeURIComponent(escape(atob(payload.data)))
+        : Buffer.from(payload.data, 'base64').toString('utf8');
+      writeTerminal(decoded);
+    } catch {
+      writeTerminal('[decode error]');
+    }
+  });
+  socket.value.on('reach_error', (payload: { connectionId: string; error?: string }) => {
+    if (payload.connectionId !== connectionId.value) return;
+    writeTerminal(`\r\n[Error: ${payload.error || 'Unknown'}]\r\n`);
+  });
+  socket.value.on('reach_close', (payload: { connectionId: string }) => {
+    if (payload.connectionId !== connectionId.value) return;
+    writeTerminal('\r\n[Connection closed by host]\r\n');
+  });
+
   socket.value.on('auth_ok', (data: { connectionId: string }) => {
     connectionId.value = data.connectionId;
     connecting.value = false;
     connected.value = true;
-
-    socket.value?.on('reach_ready', () => {
-      if (term) term.write('\r\n[Shell ready]\r\n');
-    });
-    socket.value?.on('reach_data', (payload: { connectionId: string; data: string }) => {
-      if (payload.connectionId !== connectionId.value) return;
-      if (!term) return;
-      try {
-        const decoded = typeof atob !== 'undefined'
-          ? decodeURIComponent(escape(atob(payload.data)))
-          : Buffer.from(payload.data, 'base64').toString('utf8');
-        term.write(decoded);
-      } catch {
-        term.write('[decode error]');
-      }
-    });
-    socket.value?.on('reach_error', (payload: { connectionId: string; error?: string }) => {
-      if (payload.connectionId !== connectionId.value) return;
-      if (term) term.write(`\r\n[Error: ${payload.error || 'Unknown'}]\r\n`);
-    });
-    socket.value?.on('reach_close', (payload: { connectionId: string }) => {
-      if (payload.connectionId !== connectionId.value) return;
-      if (term) term.write('\r\n[Connection closed by host]\r\n');
-    });
 
     nextTick(() => initTerminal());
   });
@@ -174,6 +189,10 @@ function initTerminal() {
       term.loadAddon(fitAddon);
       term.open(terminalEl.value);
       fitAddon.fit();
+      if (pendingOutput) {
+        term.write(pendingOutput);
+        pendingOutput = '';
+      }
 
       term.onData((data: string) => {
         if (socket.value && connectionId.value) {
