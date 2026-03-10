@@ -408,9 +408,8 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
           });
         } catch {
           const { spawn: spawnChild } = await import('child_process');
-          const isLinux = process.platform === 'linux';
-          const args = isLinux ? ['-qc', shell, '/dev/null'] : ['-q', '/dev/null', shell];
-          const child = spawnChild('script', args, {
+          const pyScript = `import pty,os;pty.spawn([os.environ.get("SHELL","/bin/bash"),"-l"])`;
+          const child = spawnChild('python3', ['-c', pyScript], {
             stdio: 'pipe',
             env: { ...process.env, TERM: 'xterm-256color' },
             cwd: process.env.HOME || '/',
