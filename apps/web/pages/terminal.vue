@@ -16,7 +16,7 @@
           <label class="block text-sm font-medium text-gray-300 mb-2">Share code</label>
           <input
             v-model="code"
-            type="text"
+            type="password"
             placeholder="e.g. abc123"
             class="w-full px-4 py-3 bg-gray-500/10 border border-gray-500/20 rounded-lg focus:border-blue-300 focus:ring-1 focus:ring-blue-300 focus:outline-none text-white placeholder-gray-500"
             :disabled="connecting"
