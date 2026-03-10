@@ -64,6 +64,18 @@ connect join x7k9m2
 # → Same services, same ports. Done.
 ```
 
+## Browser terminal
+
+Give someone shell access with just a share code — no CLI install needed on their side.
+
+```bash
+# On your machine
+connect shell && connect share
+# → Share code: x7k9m2
+```
+
+They open `privateconnect.co/terminal`, enter the code, and get a live terminal.
+
 ## Build from source
 
 ```bash
@@ -76,10 +88,8 @@ cd apps/agent && pnpm run build:binary
 
 - [Full CLI reference](DETAILED.md)
 - [API reference](DETAILED.md#control-api)
-<!-- - [Free tier (no signup)](docs/free-tier.md) -->
 - [Security](docs/security.md)
-- [Device allowlisting](docs/device-allowlist.md)
-- [Terminal from anywhere](docs/terminal.md) — CLI and browser terminal
+- [Terminal from anywhere](docs/terminal.md)
 - [SDK](packages/sdk)
 - [Use cases](USE_CASES.md)
 
