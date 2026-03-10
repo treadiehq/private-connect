@@ -64,13 +64,13 @@ export default defineNuxtConfig({
         // unversioned URL the hash will mismatch and the script will be blocked by the browser.
         // When that happens, fetch the new file and recompute:
         //   curl -sf https://cdn.seline.com/seline.js | openssl dgst -sha384 -binary | openssl base64 | tr -d '\n'
-        {
-          src: 'https://cdn.seline.com/seline.js',
-          async: true,
-          'data-token': 'd5fd31a3538303d',
-          integrity: 'sha384-fZ2LVJes6BryRFY7aBEehcr6HBp34IJpZ636c7qb5mxRLvrARBcxld6j+fF/4ND+',
-          crossorigin: 'anonymous',
-        },
+        // {
+        //   src: 'https://cdn.seline.com/seline.js',
+        //   async: true,
+        //   'data-token': 'd5fd31a3538303d',
+        //   integrity: 'sha384-fZ2LVJes6BryRFY7aBEehcr6HBp34IJpZ636c7qb5mxRLvrARBcxld6j+fF/4ND+',
+        //   crossorigin: 'anonymous',
+        // },
         {
           type: 'application/ld+json',
           innerHTML: JSON.stringify({
