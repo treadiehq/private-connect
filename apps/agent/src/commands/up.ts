@@ -106,8 +106,9 @@ function getDefaultServiceName(port: number): string {
 }
 
 interface ConnectionState {
-  socket: net.Socket;
+  socket: any;
   connected: boolean;
+  pty?: any;
 }
 
 export async function upCommand(options: UpOptions) {
@@ -367,9 +368,44 @@ function connectToHub(config: AgentConfig): Socket {
   });
 
   // Handle dial requests from hub
-  socket.on('dial', async (data: { connectionId: string; targetHost: string; targetPort: number; serviceId: string }) => {
-    console.log(chalk.gray(`   Dialing ${data.targetHost}:${data.targetPort} for connection ${data.connectionId.substring(0, 8)}...`));
-    
+  socket.on('dial', async (data: { connectionId: string; targetHost: string; targetPort: number; serviceId: string; pty?: boolean }) => {
+    console.log(chalk.gray(`   Dialing ${data.targetHost}:${data.targetPort} for connection ${data.connectionId.substring(0, 8)}${data.pty ? ' (pty)' : ''}...`));
+
+    if (data.pty) {
+      try {
+        const pty = await import('node-pty');
+        const shell = process.env.SHELL || '/bin/bash';
+        const ptyProcess = pty.spawn(shell, [], {
+          name: 'xterm-256color',
+          cols: 80,
+          rows: 24,
+          cwd: process.env.HOME || '/',
+          env: { ...process.env } as Record<string, string>,
+        });
+
+        connections.set(data.connectionId, { socket: ptyProcess, connected: true, pty: ptyProcess });
+        console.log(chalk.green(`   [ok] PTY shell spawned (${shell})`));
+        socket.emit('dial_success', { connectionId: data.connectionId });
+
+        ptyProcess.onData((chunk: string) => {
+          socket.emit('data', {
+            connectionId: data.connectionId,
+            data: Buffer.from(chunk, 'utf8').toString('base64'),
+          });
+        });
+
+        ptyProcess.onExit(() => {
+          socket.emit('close', { connectionId: data.connectionId });
+          connections.delete(data.connectionId);
+        });
+      } catch (error: unknown) {
+        const err = error as Error;
+        console.log(chalk.red(`   [x] PTY spawn failed: ${err.message}`));
+        socket.emit('dial_error', { connectionId: data.connectionId, error: err.message });
+      }
+      return;
+    }
+
     try {
       const targetSocket = net.createConnection({
         host: data.targetHost,
@@ -417,8 +453,20 @@ function connectToHub(config: AgentConfig): Socket {
   socket.on('data', (data: { connectionId: string; data: string }) => {
     const conn = connections.get(data.connectionId);
     if (conn && conn.connected) {
-      const buffer = Buffer.from(data.data, 'base64');
-      conn.socket.write(buffer);
+      if (conn.pty) {
+        conn.pty.write(Buffer.from(data.data, 'base64').toString('utf8'));
+      } else {
+        const buffer = Buffer.from(data.data, 'base64');
+        conn.socket.write(buffer);
+      }
+    }
+  });
+
+  // Handle terminal resize from hub
+  socket.on('resize', (data: { connectionId: string; cols: number; rows: number }) => {
+    const conn = connections.get(data.connectionId);
+    if (conn?.pty) {
+      conn.pty.resize(data.cols, data.rows);
     }
   });
 
@@ -426,7 +474,11 @@ function connectToHub(config: AgentConfig): Socket {
   socket.on('close', (data: { connectionId: string }) => {
     const conn = connections.get(data.connectionId);
     if (conn) {
-      conn.socket.end();
+      if (conn.pty) {
+        conn.pty.kill();
+      } else {
+        conn.socket.end();
+      }
       connections.delete(data.connectionId);
     }
   });

@@ -44,11 +44,18 @@
     <!-- Terminal (when connected) -->
     <div v-else class="flex-1 flex flex-col min-h-0">
       <div class="flex items-center justify-between px-4 py-2 bg-gray-500/5 border-b border-gray-500/10 shrink-0">
-        <span class="text-sm text-gray-400">Connected to shell — share code: {{ code }}</span>
+        <span class="text-sm text-gray-400 flex items-center gap-2">
+          <span>Powered by </span>
+          <a href="/" target="_blank" class="text-blue-300 hover:text-blue-400 flex items-center gap-1">
+            <img src="/logo.png" alt="Private Connect" class="w-4 h-4" />
+            <span>Private Connect</span>
+          </a>
+        </span>
+        <span class="text-sm text-gray-400">Connected to shell via share code: {{ code }}</span>
         <button
           type="button"
           @click="disconnect"
-          class="text-sm text-gray-400 hover:text-white transition-colors"
+          class="text-sm text-gray-400 hover:text-white transition-colors border border-gray-500/10 bg-gray-500/10 rounded-lg px-2 py-1"
         >
           Disconnect
         </button>
@@ -60,6 +67,7 @@
 
 <script setup lang="ts">
 import { io, Socket } from 'socket.io-client';
+import 'xterm/css/xterm.css';
 
 definePageMeta({ layout: false });
 
@@ -171,6 +179,12 @@ function initTerminal() {
             ? btoa(unescape(encodeURIComponent(data)))
             : Buffer.from(data, 'utf8').toString('base64');
           socket.value.emit('reach_data', { connectionId: connectionId.value, data: base64 });
+        }
+      });
+
+      term.onResize(({ cols, rows }: { cols: number; rows: number }) => {
+        if (socket.value && connectionId.value) {
+          socket.value.emit('resize', { connectionId: connectionId.value, cols, rows });
         }
       });
 

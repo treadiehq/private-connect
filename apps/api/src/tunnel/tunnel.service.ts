@@ -993,6 +993,7 @@ export class TunnelService {
     serviceId: string,
     reachingAgentId: string,
     reachingSocket: any,
+    options?: { pty?: boolean },
   ): Promise<void> {
     // Find the service and its exposing agent
     const service = await this.prisma.service.findUnique({
@@ -1049,6 +1050,7 @@ export class TunnelService {
       targetHost: service.targetHost,
       targetPort: service.targetPort,
       serviceId,
+      ...(options?.pty ? { pty: true } : {}),
     });
   }
 
@@ -1101,7 +1103,7 @@ export class TunnelService {
     serviceId: string,
     browserSocket: any,
   ): Promise<void> {
-    return this.createAgentBridge(connectionId, serviceId, '', browserSocket);
+    return this.createAgentBridge(connectionId, serviceId, '', browserSocket, { pty: true });
   }
 
   /**
@@ -1113,6 +1115,15 @@ export class TunnelService {
       return;
     }
     this.handleReachData(connectionId, data, '');
+  }
+
+  /**
+   * Forward terminal resize from browser to the exposing agent
+   */
+  handleResizeFromBrowser(connectionId: string, cols: number, rows: number): void {
+    const bridge = this.agentBridges.get(connectionId);
+    if (!bridge || bridge.reachingAgentId !== '') return;
+    bridge.exposingSocket.emit('resize', { connectionId, cols, rows });
   }
 
   /**

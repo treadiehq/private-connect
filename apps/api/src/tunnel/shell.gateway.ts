@@ -99,6 +99,19 @@ export class ShellGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.tunnelService.handleReachDataFromBrowser(session.connectionId, buffer);
   }
 
+  @SubscribeMessage('resize')
+  handleResize(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { connectionId?: string; cols?: number; rows?: number },
+  ) {
+    const session = this.socketToSession.get(client.id);
+    if (!session || session.connectionId !== data?.connectionId) {
+      return;
+    }
+    if (typeof data.cols !== 'number' || typeof data.rows !== 'number') return;
+    this.tunnelService.handleResizeFromBrowser(session.connectionId, data.cols, data.rows);
+  }
+
   @SubscribeMessage('reach_close')
   handleReachClose(@ConnectedSocket() client: Socket, @MessageBody() data: { connectionId?: string }) {
     const session = this.socketToSession.get(client.id);

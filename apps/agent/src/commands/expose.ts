@@ -373,11 +373,43 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
 
   // Handle dial requests
   const net = await import('net');
-  const connections = new Map<string, { socket: any; connected: boolean }>();
+  const connections = new Map<string, { socket: any; connected: boolean; pty?: any }>();
 
-  socket.on('dial', async (data: { connectionId: string; targetHost: string; targetPort: number }) => {
-    console.log(chalk.gray(`   ← Incoming connection ${data.connectionId.substring(0, 8)}`));
-    
+  socket.on('dial', async (data: { connectionId: string; targetHost: string; targetPort: number; pty?: boolean }) => {
+    console.log(chalk.gray(`   ← Incoming connection ${data.connectionId.substring(0, 8)}${data.pty ? ' (pty)' : ''}`));
+
+    if (data.pty) {
+      try {
+        const pty = await import('node-pty');
+        const shell = process.env.SHELL || '/bin/bash';
+        const ptyProcess = pty.spawn(shell, [], {
+          name: 'xterm-256color',
+          cols: 80,
+          rows: 24,
+          cwd: process.env.HOME || '/',
+          env: { ...process.env } as Record<string, string>,
+        });
+
+        connections.set(data.connectionId, { socket: ptyProcess, connected: true, pty: ptyProcess });
+        socket.emit('dial_success', { connectionId: data.connectionId });
+
+        ptyProcess.onData((chunk: string) => {
+          socket.emit('data', {
+            connectionId: data.connectionId,
+            data: Buffer.from(chunk, 'utf8').toString('base64'),
+          });
+        });
+
+        ptyProcess.onExit(() => {
+          socket.emit('close', { connectionId: data.connectionId });
+          connections.delete(data.connectionId);
+        });
+      } catch (err: any) {
+        socket.emit('dial_error', { connectionId: data.connectionId, error: err.message || 'PTY spawn failed' });
+      }
+      return;
+    }
+
     const targetSocket = net.createConnection({
       host: data.targetHost,
       port: data.targetPort,
@@ -412,14 +444,29 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
   socket.on('data', (data: { connectionId: string; data: string }) => {
     const conn = connections.get(data.connectionId);
     if (conn?.connected) {
-      conn.socket.write(Buffer.from(data.data, 'base64'));
+      if (conn.pty) {
+        conn.pty.write(Buffer.from(data.data, 'base64').toString('utf8'));
+      } else {
+        conn.socket.write(Buffer.from(data.data, 'base64'));
+      }
+    }
+  });
+
+  socket.on('resize', (data: { connectionId: string; cols: number; rows: number }) => {
+    const conn = connections.get(data.connectionId);
+    if (conn?.pty) {
+      conn.pty.resize(data.cols, data.rows);
     }
   });
 
   socket.on('close', (data: { connectionId: string }) => {
     const conn = connections.get(data.connectionId);
     if (conn) {
-      conn.socket.end();
+      if (conn.pty) {
+        conn.pty.kill();
+      } else {
+        conn.socket.end();
+      }
       connections.delete(data.connectionId);
     }
   });
