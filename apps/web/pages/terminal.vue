@@ -116,7 +116,7 @@ function connect() {
   });
 
   socket.value.on('reach_ready', () => {
-    writeTerminal('\r\n[Shell ready]\r\n');
+    writeTerminal('\r\nConnected via Private Connect\r\n');
   });
   socket.value.on('reach_data', (payload: { connectionId: string; data: string }) => {
     if (payload.connectionId !== connectionId.value) return;
