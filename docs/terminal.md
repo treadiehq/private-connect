@@ -56,9 +56,15 @@ connect share --approve abc123 --agent <agent-id>
 
 After approval, the joiner runs `connect join abc123` again and can then `connect reach shell` and SSH as usual.
 
-## Browser terminal (future)
+## Browser terminal
 
-A web-based terminal that connects with just a share code (no CLI on the joiner side) is planned. For now, the joiner needs the CLI to run `connect join` and `connect reach shell`.
+You can open a shell in the **browser** with just a share code—no CLI on the joiner side.
+
+1. Host runs `connect shell` and `connect share` (and gives the share code to the joiner).
+2. Joiner opens the browser terminal (e.g. `https://app.privateconnect.co/terminal` or your self‑hosted web app’s `/terminal`).
+3. Joiner enters the share code and clicks Connect. They get a live terminal to the host’s shell.
+
+Use this when the joiner doesn’t have the CLI installed or prefers not to use SSH.
 
 ## See also
 

@@ -180,6 +180,49 @@ export class EnvSharesService {
   }
 
   /**
+   * Resolve share code to the "shell" service for browser terminal.
+   * Returns the Service (with agent) if the share is valid and has a shell service; null otherwise.
+   */
+  async getShellServiceForShare(code: string): Promise<{ id: string; agentId: string; targetHost: string; targetPort: number; name: string } | null> {
+    const normalized = code?.toLowerCase().trim();
+    if (!normalized) return null;
+
+    const validation = await this.validateShare(normalized);
+    if (!validation.valid || !validation.share) return null;
+
+    const share = validation.share;
+    const shellRoute = share.routes.find((r) => r.serviceName === 'shell');
+    if (!shellRoute) return null;
+
+    let service: { id: string; agentId: string | null; targetHost: string; targetPort: number; name: string } | null = null;
+
+    if (shellRoute.serviceId) {
+      service = await this.prisma.service.findUnique({
+        where: { id: shellRoute.serviceId },
+        select: { id: true, agentId: true, targetHost: true, targetPort: true, name: true },
+      });
+    }
+
+    if (!service && share.createdById) {
+      const services = await this.prisma.service.findMany({
+        where: { agentId: share.createdById, name: 'shell' },
+        select: { id: true, agentId: true, targetHost: true, targetPort: true, name: true },
+        take: 1,
+      });
+      service = services[0] ?? null;
+    }
+
+    if (!service || !service.agentId) return null;
+    return {
+      id: service.id,
+      agentId: service.agentId,
+      targetHost: service.targetHost,
+      targetPort: service.targetPort,
+      name: service.name,
+    };
+  }
+
+  /**
    * Record when someone joins a shared environment
    */
   async recordJoin(envShareId: string, agentId: string, agentLabel?: string) {

@@ -79,7 +79,7 @@ cd apps/agent && pnpm run build:binary
 <!-- - [Free tier (no signup)](docs/free-tier.md) -->
 - [Security](docs/security.md)
 - [Device allowlisting](docs/device-allowlist.md)
-- [Terminal from anywhere](docs/terminal.md)
+- [Terminal from anywhere](docs/terminal.md) — CLI and browser terminal
 - [SDK](packages/sdk)
 - [Use cases](USE_CASES.md)
 

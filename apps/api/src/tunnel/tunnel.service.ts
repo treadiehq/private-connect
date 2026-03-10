@@ -46,14 +46,15 @@ interface PendingConnection {
 }
 
 /**
- * Bridge between a reaching agent and an exposing agent
- * Data flows: Reaching Agent <-> Hub <-> Exposing Agent
+ * Bridge between a reaching agent (or browser) and an exposing agent
+ * Data flows: Reaching <-> Hub <-> Exposing Agent
+ * reachingAgentId is '' for browser-originated bridges.
  */
 interface AgentBridge {
   connectionId: string;
   serviceId: string;
-  reachingAgentId: string;
-  reachingSocket: any; // WebSocket of reaching agent
+  reachingAgentId: string; // '' when reaching side is a browser
+  reachingSocket: any; // WebSocket of reaching agent or browser client
   exposingAgentId: string;
   exposingSocket: any; // WebSocket of exposing agent
   targetHost: string;
@@ -1084,11 +1085,45 @@ export class TunnelService {
         bridge.dataBuffer = [];
       }
 
-      // Notify the reaching agent that the connection is ready
+      // Notify the reaching side (agent or browser) that the connection is ready
       bridge.reachingSocket.emit('reach_ready', { connectionId });
       return true;
     }
     return false;
+  }
+
+  /**
+   * Create a bridge from a browser client to an exposing agent (for browser terminal).
+   * Same as createAgentBridge but reachingAgentId is '' and reachingSocket is the browser.
+   */
+  async createBrowserBridge(
+    connectionId: string,
+    serviceId: string,
+    browserSocket: any,
+  ): Promise<void> {
+    return this.createAgentBridge(connectionId, serviceId, '', browserSocket);
+  }
+
+  /**
+   * Handle data from browser (reaching side) -> exposing agent
+   */
+  handleReachDataFromBrowser(connectionId: string, data: Buffer): void {
+    const bridge = this.agentBridges.get(connectionId);
+    if (!bridge || bridge.reachingAgentId !== '') {
+      return;
+    }
+    this.handleReachData(connectionId, data, '');
+  }
+
+  /**
+   * Handle close from browser (reaching side)
+   */
+  handleReachCloseFromBrowser(connectionId: string): void {
+    const bridge = this.agentBridges.get(connectionId);
+    if (!bridge || bridge.reachingAgentId !== '') {
+      return;
+    }
+    this.handleReachClose(connectionId, '');
   }
 
   /**
@@ -1103,9 +1138,9 @@ export class TunnelService {
       return;
     }
 
-    // Validate that the agent is the reaching agent for this bridge
+    // Validate that the sender is the reaching side (agent or browser when agentId is '')
     if (bridge.reachingAgentId !== agentId) {
-      this.logger.error(`Agent ${agentId} attempted to send reach data for bridge ${connectionId} belonging to ${bridge.reachingAgentId}`);
+      this.logger.error(`Agent ${agentId} attempted to send reach data for bridge ${connectionId} belonging to ${bridge.reachingAgentId || '(browser)'}`);
       return;
     }
 
@@ -1165,7 +1200,7 @@ export class TunnelService {
     const bridge = this.agentBridges.get(connectionId);
     if (bridge) {
       if (bridge.reachingAgentId !== agentId) {
-        this.logger.error(`Agent ${agentId} attempted to close bridge ${connectionId} belonging to ${bridge.reachingAgentId}`);
+        this.logger.error(`Agent ${agentId} attempted to close bridge ${connectionId} belonging to ${bridge.reachingAgentId || '(browser)'}`);
         return;
       }
 
