@@ -62,7 +62,7 @@
           Disconnect
         </button>
       </div>
-      <div ref="terminalEl" class="flex-1 min-h-0 p-2" />
+      <div ref="terminalEl" class="flex-1 min-h-0 p-2 pt-0" />
     </div>
   </div>
 </template>

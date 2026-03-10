@@ -380,30 +380,62 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
 
     if (data.pty) {
       try {
-        const pty = await import('node-pty');
         const shell = process.env.SHELL || '/bin/bash';
-        const ptyProcess = pty.spawn(shell, [], {
-          name: 'xterm-256color',
-          cols: 80,
-          rows: 24,
-          cwd: process.env.HOME || '/',
-          env: { ...process.env } as Record<string, string>,
-        });
+        let ptyHandle: any;
 
-        connections.set(data.connectionId, { socket: ptyProcess, connected: true, pty: ptyProcess });
-        socket.emit('dial_success', { connectionId: data.connectionId });
-
-        ptyProcess.onData((chunk: string) => {
-          socket.emit('data', {
-            connectionId: data.connectionId,
-            data: Buffer.from(chunk, 'utf8').toString('base64'),
+        try {
+          const pty = await import('node-pty');
+          const p = pty.spawn(shell, [], {
+            name: 'xterm-256color',
+            cols: 80,
+            rows: 24,
+            cwd: process.env.HOME || '/',
+            env: { ...process.env } as Record<string, string>,
           });
-        });
+          ptyHandle = {
+            type: 'node-pty',
+            process: p,
+            write: (d: string) => p.write(d),
+            resize: (c: number, r: number) => p.resize(c, r),
+            kill: () => p.kill(),
+          };
+          p.onData((chunk: string) => {
+            socket.emit('data', { connectionId: data.connectionId, data: Buffer.from(chunk, 'utf8').toString('base64') });
+          });
+          p.onExit(() => {
+            socket.emit('close', { connectionId: data.connectionId });
+            connections.delete(data.connectionId);
+          });
+        } catch {
+          const { spawn: spawnChild } = await import('child_process');
+          const isLinux = process.platform === 'linux';
+          const args = isLinux ? ['-qc', shell, '/dev/null'] : ['-q', '/dev/null', shell];
+          const child = spawnChild('script', args, {
+            stdio: 'pipe',
+            env: { ...process.env, TERM: 'xterm-256color' },
+            cwd: process.env.HOME || '/',
+          });
+          ptyHandle = {
+            type: 'script',
+            process: child,
+            write: (d: string) => child.stdin?.write(d),
+            resize: () => {},
+            kill: () => child.kill(),
+          };
+          child.stdout?.on('data', (chunk: Buffer) => {
+            socket.emit('data', { connectionId: data.connectionId, data: chunk.toString('base64') });
+          });
+          child.stderr?.on('data', (chunk: Buffer) => {
+            socket.emit('data', { connectionId: data.connectionId, data: chunk.toString('base64') });
+          });
+          child.on('exit', () => {
+            socket.emit('close', { connectionId: data.connectionId });
+            connections.delete(data.connectionId);
+          });
+        }
 
-        ptyProcess.onExit(() => {
-          socket.emit('close', { connectionId: data.connectionId });
-          connections.delete(data.connectionId);
-        });
+        connections.set(data.connectionId, { socket: ptyHandle, connected: true, pty: ptyHandle });
+        socket.emit('dial_success', { connectionId: data.connectionId });
       } catch (err: any) {
         socket.emit('dial_error', { connectionId: data.connectionId, error: err.message || 'PTY spawn failed' });
       }
@@ -454,7 +486,7 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
 
   socket.on('resize', (data: { connectionId: string; cols: number; rows: number }) => {
     const conn = connections.get(data.connectionId);
-    if (conn?.pty) {
+    if (conn?.pty?.resize) {
       conn.pty.resize(data.cols, data.rows);
     }
   });
@@ -462,9 +494,9 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
   socket.on('close', (data: { connectionId: string }) => {
     const conn = connections.get(data.connectionId);
     if (conn) {
-      if (conn.pty) {
+      if (conn.pty?.kill) {
         conn.pty.kill();
-      } else {
+      } else if (conn.socket?.end) {
         conn.socket.end();
       }
       connections.delete(data.connectionId);
