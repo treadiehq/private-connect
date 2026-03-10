@@ -6,6 +6,11 @@ interface ShareOptions {
   name?: string;
   expires?: string;
   config?: string;
+  requireApproval?: boolean;
+  pendingCode?: string;
+  approveCode?: string;
+  denyCode?: string;
+  agentId?: string;
 }
 
 interface ShareRoute {
@@ -22,6 +27,7 @@ interface ShareResponse {
     code: string;
     name?: string;
     expiresAt: string;
+    requireDeviceApproval?: boolean;
     routes: ShareRoute[];
   };
   error?: string;
@@ -65,6 +71,7 @@ export async function shareCommand(options: ShareOptions) {
       body: JSON.stringify({
         name: options.name,
         expiresInHours,
+        requireDeviceApproval: options.requireApproval ?? false,
       }),
     });
 
@@ -92,6 +99,12 @@ export async function shareCommand(options: ShareOptions) {
     console.log(chalk.gray('  ┌─────────────────────────────────────────────────┐'));
     console.log(chalk.gray('  │') + chalk.white.bold(`  Share Code: ${chalk.cyan.bold(share.code)}`) + chalk.gray('                           │'));
     console.log(chalk.gray('  └─────────────────────────────────────────────────┘\n'));
+
+    if (share.requireDeviceApproval) {
+      console.log(chalk.yellow('  Device approval is on. You must approve each device before they can join.'));
+      console.log(chalk.gray('  See pending: ') + chalk.cyan(`connect share --pending ${share.code}`));
+      console.log();
+    }
 
     // Instructions
     console.log(chalk.white('  Your teammate can join with:\n'));
@@ -156,6 +169,8 @@ export async function listSharesCommand(options: ShareOptions) {
       expiresAt: string;
       routeCount: number;
       joinCount: number;
+      pendingCount?: number;
+      requireDeviceApproval?: boolean;
       createdAt: string;
     }> };
 
@@ -167,12 +182,17 @@ export async function listSharesCommand(options: ShareOptions) {
 
     console.log(chalk.cyan('\n📋 Active Environment Shares\n'));
     
-    data.shares.forEach(share => {
+    data.shares.forEach((share: { code: string; name?: string; expiresAt: string; routeCount: number; joinCount: number; pendingCount?: number; requireDeviceApproval?: boolean }) => {
       const expiresAt = new Date(share.expiresAt);
       const hoursLeft = Math.round((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60));
       
       console.log(chalk.white.bold(`  ${share.code}`) + (share.name ? chalk.gray(` (${share.name})`) : ''));
-      console.log(chalk.gray(`    Routes: ${share.routeCount} | Joined: ${share.joinCount} | Expires: ${hoursLeft}h`));
+      let meta = `Routes: ${share.routeCount} | Joined: ${share.joinCount}`;
+      if (share.requireDeviceApproval && share.pendingCount !== undefined && share.pendingCount > 0) {
+        meta += chalk.yellow(` | ${share.pendingCount} pending approval`);
+      }
+      meta += ` | Expires: ${hoursLeft}h`;
+      console.log(chalk.gray(`    ${meta}`));
       console.log();
     });
 
@@ -212,6 +232,87 @@ export async function revokeShareCommand(code: string, options: ShareOptions) {
   } catch (error) {
     const err = error as Error;
     console.error(chalk.red(`\n[x] Error: ${err.message}\n`));
+    process.exit(1);
+  }
+}
+
+export async function pendingShareCommand(code: string, options: ShareOptions) {
+  const config = loadConfig();
+  if (!config) {
+    console.error(chalk.red('\n[x] Agent not configured. Run connect up first.\n'));
+    process.exit(1);
+  }
+  const hubUrl = config.hubUrl || options.hub;
+  try {
+    const response = await fetch(`${hubUrl}/v1/env-shares/${code}/pending`, {
+      headers: { 'x-api-key': config.apiKey, 'x-agent-id': config.agentId },
+    });
+    if (!response.ok) {
+      console.error(chalk.red(`[x] ${response.statusText}`));
+      process.exit(1);
+    }
+    const data = await response.json() as { pending: Array<{ agentId: string; agentLabel?: string; requestedAt: string }> };
+    if (data.pending.length === 0) {
+      console.log(chalk.gray(`\n  No pending join requests for ${code}.\n`));
+      return;
+    }
+    console.log(chalk.cyan(`\n  Pending join requests for ${code}:\n`));
+    data.pending.forEach((p: { agentId: string; agentLabel?: string; requestedAt: string }) => {
+      console.log(chalk.white(`  ${p.agentId}`) + (p.agentLabel ? chalk.gray(` (${p.agentLabel})`) : ''));
+      console.log(chalk.gray(`    Requested: ${new Date(p.requestedAt).toLocaleString()}`));
+      console.log(chalk.cyan(`    Approve: connect share --approve ${code} --agent ${p.agentId}`));
+      console.log(chalk.gray(`    Deny:    connect share --deny ${code} --agent ${p.agentId}\n`));
+    });
+  } catch (err) {
+    console.error(chalk.red(`\n[x] ${(err as Error).message}\n`));
+    process.exit(1);
+  }
+}
+
+export async function approveShareCommand(code: string, agentId: string, options: ShareOptions) {
+  const config = loadConfig();
+  if (!config) {
+    console.error(chalk.red('\n[x] Agent not configured. Run connect up first.\n'));
+    process.exit(1);
+  }
+  const hubUrl = config.hubUrl || options.hub;
+  try {
+    const response = await fetch(`${hubUrl}/v1/env-shares/${code}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': config.apiKey, 'x-agent-id': config.agentId },
+      body: JSON.stringify({ agentId }),
+    });
+    if (!response.ok) {
+      console.error(chalk.red(`[x] Failed to approve: ${response.statusText}`));
+      process.exit(1);
+    }
+    console.log(chalk.green(`\n[ok] Device approved. They can join with: connect join ${code}\n`));
+  } catch (err) {
+    console.error(chalk.red(`\n[x] ${(err as Error).message}\n`));
+    process.exit(1);
+  }
+}
+
+export async function denyShareCommand(code: string, agentId: string, options: ShareOptions) {
+  const config = loadConfig();
+  if (!config) {
+    console.error(chalk.red('\n[x] Agent not configured. Run connect up first.\n'));
+    process.exit(1);
+  }
+  const hubUrl = config.hubUrl || options.hub;
+  try {
+    const response = await fetch(`${hubUrl}/v1/env-shares/${code}/deny`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': config.apiKey, 'x-agent-id': config.agentId },
+      body: JSON.stringify({ agentId }),
+    });
+    if (!response.ok) {
+      console.error(chalk.red(`[x] ${response.statusText}`));
+      process.exit(1);
+    }
+    console.log(chalk.green(`\n[ok] Device denied.\n`));
+  } catch (err) {
+    console.error(chalk.red(`\n[x] ${(err as Error).message}\n`));
     process.exit(1);
   }
 }

@@ -17,6 +17,7 @@ interface CreateEnvShareOptions {
   routes: RouteSnapshot[];
   name?: string;
   expiresInHours?: number; // default: 24
+  requireDeviceApproval?: boolean; // if true, host must approve each device before join
 }
 
 @Injectable()
@@ -52,6 +53,7 @@ export class EnvSharesService {
         createdById: options.agentId,
         workspaceId: options.workspaceId,
         expiresAt,
+        requireDeviceApproval: options.requireDeviceApproval ?? false,
         routes: {
           create: options.routes.map((route) => ({
             serviceName: route.serviceName,
@@ -70,6 +72,74 @@ export class EnvSharesService {
   }
 
   /**
+   * Check if an agent is allowed to join (either no approval required, or in allowlist)
+   */
+  async isAgentAllowed(envShareId: string, agentId: string): Promise<boolean> {
+    const share = await this.prisma.environmentShare.findUnique({
+      where: { id: envShareId },
+      select: { requireDeviceApproval: true, allowedDevices: { where: { agentId }, take: 1 } },
+    });
+    if (!share) return false;
+    if (!share.requireDeviceApproval) return true;
+    return share.allowedDevices.length > 0;
+  }
+
+  /**
+   * Add or update a pending join request (when requireDeviceApproval and not yet allowed)
+   */
+  async addPendingJoin(envShareId: string, agentId: string, agentLabel?: string): Promise<void> {
+    await this.prisma.environmentSharePendingJoin.upsert({
+      where: {
+        envShareId_agentId: { envShareId, agentId },
+      },
+      create: { envShareId, agentId, agentLabel },
+      update: { agentLabel, requestedAt: new Date() },
+    });
+  }
+
+  /**
+   * List pending join requests for a share (for host to approve/deny)
+   */
+  async getPendingJoins(envShareId: string) {
+    return this.prisma.environmentSharePendingJoin.findMany({
+      where: { envShareId },
+      orderBy: { requestedAt: 'asc' },
+    });
+  }
+
+  /**
+   * Approve a device: add to allowlist and remove from pending
+   */
+  async approveDevice(envShareId: string, agentId: string, approvedById: string): Promise<boolean> {
+    const share = await this.prisma.environmentShare.findUnique({
+      where: { id: envShareId },
+      select: { createdById: true },
+    });
+    if (!share) return false;
+    await this.prisma.$transaction([
+      this.prisma.environmentShareAllowedDevice.upsert({
+        where: { envShareId_agentId: { envShareId, agentId } },
+        create: { envShareId, agentId, approvedById },
+        update: { approvedById, approvedAt: new Date() },
+      }),
+      this.prisma.environmentSharePendingJoin.deleteMany({
+        where: { envShareId, agentId },
+      }),
+    ]);
+    return true;
+  }
+
+  /**
+   * Deny a pending device (remove from pending only)
+   */
+  async denyDevice(envShareId: string, agentId: string): Promise<boolean> {
+    const result = await this.prisma.environmentSharePendingJoin.deleteMany({
+      where: { envShareId, agentId },
+    });
+    return result.count > 0;
+  }
+
+  /**
    * Get a share by code
    */
   async getShareByCode(code: string) {
@@ -80,6 +150,9 @@ export class EnvSharesService {
         joins: {
           orderBy: { joinedAt: 'desc' },
           take: 10,
+        },
+        _count: {
+          select: { pendingJoins: true },
         },
       },
     });
@@ -133,7 +206,7 @@ export class EnvSharesService {
       include: {
         routes: true,
         _count: {
-          select: { joins: true },
+          select: { joins: true, pendingJoins: true },
         },
       },
       orderBy: { createdAt: 'desc' },

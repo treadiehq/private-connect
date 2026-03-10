@@ -1,6 +1,6 @@
 {
   "name": "agent",
-  "version": "0.6.21",
+  "version": "0.6.23",
   "private": true,
   "bin": {
     "connect": "./dist/cli.js"

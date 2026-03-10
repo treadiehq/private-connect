@@ -52,3 +52,5 @@ archived
 scripts/demo-server.js
 scripts/test-udp-server.js
 scripts/test-udp-client.js
+
+docs/free-tier.md

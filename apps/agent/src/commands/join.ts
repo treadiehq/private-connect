@@ -76,6 +76,17 @@ export async function joinCommand(code: string, options: JoinOptions) {
     });
 
     if (!joinResponse.ok) {
+      if (joinResponse.status === 403) {
+        const errBody = await joinResponse.json().catch(() => ({})) as { code?: string; message?: string };
+        if (errBody.code === 'PENDING_APPROVAL') {
+          console.error(chalk.yellow('\n[x] This share requires host approval.'));
+          console.log(chalk.gray(`  ${errBody.message || 'Ask the host to approve your device.'}`));
+          console.log(chalk.gray('  They can run: ') + chalk.cyan(`connect share --pending ${shareCode}`));
+          console.log(chalk.gray('  Then: ') + chalk.cyan('connect share --approve <code> --agent <your-agent-id>'));
+          console.log();
+          process.exit(1);
+        }
+      }
       console.error(chalk.red(`[x] Failed to join: ${joinResponse.statusText}`));
       process.exit(1);
     }

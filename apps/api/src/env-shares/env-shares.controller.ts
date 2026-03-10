@@ -32,7 +32,7 @@ function getClientIp(req: Request): string {
 const CreateEnvShareSchema = z.object({
   name: z.string().max(100).optional(),
   expiresInHours: z.number().min(1).max(168).optional(), // max 7 days
-  // Routes can be provided explicitly, or we'll snapshot current services
+  requireDeviceApproval: z.boolean().optional(), // if true, host must approve each device before join
   routes: z.array(z.object({
     serviceName: z.string(),
     serviceId: z.string().optional(),
@@ -111,6 +111,7 @@ export class EnvSharesController {
       routes,
       name: parsed.data.name,
       expiresInHours: parsed.data.expiresInHours,
+      requireDeviceApproval: parsed.data.requireDeviceApproval,
     });
 
     this.logger.log(`Environment share created: ${share.code} by agent ${agent.label}`);
@@ -121,6 +122,7 @@ export class EnvSharesController {
         code: share.code,
         name: share.name,
         expiresAt: share.expiresAt,
+        requireDeviceApproval: share.requireDeviceApproval,
         routes: share.routes.map((r) => ({
           serviceName: r.serviceName,
           targetHost: r.targetHost,
@@ -175,6 +177,25 @@ export class EnvSharesController {
       );
     }
 
+    // Device allowlisting: if share requires approval, check allowlist
+    if (share.requireDeviceApproval) {
+      const allowed = await this.envSharesService.isAgentAllowed(share.id, agent.id);
+      if (!allowed) {
+        await this.envSharesService.addPendingJoin(
+          share.id,
+          agent.id,
+          parsed.data.agentLabel || agent.label,
+        );
+        throw new HttpException(
+          {
+            code: 'PENDING_APPROVAL',
+            message: 'This share requires host approval. The host has been notified; try again after they approve your device.',
+          },
+          HttpStatus.FORBIDDEN,
+        );
+      }
+    }
+
     // Record the join
     await this.envSharesService.recordJoin(
       share.id,
@@ -222,9 +243,10 @@ export class EnvSharesController {
       code: share.code,
       name: share.name,
       expiresAt: share.expiresAt,
+      requireDeviceApproval: share.requireDeviceApproval,
       routeCount: share.routes.length,
       joinCount: share.joins.length,
-      // Don't expose full route details until they join
+      pendingCount: (share as { _count?: { pendingJoins: number } })._count?.pendingJoins ?? 0,
       routes: share.routes.map((r) => ({
         serviceName: r.serviceName,
         protocol: r.protocol,
@@ -256,11 +278,123 @@ export class EnvSharesController {
         code: s.code,
         name: s.name,
         expiresAt: s.expiresAt,
+        requireDeviceApproval: s.requireDeviceApproval,
         routeCount: s.routes.length,
         joinCount: s._count.joins,
+        pendingCount: s._count.pendingJoins,
         createdAt: s.createdAt,
       })),
     };
+  }
+
+  /**
+   * List pending join requests (host only)
+   * GET /v1/env-shares/:code/pending
+   */
+  @Get(':code/pending')
+  async listPending(
+    @Req() req: Request,
+    @Param('code') code: string,
+    @Headers('x-api-key') apiKey: string,
+    @Headers('x-agent-id') agentId: string,
+  ) {
+    const clientIp = getClientIp(req);
+    const agent = await this.agentsService.validateAgent(agentId, apiKey, clientIp);
+    if (!agent) {
+      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+
+    const validation = await this.envSharesService.validateShare(code);
+    if (!validation.valid || !validation.share) {
+      throw new HttpException(validation.reason || 'Share not found', HttpStatus.NOT_FOUND);
+    }
+    const share = validation.share;
+    if (share.createdById !== agent.id) {
+      throw new HttpException('Only the share creator can list pending joins', HttpStatus.FORBIDDEN);
+    }
+
+    const pending = await this.envSharesService.getPendingJoins(share.id);
+    return {
+      pending: pending.map((p) => ({
+        agentId: p.agentId,
+        agentLabel: p.agentLabel,
+        requestedAt: p.requestedAt,
+      })),
+    };
+  }
+
+  /**
+   * Approve a device to join (host only)
+   * POST /v1/env-shares/:code/approve
+   */
+  @Post(':code/approve')
+  async approveDevice(
+    @Req() req: Request,
+    @Param('code') code: string,
+    @Body() body: { agentId: string },
+    @Headers('x-api-key') apiKey: string,
+    @Headers('x-agent-id') agentId: string,
+  ) {
+    const clientIp = getClientIp(req);
+    const agent = await this.agentsService.validateAgent(agentId, apiKey, clientIp);
+    if (!agent) {
+      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+
+    const validation = await this.envSharesService.validateShare(code);
+    if (!validation.valid || !validation.share) {
+      throw new HttpException(validation.reason || 'Share not found', HttpStatus.NOT_FOUND);
+    }
+    const share = validation.share;
+    if (share.createdById !== agent.id) {
+      throw new HttpException('Only the share creator can approve devices', HttpStatus.FORBIDDEN);
+    }
+
+    if (!body?.agentId) {
+      throw new HttpException('agentId required', HttpStatus.BAD_REQUEST);
+    }
+
+    const ok = await this.envSharesService.approveDevice(share.id, body.agentId, agent.id);
+    if (!ok) {
+      throw new HttpException('Failed to approve', HttpStatus.BAD_REQUEST);
+    }
+    this.logger.log(`Share ${code}: device ${body.agentId} approved by ${agent.label}`);
+    return { success: true, message: 'Device approved. They can join now.' };
+  }
+
+  /**
+   * Deny a pending device (host only)
+   * POST /v1/env-shares/:code/deny
+   */
+  @Post(':code/deny')
+  async denyDevice(
+    @Req() req: Request,
+    @Param('code') code: string,
+    @Body() body: { agentId: string },
+    @Headers('x-api-key') apiKey: string,
+    @Headers('x-agent-id') agentId: string,
+  ) {
+    const clientIp = getClientIp(req);
+    const agent = await this.agentsService.validateAgent(agentId, apiKey, clientIp);
+    if (!agent) {
+      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+
+    const validation = await this.envSharesService.validateShare(code);
+    if (!validation.valid || !validation.share) {
+      throw new HttpException(validation.reason || 'Share not found', HttpStatus.NOT_FOUND);
+    }
+    const share = validation.share;
+    if (share.createdById !== agent.id) {
+      throw new HttpException('Only the share creator can deny devices', HttpStatus.FORBIDDEN);
+    }
+
+    if (!body?.agentId) {
+      throw new HttpException('agentId required', HttpStatus.BAD_REQUEST);
+    }
+
+    await this.envSharesService.denyDevice(share.id, body.agentId);
+    return { success: true, message: 'Device denied.' };
   }
 
   /**

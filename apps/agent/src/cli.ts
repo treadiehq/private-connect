@@ -9,7 +9,7 @@ import { whoamiCommand } from './commands/whoami';
 import { discoverCommand } from './commands/discover';
 import { logoutCommand } from './commands/logout';
 import { updateCommand } from './commands/update';
-import { shareCommand, listSharesCommand, revokeShareCommand } from './commands/share';
+import { shareCommand, listSharesCommand, revokeShareCommand, pendingShareCommand, approveShareCommand, denyShareCommand } from './commands/share';
 import { joinCommand } from './commands/join';
 import { mapCommand, mapStatusCommand } from './commands/map';
 import { daemonCommand } from './commands/daemon';
@@ -275,6 +275,29 @@ program
   });
 
 program
+  .command('shell [port]')
+  .description('Expose your local shell (SSH) so others can terminal-in from anywhere')
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-k, --api-key <key>', 'Workspace API key')
+  .option('-c, --config <path>', 'Config file path')
+  .action((portArg, options) => {
+    if (options.config) setConfigPath(options.config);
+    const port = portArg ? parseInt(String(portArg), 10) : 22;
+    if (isNaN(port) || port < 1 || port > 65535) {
+      console.error('Invalid port. Use a number 1-65535 (default: 22 for SSH).');
+      process.exit(1);
+    }
+    exposeCommand(`localhost:${port}`, {
+      name: 'shell',
+      hub: options.hub || DEFAULT_HUB_URL,
+      apiKey: options.apiKey,
+      protocol: 'tcp',
+      public: false,
+      config: options.config,
+    });
+  });
+
+program
   .command('reach <service>')
   .description('Connect to an exposed service and create a local tunnel')
   .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
@@ -378,18 +401,33 @@ program
   .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-n, --name <name>', 'Friendly name for the share')
   .option('-e, --expires <duration>', 'Expiry duration (e.g., 4h, 24h, 7d)', parseDuration, '24h')
+  .option('--require-approval', 'Require host to approve each device before they can join')
   .option('-c, --config <path>', 'Config file path')
   .option('-l, --list', 'List active shares')
   .option('-r, --revoke <code>', 'Revoke a share by code')
+  .option('-p, --pending <code>', 'List pending join requests for a share (host only)')
+  .option('--approve <code>', 'Approve a device to join (use with --agent)')
+  .option('--deny <code>', 'Deny a pending device (use with --agent)')
+  .option('--agent <id>', 'Agent ID (for use with --approve or --deny)')
   .action((options) => {
     if (options.config) setConfigPath(options.config);
     
-    // Enforce mutual exclusivity
+    if (options.pending) {
+      pendingShareCommand(options.pending, options);
+      return;
+    }
+    if (options.approve && options.agent) {
+      approveShareCommand(options.approve, options.agent, options);
+      return;
+    }
+    if (options.deny && options.agent) {
+      denyShareCommand(options.deny, options.agent, options);
+      return;
+    }
     if (options.list && options.revoke) {
       console.error('[x] Cannot use --list and --revoke together');
       process.exit(1);
     }
-    
     if (options.list) {
       listSharesCommand(options);
     } else if (options.revoke) {

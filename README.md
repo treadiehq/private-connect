@@ -76,8 +76,9 @@ cd apps/agent && pnpm run build:binary
 
 - [Full CLI reference](DETAILED.md)
 - [API reference](DETAILED.md#control-api)
-- [Free tier (no signup)](docs/free-tier.md)
+<!-- - [Free tier (no signup)](docs/free-tier.md) -->
 - [Security](docs/security.md)
+- [Terminal from anywhere](docs/terminal.md)
 - [SDK](packages/sdk)
 - [Use cases](USE_CASES.md)
 
