@@ -66,7 +66,7 @@ connect join x7k9m2
 
 ## Browser terminal
 
-Give someone shell access with just a share code — no CLI install needed on their side.
+Give someone shell access with just a share code, no CLI install needed on their side.
 
 ```bash
 # On your machine
