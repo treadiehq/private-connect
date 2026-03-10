@@ -27,7 +27,7 @@ export class EmailService {
 
   async sendMagicLink(options: SendMagicLinkOptions): Promise<void> {
     const { to, token, type, workspaceName } = options;
-    const baseUrl = process.env.APP_URL || 'http://localhost:3000';
+    const baseUrl = process.env.WEB_URL || process.env.APP_URL || 'http://localhost:3000';
     const magicLink = `${baseUrl}/verify?token=${token}`;
 
     const subject = type === 'REGISTER' 
@@ -54,8 +54,12 @@ This link expires in 15 minutes.
 
 If you didn't request this, you can safely ignore this email.`;
 
-    // In development or if Resend is not configured, log to console
+    // Resend not configured
     if (!this.resend) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('Email service not configured. Please set RESEND_API_KEY.');
+      }
+      // Development only: log to console (never log magic links in production)
       this.logger.log('');
       this.logger.log('═══════════════════════════════════════════════════════════');
       this.logger.log('  📧 MAGIC LINK EMAIL (Development Mode)');

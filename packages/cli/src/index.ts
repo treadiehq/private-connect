@@ -23,6 +23,9 @@ import * as dgram from 'dgram';
 import * as tls from 'tls';
 import * as https from 'https';
 import * as http from 'http';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import { URL } from 'url';
 import { randomBytes } from 'crypto';
 import { io, Socket } from 'socket.io-client';
@@ -452,6 +455,57 @@ function getProviderInstructions(provider: WebhookProvider): string[] {
 const HUB_URL = process.env.CONNECT_HUB_URL || 'https://api.privateconnect.co';
 const TUNNEL_DOMAIN = process.env.CONNECT_TUNNEL_DOMAIN || 'tunnel.privateconnect.co';
 
+const TUNNEL_STORE_DIR = path.join(os.homedir(), '.private-connect');
+const TUNNEL_STORE_FILE = path.join(TUNNEL_STORE_DIR, 'tunnels.json');
+
+interface StoredTunnel {
+  tunnelId: string;
+  managementToken: string;
+  type: string;
+  expiresAt: string;
+  subdomain?: string;
+  createdAt: string;
+}
+
+function loadTunnelStore(): StoredTunnel[] {
+  try {
+    const raw = fs.readFileSync(TUNNEL_STORE_FILE, 'utf8');
+    const data = JSON.parse(raw);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveTunnelToStore(tunnelId: string, managementToken: string, type: string, expiresAt: string, subdomain?: string): void {
+  try {
+    if (!fs.existsSync(TUNNEL_STORE_DIR)) {
+      fs.mkdirSync(TUNNEL_STORE_DIR, { recursive: true });
+    }
+    const store = loadTunnelStore().filter((t) => t.tunnelId !== tunnelId);
+    store.push({
+      tunnelId,
+      managementToken,
+      type,
+      expiresAt,
+      subdomain,
+      createdAt: new Date().toISOString(),
+    });
+    fs.writeFileSync(TUNNEL_STORE_FILE, JSON.stringify(store, null, 2), 'utf8');
+  } catch (err) {
+    // Non-fatal: tunnel still works, just list/close from this machine won't have token
+  }
+}
+
+function removeTunnelFromStore(tunnelId: string): void {
+  try {
+    const store = loadTunnelStore().filter((t) => t.tunnelId !== tunnelId);
+    fs.writeFileSync(TUNNEL_STORE_FILE, JSON.stringify(store, null, 2), 'utf8');
+  } catch {
+    // ignore
+  }
+}
+
 const DB_PORTS: Record<number, string> = {
   5432: 'PostgreSQL',
   3306: 'MySQL',
@@ -564,6 +618,7 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
     const data = JSON.parse(response.body) as { 
       tunnel: { 
         tunnelId: string; 
+        managementToken: string;
         type: 'http' | 'tcp' | 'udp';
         publicUrl: string; 
         subdomain?: string;
@@ -584,13 +639,19 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
       wsUrl = HUB_URL.replace('http', 'ws') + '/temp-tunnel';
     }
     
-    // Auto-create debug session for HTTP tunnels
+    // Persist tunnel for local list/close (management token required for API operations)
+    saveTunnelToStore(data.tunnel.tunnelId, data.tunnel.managementToken, data.tunnel.type, data.tunnel.expiresAt, data.tunnel.subdomain);
+    
+    // Auto-create debug session for HTTP tunnels (requires management token)
     let debugSession: { token: string; url: string } | null = null;
     if (data.tunnel.type === 'http') {
       try {
         const debugResponse = await httpRequest(`${HUB_URL}/v1/tunnels/temporary/${data.tunnel.tunnelId}/debug`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Tunnel-Management-Token': data.tunnel.managementToken,
+          },
           body: JSON.stringify({ aiEnabled: false }),
         });
         
@@ -1552,92 +1613,75 @@ function parseTunnelTarget(target: string): { host: string; port: number } {
 }
 
 /**
- * List all active tunnels
+ * List tunnels from local store (tunnels created by this CLI on this machine)
  */
 async function listTunnels(): Promise<void> {
   console.log();
-  console.log(`  ${c.cyan}${c.bold}Private Connect${c.reset} ${c.dim}Active Tunnels${c.reset}`);
+  console.log(`  ${c.cyan}${c.bold}Private Connect${c.reset} ${c.dim}Tracked Tunnels${c.reset}`);
   console.log();
 
-  const hubUrl = process.env.CONNECT_HUB_URL || 'https://api.privateconnect.co';
-  
-  try {
-    const response = await new Promise<{ count: number; tunnels: any[] }>((resolve, reject) => {
-      const url = new URL(`${hubUrl}/v1/tunnels/temporary`);
-      const protocol = url.protocol === 'https:' ? https : http;
-      
-      const req = protocol.get(url.href, (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
-          try {
-            resolve(JSON.parse(data));
-          } catch {
-            reject(new Error('Invalid response'));
-          }
-        });
-      });
-      
-      req.on('error', reject);
-      req.setTimeout(10000, () => {
-        req.destroy();
-        reject(new Error('Request timeout'));
-      });
-    });
-
-    if (response.count === 0) {
-      console.log(`  ${c.dim}No active tunnels${c.reset}`);
-    } else {
-      console.log(`  ${c.green}${response.count}${c.reset} active tunnel${response.count > 1 ? 's' : ''}`);
-      console.log();
-      
-      for (const tunnel of response.tunnels) {
-        const status = tunnel.connected ? `${c.green}connected${c.reset}` : `${c.yellow}waiting${c.reset}`;
-        const expiresIn = Math.max(0, Math.floor((new Date(tunnel.expiresAt).getTime() - Date.now()) / 60000));
-        console.log(`  ${c.cyan}${tunnel.tunnelId}${c.reset}`);
-        console.log(`    Type: ${tunnel.type}  Status: ${status}  Requests: ${tunnel.requestCount}  Expires: ${expiresIn}m`);
-        if (tunnel.subdomain) {
-          console.log(`    Subdomain: ${c.dim}${tunnel.subdomain}${c.reset}`);
-        }
-        console.log();
+  const store = loadTunnelStore();
+  if (store.length === 0) {
+    console.log(`  ${c.dim}No tunnels tracked. Create a tunnel with \`connect tunnel <port>\` to see it here.${c.reset}`);
+  } else {
+    console.log(`  ${c.green}${store.length}${c.reset} tunnel${store.length > 1 ? 's' : ''} in local store`);
+    console.log();
+    for (const t of store) {
+      const expiresIn = Math.max(0, Math.floor((new Date(t.expiresAt).getTime() - Date.now()) / 60000));
+      console.log(`  ${c.cyan}${t.tunnelId}${c.reset}`);
+      console.log(`    Type: ${t.type}  Expires: ${expiresIn}m`);
+      if (t.subdomain) {
+        console.log(`    Subdomain: ${c.dim}${t.subdomain}${c.reset}`);
       }
+      console.log();
     }
-  } catch (err: any) {
-    console.error(`  ${fail} Failed to list tunnels: ${err.message}`);
   }
-  
   console.log();
 }
 
 /**
- * Close a tunnel by ID
+ * Close a tunnel by ID (uses management token from local store)
  */
-async function closeTunnel(tunnelId: string): Promise<void> {
+async function closeTunnel(tunnelId: string, tokenOverride?: string): Promise<void> {
   console.log();
   console.log(`  ${c.cyan}${c.bold}Private Connect${c.reset} ${c.dim}Close Tunnel${c.reset}`);
   console.log();
 
   const hubUrl = process.env.CONNECT_HUB_URL || 'https://api.privateconnect.co';
-  
+  const token = tokenOverride || loadTunnelStore().find((t) => t.tunnelId === tunnelId)?.managementToken;
+  if (!token) {
+    console.error(`  ${fail} Tunnel ${tunnelId} not in local store. Use the management token from when you created it:`);
+    console.error(`  ${c.dim}  connect tunnel close ${tunnelId} --token <managementToken>${c.reset}`);
+    console.log();
+    return;
+  }
+
   try {
     await new Promise<void>((resolve, reject) => {
       const url = new URL(`${hubUrl}/v1/tunnels/temporary/${tunnelId}`);
       const protocol = url.protocol === 'https:' ? https : http;
-      
-      const req = protocol.request(url.href, { method: 'DELETE' }, (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
-          if (res.statusCode === 200) {
-            resolve();
-          } else if (res.statusCode === 404) {
-            reject(new Error('Tunnel not found or already expired'));
-          } else {
-            reject(new Error(`Server error: ${res.statusCode}`));
-          }
-        });
-      });
-      
+      const req = protocol.request(
+        url.href,
+        {
+          method: 'DELETE',
+          headers: { 'X-Tunnel-Management-Token': token },
+        },
+        (res) => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => {
+            if (res.statusCode === 200) {
+              resolve();
+            } else if (res.statusCode === 403) {
+              reject(new Error('Invalid management token'));
+            } else if (res.statusCode === 404) {
+              reject(new Error('Tunnel not found or already expired'));
+            } else {
+              reject(new Error(`Server error: ${res.statusCode}`));
+            }
+          });
+        },
+      );
       req.on('error', reject);
       req.setTimeout(10000, () => {
         req.destroy();
@@ -1645,17 +1689,16 @@ async function closeTunnel(tunnelId: string): Promise<void> {
       });
       req.end();
     });
-
+    removeTunnelFromStore(tunnelId);
     console.log(`  ${ok} Tunnel ${c.cyan}${tunnelId}${c.reset} closed`);
   } catch (err: any) {
     console.error(`  ${fail} ${err.message}`);
   }
-  
   console.log();
 }
 
 /**
- * Close all active tunnels
+ * Close all tunnels in local store
  */
 async function closeAllTunnels(): Promise<void> {
   console.log();
@@ -1663,65 +1706,44 @@ async function closeAllTunnels(): Promise<void> {
   console.log();
 
   const hubUrl = process.env.CONNECT_HUB_URL || 'https://api.privateconnect.co';
-  
-  try {
-    // First list all tunnels
-    const response = await new Promise<{ count: number; tunnels: any[] }>((resolve, reject) => {
-      const url = new URL(`${hubUrl}/v1/tunnels/temporary`);
-      const protocol = url.protocol === 'https:' ? https : http;
-      
-      const req = protocol.get(url.href, (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
-          try {
-            resolve(JSON.parse(data));
-          } catch {
-            reject(new Error('Invalid response'));
-          }
-        });
-      });
-      
-      req.on('error', reject);
-    });
-
-    if (response.count === 0) {
-      console.log(`  ${c.dim}No active tunnels to close${c.reset}`);
-    } else {
-      let closed = 0;
-      for (const tunnel of response.tunnels) {
-        try {
-          await new Promise<void>((resolve, reject) => {
-            const url = new URL(`${hubUrl}/v1/tunnels/temporary/${tunnel.tunnelId}`);
-            const protocol = url.protocol === 'https:' ? https : http;
-            
-            const req = protocol.request(url.href, { method: 'DELETE' }, (res) => {
-              res.on('data', () => {});
-              res.on('end', () => {
-                if (res.statusCode === 200) {
-                  resolve();
-                } else {
-                  reject(new Error(`Failed: ${res.statusCode}`));
-                }
-              });
-            });
-            
-            req.on('error', reject);
-            req.end();
-          });
-          console.log(`  ${ok} Closed ${c.cyan}${tunnel.tunnelId}${c.reset}`);
-          closed++;
-        } catch (err: any) {
-          console.log(`  ${fail} Failed to close ${tunnel.tunnelId}: ${err.message}`);
-        }
-      }
-      console.log();
-      console.log(`  ${c.green}Closed ${closed}/${response.count} tunnels${c.reset}`);
-    }
-  } catch (err: any) {
-    console.error(`  ${fail} Failed to close tunnels: ${err.message}`);
+  const store = loadTunnelStore();
+  if (store.length === 0) {
+    console.log(`  ${c.dim}No tunnels in local store to close${c.reset}`);
+    console.log();
+    return;
   }
-  
+  let closed = 0;
+  for (const t of store) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const url = new URL(`${hubUrl}/v1/tunnels/temporary/${t.tunnelId}`);
+        const protocol = url.protocol === 'https:' ? https : http;
+        const req = protocol.request(
+          url.href,
+          { method: 'DELETE', headers: { 'X-Tunnel-Management-Token': t.managementToken } },
+          (res) => {
+            res.on('data', () => {});
+            res.on('end', () => {
+              if (res.statusCode === 200) {
+                resolve();
+              } else {
+                reject(new Error(`Failed: ${res.statusCode}`));
+              }
+            });
+          },
+        );
+        req.on('error', reject);
+        req.end();
+      });
+      removeTunnelFromStore(t.tunnelId);
+      closed++;
+      console.log(`  ${ok} Closed ${c.cyan}${t.tunnelId}${c.reset}`);
+    } catch (err: any) {
+      console.log(`  ${fail} Failed to close ${t.tunnelId}: ${err.message}`);
+    }
+  }
+  console.log();
+  console.log(`  ${c.green}Closed ${closed}/${store.length} tunnels${c.reset}`);
   console.log();
 }
 
@@ -2088,13 +2110,16 @@ if (args[0] === 'scan') {
   if (!args[1]) {
     console.error(`${c.red}Error: Tunnel ID required${c.reset}`);
     console.error(`Usage: npx private-connect close <tunnelId>`);
+    console.error(`       npx private-connect close <tunnelId> --token <managementToken>`);
     console.error(`       npx private-connect close --all`);
     process.exit(1);
   }
   if (args[1] === '--all' || args[1] === '-a') {
     closeAllTunnels().catch(console.error);
   } else {
-    closeTunnel(args[1]).catch(console.error);
+    const tokenIdx = args.indexOf('--token');
+    const token = tokenIdx >= 0 && args[tokenIdx + 1] ? args[tokenIdx + 1] : undefined;
+    closeTunnel(args[1], token).catch(console.error);
   }
 } else if (args[0] === 'setup-openclaw' || args[0] === 'openclaw-setup' || args[0] === 'setup-moltbot' || args[0] === 'moltbot-setup') {
   setupMoltbot().catch(console.error);

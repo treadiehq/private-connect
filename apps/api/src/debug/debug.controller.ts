@@ -19,6 +19,7 @@ import { AuthGuard } from '../auth/auth.guard';
 import { CombinedAuthGuard } from '../auth/combined-auth.guard';
 import { AIService } from '../ai/ai.service';
 import { RateLimitGuard, RateLimit } from '../common/rate-limit.guard';
+import { validateUrlSafeForFetch } from '../common/security';
 
 interface CreateSessionDto {
   serviceId?: string;
@@ -135,18 +136,17 @@ export class DebugController {
   }
 
   /**
-   * End a debug session by ID (public - for temp tunnels)
+   * End a debug session by token (public - requires session token to prevent unauthorized termination)
    */
-  @Delete(':id')
+  @Delete('public/:token')
   @UseGuards(RateLimitGuard)
   @RateLimit('debug')
-  async endSessionPublic(@Param('id') id: string) {
-    const session = await this.debugService.getSession(id);
+  async endSessionPublic(@Param('token') token: string) {
+    const session = await this.debugService.getSessionByToken(token);
     if (!session) {
-      throw new NotFoundException('Session not found');
+      throw new NotFoundException('Session not found or expired');
     }
-    
-    await this.debugService.endSession(id);
+    await this.debugService.endSession(session.id);
     return { success: true, message: 'Session ended' };
   }
 
@@ -244,9 +244,10 @@ export class DebugController {
         fetchOptions.body = httpBody;
       }
 
-      // Use provided target URL or construct from original
+      // Use provided target URL or construct from original (validated to prevent SSRF)
       const targetUrl = body.targetUrl || `http://localhost${parsed.path}`;
-      
+      await validateUrlSafeForFetch(targetUrl);
+
       try {
         const startTime = Date.now();
         const response = await fetch(targetUrl, fetchOptions);
@@ -318,13 +319,14 @@ export class DebugController {
     }
 
     const targetUrl = body.targetUrl || `http://localhost${parsed.path}`;
-    
+    await validateUrlSafeForFetch(targetUrl);
+
     try {
       const startTime = Date.now();
       const response = await fetch(targetUrl, fetchOptions);
       const latencyMs = Date.now() - startTime;
       const responseBody = await response.text();
-      
+
       return {
         success: true,
         status: response.status,

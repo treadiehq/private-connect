@@ -55,7 +55,7 @@ export class DeviceService {
       },
     });
 
-    const baseUrl = process.env.WEB_URL || 'http://localhost:3000';
+    const baseUrl = process.env.WEB_URL || process.env.APP_URL || 'http://localhost:3000';
 
     return {
       deviceCode,

@@ -152,9 +152,10 @@ export class AuthService {
     });
   }
 
-  // Login: send magic link to existing user
+  // Login: send magic link to existing user (same response whether account exists or not — prevents user enumeration)
   async login(email: string): Promise<{ message: string }> {
     const normalizedEmail = email.toLowerCase().trim();
+    const genericMessage = 'If an account exists with this email, you will receive a magic link';
 
     // Login is unauthenticated — bypass RLS
     return this.prisma.withoutRls(async () => {
@@ -163,7 +164,7 @@ export class AuthService {
       });
 
       if (!user) {
-        throw new BadRequestException('No account found with this email. Please register first.');
+        return { message: genericMessage };
       }
 
       // Invalidate any existing unused magic links
@@ -197,7 +198,7 @@ export class AuthService {
         type: 'LOGIN',
       });
 
-      return { message: 'If an account exists with this email, you will receive a magic link' };
+      return { message: genericMessage };
     });
   }
 

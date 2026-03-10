@@ -1,5 +1,8 @@
-import { Logger } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import * as dns from 'dns';
+import * as net from 'net';
+import { promisify } from 'util';
 
 /**
  * Security utilities for Private Connect
@@ -191,8 +194,8 @@ export function extractClientIp(headers: Record<string, string | string[] | unde
   if (forwardedFor) {
     const raw = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
     const ips = raw.split(',').map(ip => ip.trim()).filter(Boolean);
-    // Leftmost IP is the original client; rightmost is the nearest proxy
-    return ips[0];
+    // Use rightmost: the IP that connected to our proxy (trusted). Leftmost is spoofable by client.
+    return ips.length > 0 ? ips[ips.length - 1] : undefined;
   }
 
   const realIp = headers['x-real-ip'];
@@ -323,6 +326,158 @@ export function isTokenExpiringSoon(expiresAt: Date | null): boolean {
   
   return expiresAt <= warningDate && expiresAt > new Date();
 }
+
+// ---------------------------------------------------------------------------
+// SSRF-safe URL validation (for debug replay and other server-side fetch)
+// ---------------------------------------------------------------------------
+
+const ALLOWED_FETCH_SCHEMES = ['http:', 'https:'];
+
+/** Hostnames that must not be used as fetch targets (local/metadata) */
+const BLOCKED_HOSTNAMES = new Set([
+  'localhost',
+  'localhost.localdomain',
+  'metadata',
+  'metadata.google',
+  'metadata.google.internal',
+  '169.254.169.254', // Cloud metadata (also blocked as IP)
+]);
+
+/** Check if a hostname string is in the blocked list (case-insensitive, no port) */
+function isBlockedHostname(host: string): boolean {
+  const lower = host.toLowerCase().split(':')[0];
+  if (BLOCKED_HOSTNAMES.has(lower)) return true;
+  if (lower.endsWith('.localhost') || lower.endsWith('.local') || lower.endsWith('.internal')) return true;
+  return false;
+}
+
+/** IPv4 blocked ranges: [start, end] in numeric form (network order). */
+function ipv4ToNum(octets: number[]): number {
+  return ((octets[0]! << 24) | (octets[1]! << 16) | (octets[2]! << 8) | octets[3]!) >>> 0;
+}
+
+function isIPv4InBlockedRange(ip: string): boolean {
+  const parts = ip.split('.');
+  if (parts.length !== 4) return true; // treat invalid as blocked
+  const octets = parts.map((p) => parseInt(p, 10));
+  if (octets.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return true;
+  const num = ipv4ToNum(octets);
+  // 0.0.0.0/8
+  if (num >= 0 && num <= 0x00ffffff) return true;
+  // 127.0.0.0/8
+  if (num >= 0x7f000000 && num <= 0x7fffffff) return true;
+  // 10.0.0.0/8
+  if (num >= 0x0a000000 && num <= 0x0affffff) return true;
+  // 172.16.0.0/12
+  if (num >= 0xac100000 && num <= 0xac1fffff) return true;
+  // 192.168.0.0/16
+  if (num >= 0xc0a80000 && num <= 0xc0a8ffff) return true;
+  // 169.254.0.0/16 (link-local / cloud metadata)
+  if (num >= 0xa9fe0000 && num <= 0xa9feffff) return true;
+  return false;
+}
+
+/** IPv6: block loopback, link-local, unique local. */
+function isIPv6Blocked(ip: string): boolean {
+  const normalized = ip.toLowerCase();
+  if (normalized === '::1') return true;
+  // Link-local fe80::/10
+  if (normalized.startsWith('fe80:')) return true;
+  // Unique local fc00::/7
+  if (normalized.startsWith('fc') || normalized.startsWith('fd')) return true;
+  // IPv4-mapped ::ffff:x.x.x.x - extract and check IPv4
+  if (normalized.startsWith('::ffff:')) {
+    const v4 = normalized.slice(7);
+    if (v4.includes('.')) return isIPv4InBlockedRange(v4);
+  }
+  return false;
+}
+
+/**
+ * Validates that a URL is safe for server-side fetch (replay, webhooks, etc.).
+ * Rejects private IPs, loopback, link-local, cloud metadata, and non-http(s) schemes.
+ * Resolves hostnames and checks resolved IP to mitigate DNS rebinding.
+ * @throws BadRequestException if the URL is not safe
+ */
+export async function validateUrlSafeForFetch(urlString: string): Promise<void> {
+  let url: URL;
+  try {
+    url = new URL(urlString);
+  } catch {
+    throw new BadRequestException('Invalid target URL');
+  }
+
+  if (!ALLOWED_FETCH_SCHEMES.includes(url.protocol)) {
+    throw new BadRequestException('Target URL must use http or https');
+  }
+
+  const hostname = url.hostname;
+  if (!hostname) {
+    throw new BadRequestException('Invalid target URL');
+  }
+
+  if (isBlockedHostname(hostname)) {
+    throw new BadRequestException('Target URL host is not allowed');
+  }
+
+  const isIPv4 = net.isIP(hostname) === 4;
+  const isIPv6 = net.isIP(hostname) === 6;
+
+  if (isIPv4) {
+    if (isIPv4InBlockedRange(hostname)) {
+      throw new BadRequestException('Target URL host is not allowed');
+    }
+    return;
+  }
+
+  if (isIPv6) {
+    if (isIPv6Blocked(hostname)) {
+      throw new BadRequestException('Target URL host is not allowed');
+    }
+    return;
+  }
+
+  // Hostname: resolve and check all resolved IPs (defense against DNS rebinding)
+  const lookup = promisify(dns.lookup);
+  try {
+    const addresses = await lookup(hostname, { all: true }) as { address: string; family: number }[];
+    for (const a of addresses) {
+      const ip = a.address;
+      if (net.isIP(ip) === 4 && isIPv4InBlockedRange(ip)) {
+        throw new BadRequestException('Target URL host is not allowed');
+      }
+      if (net.isIP(ip) === 6 && isIPv6Blocked(ip)) {
+        throw new BadRequestException('Target URL host is not allowed');
+      }
+    }
+  } catch (err) {
+    const message = err instanceof BadRequestException ? err.message : (err as Error).message;
+    if (err instanceof BadRequestException) throw err;
+    throw new BadRequestException(`Target URL host could not be validated: ${message}`);
+  }
+}
+
+/**
+ * Synchronous check: returns true if the URL is safe for server-side fetch.
+ * Use when you need a boolean (e.g. filtering). For controller use, prefer validateUrlSafeForFetch.
+ * Does NOT resolve hostnames; only checks scheme, hostname string, and direct IP.
+ */
+export function isUrlSafeForFetch(urlString: string): boolean {
+  try {
+    const url = new URL(urlString);
+    if (!ALLOWED_FETCH_SCHEMES.includes(url.protocol)) return false;
+    const hostname = url.hostname;
+    if (!hostname || isBlockedHostname(hostname)) return false;
+    if (net.isIP(hostname) === 4) return !isIPv4InBlockedRange(hostname);
+    if (net.isIP(hostname) === 6) return !isIPv6Blocked(hostname);
+    // Hostname not resolved - caller should use validateUrlSafeForFetch for full check
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 /**
  * Production-safe logger wrapper that scrubs sensitive data

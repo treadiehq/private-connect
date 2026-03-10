@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Delete, All, Param, Body, Req, Res, HttpException, HttpStatus, Inject, forwardRef, OnModuleInit } from '@nestjs/common';
+import { Controller, Post, Get, Delete, All, Param, Body, Req, Res, Headers, HttpException, HttpStatus, Inject, forwardRef, OnModuleInit } from '@nestjs/common';
 import { Request, Response } from 'express';
 import * as net from 'net';
 import { TemporaryTunnelService } from './temporary-tunnel.service';
@@ -13,6 +13,25 @@ const TEMP_USER_EMAIL = 'system@privateconnect.co';
 
 /** Max TTL for temporary tunnels (minutes). Default 24h. Set MAX_TEMP_TUNNEL_TTL_MINUTES to override. */
 const MAX_TEMP_TUNNEL_TTL_MINUTES = Math.max(60, Math.min(10080, parseInt(process.env.MAX_TEMP_TUNNEL_TTL_MINUTES || '1440', 10) || 1440));
+
+/** Header or query param for tunnel management token (create response returns it) */
+const MANAGEMENT_TOKEN_HEADER = 'x-tunnel-management-token';
+
+function getManagementToken(req: Request, headers: Record<string, string | string[] | undefined>): string | null {
+  const header = headers[MANAGEMENT_TOKEN_HEADER];
+  if (header) {
+    const value = Array.isArray(header) ? header[0] : header;
+    if (value?.trim()) return value.trim();
+  }
+  const auth = headers['authorization'];
+  if (auth && typeof auth === 'string' && auth.toLowerCase().startsWith('bearer ')) {
+    const token = auth.slice(7).trim();
+    if (token) return token;
+  }
+  const q = (req as Request & { query?: { token?: string } }).query?.token;
+  if (q && typeof q === 'string') return q.trim();
+  return null;
+}
 
 const DB_PORTS: Record<number, string> = {
   5432: 'PostgreSQL',
@@ -164,6 +183,7 @@ export class TemporaryTunnelController implements OnModuleInit {
         success: true,
         tunnel: {
           tunnelId: tunnel.tunnelId,
+          managementToken: tunnel.managementToken,
           type: 'tcp',
           tcpHost: hubHost,
           tcpPort: tunnel.tcpPort,
@@ -171,7 +191,7 @@ export class TemporaryTunnelController implements OnModuleInit {
           wsUrl: `${HUB_URL.replace('http', 'ws')}/temp-tunnel`,
           expiresAt: tunnel.expiresAt.toISOString(),
           ttlMinutes,
-          ...(isDbPort && { webUrl: `${PUBLIC_URL}/tunnel/${tunnelId}` }),
+          ...(isDbPort && { webUrl: `${PUBLIC_URL}/tunnel/${tunnelId}?token=${encodeURIComponent(tunnel.managementToken)}` }),
         },
       };
     }
@@ -192,6 +212,7 @@ export class TemporaryTunnelController implements OnModuleInit {
         success: true,
         tunnel: {
           tunnelId: tunnel.tunnelId,
+          managementToken: tunnel.managementToken,
           type: 'udp',
           udpHost: hubHost,
           udpPort: tunnel.udpPort,
@@ -222,6 +243,7 @@ export class TemporaryTunnelController implements OnModuleInit {
       success: true,
       tunnel: {
         tunnelId: tunnel.tunnelId,
+        managementToken: tunnel.managementToken,
         type: 'http',
         publicUrl,
         subdomain: tunnel.subdomain,
@@ -233,31 +255,18 @@ export class TemporaryTunnelController implements OnModuleInit {
   }
 
   /**
-   * List all active tunnels
-   */
-  @Get('v1/tunnels/temporary')
-  async listTunnels() {
-    const tunnels = this.tempTunnelService.listTunnels();
-    
-    return {
-      count: tunnels.length,
-      tunnels: tunnels.map(t => ({
-        tunnelId: t.tunnelId,
-        type: t.type,
-        subdomain: t.subdomain,
-        connected: this.tempTunnelService.isConnected(t.tunnelId),
-        requestCount: t.requestCount,
-        createdAt: t.createdAt.toISOString(),
-        expiresAt: t.expiresAt.toISOString(),
-      })),
-    };
-  }
-
-  /**
-   * Close/delete a tunnel
+   * Close/delete a tunnel (requires management token from create response)
    */
   @Delete('v1/tunnels/temporary/:tunnelId')
-  async closeTunnel(@Param('tunnelId') tunnelId: string) {
+  async closeTunnel(
+    @Param('tunnelId') tunnelId: string,
+    @Req() req: Request,
+    @Headers() headers: Record<string, string | string[] | undefined>,
+  ) {
+    const token = getManagementToken(req, headers);
+    if (!token || !this.tempTunnelService.validateManagementToken(tunnelId, token)) {
+      throw new HttpException('Invalid or missing management token', HttpStatus.FORBIDDEN);
+    }
     const tunnel = this.tempTunnelService.getTunnel(tunnelId);
     
     if (!tunnel) {
@@ -304,6 +313,7 @@ export class TemporaryTunnelController implements OnModuleInit {
         expiresAt: bundle.expiresAt.toISOString(),
         tunnels: bundle.tunnels.map(t => ({
           tunnelId: t.tunnelId,
+          managementToken: t.managementToken,
           localPort: t.localPort,
           tcpPort: t.tcpPort,
         })),
@@ -420,18 +430,23 @@ export class TemporaryTunnelController implements OnModuleInit {
   }
 
   /**
-   * Get tunnel info for the web viewer (no auth required)
+   * Get tunnel info for the web viewer (requires management token)
    */
   @Get('v1/tunnels/temporary/:tunnelId/info')
-  async getTunnelInfo(@Param('tunnelId') tunnelId: string) {
+  async getTunnelInfo(
+    @Param('tunnelId') tunnelId: string,
+    @Req() req: Request,
+    @Headers() headers: Record<string, string | string[] | undefined>,
+  ) {
+    const token = getManagementToken(req, headers);
+    if (!token || !this.tempTunnelService.validateManagementToken(tunnelId, token)) {
+      throw new HttpException('Invalid or missing management token', HttpStatus.FORBIDDEN);
+    }
     const tunnel = this.tempTunnelService.getTunnel(tunnelId);
-    
     if (!tunnel) {
       throw new HttpException('Tunnel not found or expired', HttpStatus.NOT_FOUND);
     }
-    
     const dbType = DB_PORTS[tunnel.localPort];
-    
     return {
       tunnelId: tunnel.tunnelId,
       type: tunnel.type,
@@ -444,13 +459,19 @@ export class TemporaryTunnelController implements OnModuleInit {
   }
 
   /**
-   * Execute a SQL query through a temporary TCP tunnel (no auth required)
+   * Execute a SQL query through a temporary TCP tunnel (requires management token)
    */
   @Post('v1/tunnels/temporary/:tunnelId/query')
   async executeQuery(
     @Param('tunnelId') tunnelId: string,
     @Body() body: { query?: string },
+    @Req() req: Request,
+    @Headers() headers: Record<string, string | string[] | undefined>,
   ) {
+    const token = getManagementToken(req, headers);
+    if (!token || !this.tempTunnelService.validateManagementToken(tunnelId, token)) {
+      throw new HttpException('Invalid or missing management token', HttpStatus.FORBIDDEN);
+    }
     const tunnel = this.tempTunnelService.getTunnel(tunnelId);
     
     if (!tunnel) {
@@ -600,13 +621,19 @@ export class TemporaryTunnelController implements OnModuleInit {
   }
 
   /**
-   * Create a debug session for a temporary tunnel (no auth required)
+   * Create a debug session for a temporary tunnel (requires management token)
    */
   @Post('v1/tunnels/temporary/:tunnelId/debug')
   async createDebugSession(
     @Param('tunnelId') tunnelId: string,
     @Body() body: { aiEnabled?: boolean },
+    @Req() req: Request,
+    @Headers() headers: Record<string, string | string[] | undefined>,
   ) {
+    const token = getManagementToken(req, headers);
+    if (!token || !this.tempTunnelService.validateManagementToken(tunnelId, token)) {
+      throw new HttpException('Invalid or missing management token', HttpStatus.FORBIDDEN);
+    }
     const tunnel = this.tempTunnelService.getTunnel(tunnelId);
     
     if (!tunnel) {

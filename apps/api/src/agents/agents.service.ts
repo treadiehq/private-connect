@@ -212,11 +212,13 @@ export class AgentsService {
     expiresAt?: Date;
     error?: string;
   }> {
-    // First validate the current token
+    // First validate the current token (no workspace context yet - use withoutRls)
     const tokenHash = this.hashToken(currentToken);
-    const agent = await this.prisma.agent.findUnique({
-      where: { id: agentId },
-    });
+    const agent = await this.prisma.withoutRls(() =>
+      this.prisma.agent.findUnique({
+        where: { id: agentId },
+      })
+    );
 
     if (!agent) {
       return { success: false, error: 'Agent not found' };
@@ -231,13 +233,15 @@ export class AgentsService {
     const newTokenHash = this.hashToken(newToken);
     const newExpiresAt = calculateTokenExpiry();
 
-    await this.prisma.agent.update({
-      where: { id: agentId },
-      data: {
-        tokenHash: newTokenHash,
-        tokenExpiresAt: newExpiresAt,
-      },
-    });
+    await this.prisma.withoutRls(() =>
+      this.prisma.agent.update({
+        where: { id: agentId },
+        data: {
+          tokenHash: newTokenHash,
+          tokenExpiresAt: newExpiresAt,
+        },
+      })
+    );
 
     // Log rotation event
     await this.logAuditEvent(agentId, AgentAuditEvent.ROTATED, undefined, undefined, {
@@ -506,11 +510,13 @@ export class AgentsService {
       return null;
     }
 
-    // Find the agent and verify it belongs to the workspace
-    const agent = await this.prisma.agent.findUnique({
-      where: { id: agentId },
-      include: { workspace: true },
-    });
+    // Find the agent and verify it belongs to the workspace (no workspace context yet - use withoutRls)
+    const agent = await this.prisma.withoutRls(() =>
+      this.prisma.agent.findUnique({
+        where: { id: agentId },
+        include: { workspace: true },
+      })
+    );
 
     if (!agent || agent.workspaceId !== workspace.id) {
       return null;

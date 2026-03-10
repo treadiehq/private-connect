@@ -64,12 +64,14 @@ interface AgentBridge {
 }
 
 interface PendingHttpRequest {
+  agentId: string;
   resolve: (response: { status: number; headers: Record<string, string>; body: Buffer }) => void;
   reject: (error: Error) => void;
   timeout: NodeJS.Timeout;
 }
 
 interface PendingChunkedResponse {
+  agentId: string;
   status: number;
   headers: Record<string, string>;
   totalChunks: number;
@@ -159,16 +161,20 @@ export class TunnelService {
         } catch { /* ignore close errors */ }
       });
       
-      // Reject any pending HTTP requests for this agent
+      // Reject only pending HTTP requests for this agent (not other agents)
       for (const [requestId, pending] of this.pendingHttpRequests.entries()) {
-        clearTimeout(pending.timeout);
-        pending.reject(new Error('Agent reconnecting'));
-        this.pendingHttpRequests.delete(requestId);
+        if (pending.agentId === agentId) {
+          clearTimeout(pending.timeout);
+          pending.reject(new Error('Agent reconnecting'));
+          this.pendingHttpRequests.delete(requestId);
+        }
       }
       for (const [requestId, pending] of this.pendingChunkedResponses.entries()) {
-        clearTimeout(pending.timeout);
-        pending.reject(new Error('Agent reconnecting'));
-        this.pendingChunkedResponses.delete(requestId);
+        if (pending.agentId === agentId) {
+          clearTimeout(pending.timeout);
+          pending.reject(new Error('Agent reconnecting'));
+          this.pendingChunkedResponses.delete(requestId);
+        }
       }
     }
 
@@ -828,7 +834,7 @@ export class TunnelService {
         reject(new Error('Request timeout'));
       }, 60000);
 
-      this.pendingHttpRequests.set(requestId, { resolve, reject, timeout });
+      this.pendingHttpRequests.set(requestId, { agentId, resolve, reject, timeout });
 
       const payload = {
         requestId,
@@ -882,10 +888,15 @@ export class TunnelService {
 
   handleHttpResponseStart(
     requestId: string,
+    agentId: string,
     data: { status: number; headers: Record<string, string>; totalChunks: number },
   ): void {
     const pending = this.pendingHttpRequests.get(requestId);
     if (!pending) return;
+    if (pending.agentId !== agentId) {
+      this.logger.warn(`Agent ${agentId} sent http_response_start for request ${requestId} belonging to ${pending.agentId}, ignoring`);
+      return;
+    }
 
     clearTimeout(pending.timeout);
     this.pendingHttpRequests.delete(requestId);
@@ -896,6 +907,7 @@ export class TunnelService {
     }, 120000);
 
     this.pendingChunkedResponses.set(requestId, {
+      agentId: pending.agentId,
       status: data.status,
       headers: data.headers,
       totalChunks: data.totalChunks,
@@ -908,19 +920,42 @@ export class TunnelService {
 
   handleHttpResponseChunk(
     requestId: string,
-    data: { index: number; data: Buffer | string },
+    agentId: string,
+    data: { index: number; data: Buffer | string; bodyEncoding?: string },
   ): void {
     const pending = this.pendingChunkedResponses.get(requestId);
     if (!pending) return;
-    pending.chunks.set(data.index, Buffer.isBuffer(data.data) ? data.data : Buffer.from(data.data));
+    if (pending.agentId !== agentId) {
+      this.logger.warn(`Agent ${agentId} sent http_response_chunk for request ${requestId} belonging to ${pending.agentId}, ignoring`);
+      return;
+    }
+    const chunkData = Buffer.isBuffer(data.data)
+      ? data.data
+      : data.bodyEncoding === 'base64'
+        ? Buffer.from(data.data, 'base64')
+        : Buffer.from(data.data, 'utf-8');
+    pending.chunks.set(data.index, chunkData);
   }
 
-  handleHttpResponseEnd(requestId: string): void {
+  handleHttpResponseEnd(requestId: string, agentId: string): void {
     const pending = this.pendingChunkedResponses.get(requestId);
     if (!pending) return;
+    if (pending.agentId !== agentId) {
+      this.logger.warn(`Agent ${agentId} sent http_response_end for request ${requestId} belonging to ${pending.agentId}, ignoring`);
+      return;
+    }
 
     clearTimeout(pending.timeout);
     this.pendingChunkedResponses.delete(requestId);
+
+    for (let i = 0; i < pending.totalChunks; i++) {
+      if (!pending.chunks.has(i)) {
+        pending.reject(
+          new Error(`Incomplete response: missing chunk ${i}, received ${pending.chunks.size} of ${pending.totalChunks} chunks`),
+        );
+        return;
+      }
+    }
 
     const sorted = Array.from(pending.chunks.entries())
       .sort(([a], [b]) => a - b)

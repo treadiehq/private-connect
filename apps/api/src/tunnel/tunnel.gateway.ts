@@ -250,17 +250,17 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const agentId = this.socketToAgent.get(client.id);
     if (!agentId) return;
-    this.tunnelService.handleHttpResponseStart(data.requestId, data);
+    this.tunnelService.handleHttpResponseStart(data.requestId, agentId, data);
   }
 
   @SubscribeMessage('http_response_chunk')
   handleHttpResponseChunk(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { requestId: string; index: number; data: Buffer | string },
+    @MessageBody() data: { requestId: string; index: number; data: Buffer | string; bodyEncoding?: string },
   ) {
     const agentId = this.socketToAgent.get(client.id);
     if (!agentId) return;
-    this.tunnelService.handleHttpResponseChunk(data.requestId, data);
+    this.tunnelService.handleHttpResponseChunk(data.requestId, agentId, data);
   }
 
   @SubscribeMessage('http_response_end')
@@ -270,7 +270,7 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const agentId = this.socketToAgent.get(client.id);
     if (!agentId) return;
-    this.tunnelService.handleHttpResponseEnd(data.requestId);
+    this.tunnelService.handleHttpResponseEnd(data.requestId, agentId);
   }
 
   // ─────────────────────────────────────────────────────────────────────────────

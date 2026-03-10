@@ -110,14 +110,17 @@ interface TunnelInfo {
 const route = useRoute();
 const config = useRuntimeConfig();
 const tunnelId = computed(() => route.params.tunnelId as string);
+/** Management token from create response; required for info/query (e.g. ?token= in URL) */
+const managementToken = computed(() => (route.query.token as string) || '');
 
 const loading = ref(true);
 const error = ref<string | null>(null);
 const tunnelInfo = ref<TunnelInfo | null>(null);
 
-const queryUrl = computed(() =>
-  `${config.public.apiBase}/v1/tunnels/temporary/${tunnelId.value}/query`
-);
+const queryUrl = computed(() => {
+  const base = `${config.public.apiBase}/v1/tunnels/temporary/${tunnelId.value}/query`;
+  return managementToken.value ? `${base}?token=${encodeURIComponent(managementToken.value)}` : base;
+});
 
 const formatExpiry = (date: string): string => {
   const d = new Date(date);
@@ -130,10 +133,14 @@ const formatExpiry = (date: string): string => {
 };
 
 const loadTunnelInfo = async () => {
+  if (!managementToken.value) {
+    error.value = 'Missing management token. Use the full URL from the CLI or tunnel creation (including ?token=...)';
+    loading.value = false;
+    return;
+  }
   try {
-    const response = await fetch(
-      `${config.public.apiBase}/v1/tunnels/temporary/${tunnelId.value}/info`,
-    );
+    const url = `${config.public.apiBase}/v1/tunnels/temporary/${tunnelId.value}/info?token=${encodeURIComponent(managementToken.value)}`;
+    const response = await fetch(url);
 
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));

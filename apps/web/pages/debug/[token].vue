@@ -819,12 +819,13 @@ const closeTunnel = () => {
 // Confirm and close tunnel
 const confirmCloseTunnel = async () => {
   if (closingTunnel.value || !session.value) return;
-  
+  const token = route.params.token as string;
+
   closingTunnel.value = true;
-  
+
   try {
     // End the debug session (which will also close the linked tunnel)
-    const response = await fetch(`${config.public.apiUrl}/v1/debug/${session.value.id}`, {
+    const response = await fetch(`${config.public.apiUrl}/v1/debug/public/${token}`, {
       method: 'DELETE',
     });
     

@@ -1,6 +1,6 @@
 {
   "name": "api",
-  "version": "0.6.23",
+  "version": "0.6.24",
   "private": true,
   "scripts": {
     "dev": "nest start --watch",
@@ -8,6 +8,7 @@
     "start": "node dist/main",
     "start:prod": "node dist/main",
     "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
     "db:push": ". ./.env 2>/dev/null; DATABASE_URL=${DATABASE_URL_MIGRATE:-$DATABASE_URL} prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:dangerous-reset": "echo '⚠️  This will DELETE ALL DATA. Press Ctrl+C to cancel.' && sleep 3 && . ./.env 2>/dev/null; DATABASE_URL=${DATABASE_URL_MIGRATE:-$DATABASE_URL} prisma db push --force-reset && npm run db:seed",

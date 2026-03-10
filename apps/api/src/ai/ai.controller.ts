@@ -248,17 +248,17 @@ export class AIController {
       throw new BadRequestException('Session belongs to different workspace');
     }
 
-    // Build traffic context
+    // Redact if cloud provider (messages and traffic context must both be redacted before sending to third-party LLMs)
+    const shouldRedact = config.provider !== 'ollama';
     const trafficContext = {
       packets: session.packets.map(p => ({
         direction: p.direction,
         protocol: p.protocol,
-        parsed: p.parsed ? JSON.parse(p.parsed) : undefined,
+        parsed: p.parsed
+          ? JSON.parse(shouldRedact ? this.aiService.redactPII(p.parsed) : p.parsed)
+          : undefined,
       })),
     };
-
-    // Redact if cloud provider
-    const shouldRedact = config.provider !== 'ollama';
     const messages = shouldRedact
       ? body.messages.map(m => ({ ...m, content: this.aiService.redactPII(m.content) }))
       : body.messages;

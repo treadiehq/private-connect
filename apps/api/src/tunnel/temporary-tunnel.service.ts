@@ -7,8 +7,12 @@ import { randomBytes } from 'crypto';
 
 type TunnelType = 'http' | 'tcp' | 'udp';
 
+/** Secret token returned on create; required for management operations (close, query, info, debug) */
+const MANAGEMENT_TOKEN_BYTES = 32;
+
 interface TemporaryTunnel {
   tunnelId: string;
+  managementToken: string; // Secret token for DELETE/query/info/debug; not exposed in lists
   type: TunnelType;
   localHost: string;
   localPort: number;
@@ -45,7 +49,7 @@ interface TcpConnection {
 
 export interface TunnelBundle {
   code: string;
-  tunnels: Array<{ tunnelId: string; localPort: number; tcpPort: number }>;
+  tunnels: Array<{ tunnelId: string; localPort: number; tcpPort: number; managementToken: string }>;
   createdAt: Date;
   expiresAt: Date;
 }
@@ -228,6 +232,7 @@ export class TemporaryTunnelService implements OnModuleDestroy {
     
     const tunnel: TemporaryTunnel = {
       tunnelId,
+      managementToken: randomBytes(MANAGEMENT_TOKEN_BYTES).toString('hex'),
       type: 'http',
       localHost,
       localPort,
@@ -259,6 +264,7 @@ export class TemporaryTunnelService implements OnModuleDestroy {
     
     const tunnel: TemporaryTunnel = {
       tunnelId,
+      managementToken: randomBytes(MANAGEMENT_TOKEN_BYTES).toString('hex'),
       type: 'tcp',
       localHost,
       localPort,
@@ -290,6 +296,7 @@ export class TemporaryTunnelService implements OnModuleDestroy {
     
     const tunnel: TemporaryTunnel = {
       tunnelId,
+      managementToken: randomBytes(MANAGEMENT_TOKEN_BYTES).toString('hex'),
       type: 'udp',
       localHost,
       localPort,
@@ -645,16 +652,18 @@ export class TemporaryTunnelService implements OnModuleDestroy {
   }
 
   /**
-   * List all active tunnels
+   * Validate management token for a tunnel (used for DELETE, info, query, debug).
+   * Uses constant-time comparison to reduce timing side-channels.
    */
-  listTunnels(): TemporaryTunnel[] {
-    const activeTunnels: TemporaryTunnel[] = [];
-    for (const tunnel of this.tunnels.values()) {
-      if (!this.isExpired(tunnel)) {
-        activeTunnels.push(tunnel);
-      }
+  validateManagementToken(tunnelId: string, token: string): boolean {
+    const tunnel = this.getTunnel(tunnelId);
+    if (!tunnel || !token) return false;
+    if (tunnel.managementToken.length !== token.length) return false;
+    let diff = 0;
+    for (let i = 0; i < tunnel.managementToken.length; i++) {
+      diff |= tunnel.managementToken.charCodeAt(i) ^ token.charCodeAt(i);
     }
-    return activeTunnels;
+    return diff === 0;
   }
 
   /**
@@ -784,7 +793,7 @@ export class TemporaryTunnelService implements OnModuleDestroy {
       if (attempts > 10) throw new Error('Failed to generate unique bundle code');
     } while (this.bundles.has(code));
 
-    const tunnels: Array<{ tunnelId: string; localPort: number; tcpPort: number }> = [];
+    const tunnels: Array<{ tunnelId: string; localPort: number; tcpPort: number; managementToken: string }> = [];
     const createdIds: string[] = [];
 
     try {
@@ -792,7 +801,12 @@ export class TemporaryTunnelService implements OnModuleDestroy {
         const tunnelId = randomBytes(6).toString('hex');
         const tunnel = await this.createTcpTunnel(tunnelId, 'localhost', localPort, ttlMinutes);
         createdIds.push(tunnelId);
-        tunnels.push({ tunnelId, localPort, tcpPort: tunnel.tcpPort! });
+        tunnels.push({
+          tunnelId,
+          localPort,
+          tcpPort: tunnel.tcpPort!,
+          managementToken: tunnel.managementToken,
+        });
       }
     } catch (err) {
       for (const id of createdIds) {

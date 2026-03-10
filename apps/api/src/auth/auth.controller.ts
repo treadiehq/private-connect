@@ -202,16 +202,8 @@ export class AuthController {
     return this.authService.getCurrentUser(token);
   }
 
+  /** Use req.ip (set by Express when trust proxy is enabled) so rate limiting cannot be bypassed via spoofed X-Forwarded-For. */
   private getClientIp(req: Request): string {
-    const forwarded =
-      req.headers['x-forwarded-for'] ||
-      req.headers['x-real-ip'] ||
-      req.ip ||
-      req.connection?.remoteAddress ||
-      req.socket?.remoteAddress ||
-      'unknown';
-
-    const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded.toString();
-    return raw.split(',')[0].trim();
+    return req.ip || req.connection?.remoteAddress || req.socket?.remoteAddress || 'unknown';
   }
 }

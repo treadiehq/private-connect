@@ -659,9 +659,9 @@ export class AgentsController {
       };
     }
 
-    // Send command as a message to the agent
+    // Send command as a message to the agent (fromAgentId must be a valid Agent id; use target agent for system commands)
     const message = await this.agentsService.sendMessage(
-      req.workspace.id, // Using workspace as pseudo-sender for system commands
+      id,
       id,
       req.workspace.id,
       {

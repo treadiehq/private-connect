@@ -430,6 +430,7 @@ export async function createTunnel(options: TunnelOptions): Promise<TunnelHandle
   const { tunnel: t } = JSON.parse(response.body) as {
     tunnel: {
       tunnelId: string;
+      managementToken: string;
       type: TunnelType;
       publicUrl: string;
       subdomain?: string;
