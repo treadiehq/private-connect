@@ -54,6 +54,7 @@ scripts/test-udp-server.js
 scripts/test-udp-client.js
 
 docs/free-tier.md
+docs/terminal-browser-wedge.md
 
 # Boot dev stack runtime files
 .boot/
