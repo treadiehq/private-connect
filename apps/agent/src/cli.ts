@@ -263,6 +263,7 @@ program
   .option('--link-expires <duration>', 'Public link expiry: 1h, 24h, 7d, 30d, never (default: 24h)', '24h')
   .option('-d, --debug', 'Enable debug mode with shareable live traffic viewer')
   .option('--ai', 'Enable AI Copilot for debug session (requires --debug)')
+  .option('--no-e2e', 'Disable end-to-end encryption for tunnel data')
   .option('-c, --config <path>', 'Config file path (for multiple agents)')
   .action((target, options) => {
     if (options.config) setConfigPath(options.config);
@@ -305,6 +306,7 @@ program
   .option('-p, --port <port>', 'Local port to listen on (default: same as service port)')
   .option('--check', 'Only run diagnostics, do not create local tunnel')
   .option('--json', 'Output as JSON')
+  .option('--no-e2e', 'Disable end-to-end encryption for tunnel data')
   .option('-c, --config <path>', 'Config file path (for multiple agents)')
   .action((service, options) => {
     if (options.config) setConfigPath(options.config);

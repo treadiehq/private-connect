@@ -27,21 +27,22 @@ Private Connect uses a **hub-and-spoke** architecture where agents connect to a 
 | Target host:port | ✓ Visible | e.g., "localhost:5432" |
 | Connection metadata | ✓ Visible | When connections are made, duration |
 | IP addresses | ✓ Visible | For audit logging (masked in logs) |
-| **Payload data** | **Opaque relay** | Base64-encoded, not inspected |
+| **Payload data** | **E2E encrypted** | Encrypted with AES-256-GCM; Hub cannot read contents |
 
 ### Payload Handling
 
-When Agent A exposes a service and Agent B reaches it, data flows through the Hub as an **opaque relay**:
+When Agent A exposes a service and Agent B reaches it, data is **end-to-end encrypted** between the agents:
 
-1. Agent B sends data as base64-encoded packets
-2. Hub forwards packets to Agent A without inspection
-3. Agent A decodes and forwards to the target service
-4. Responses flow back the same way
+1. Agents negotiate an ephemeral shared secret via X25519 ECDH through the Hub
+2. Agent B encrypts data with AES-256-GCM and sends as base64-encoded ciphertext
+3. Hub relays the ciphertext to Agent A without the ability to decrypt
+4. Agent A decrypts and forwards plaintext to the target service
+5. Responses flow back the same way (encrypted in the opposite direction)
 
-The Hub does not:
-- Decrypt or inspect payload contents
-- Store payload data
-- Log payload contents
+The Hub cannot:
+- Decrypt or inspect payload contents (it lacks the ephemeral session keys)
+- Store meaningful payload data (only ciphertext)
+- Reconstruct plaintext from captured traffic
 
 ## Encryption
 
@@ -64,12 +65,27 @@ CONNECT_ALLOW_INSECURE=true connect up --hub http://localhost:3001
 - Hosted version: Uses Railway's managed PostgreSQL with encryption at rest
 - Self-hosted: Configure your database provider's encryption settings
 
-### End-to-End Encryption (Future)
+### End-to-End Encryption (Agent-to-Agent)
 
-Currently, payload data passes through the Hub as an opaque relay. For environments requiring zero-knowledge relay, we're considering optional agent-to-agent encryption where:
-- Agents negotiate keys directly
-- Hub relays encrypted packets it cannot read
-- Perfect forward secrecy via ephemeral keys
+Agent-to-agent tunnels (`connect expose` + `connect reach`) use E2E encryption by default. The Hub relays encrypted packets it cannot read, even if compromised.
+
+**Protocol:**
+
+1. After the tunnel bridge is established, the reaching agent generates an ephemeral X25519 key pair and sends the public key to the exposing agent via the Hub.
+2. The exposing agent generates its own ephemeral X25519 key pair, computes the shared secret via ECDH, and sends its public key back.
+3. Both agents derive two directional AES-256-GCM keys using HKDF-SHA256 with the `connectionId` as salt.
+4. All subsequent tunnel data is encrypted with AES-256-GCM. Each packet carries a 12-byte nonce (counter-based) and a 16-byte authentication tag.
+
+**Properties:**
+- **Zero dependencies**: Built entirely on Node.js `crypto` (X25519, AES-256-GCM, HKDF-SHA256).
+- **Forward secrecy**: Ephemeral keys are generated per-connection. Compromising one connection does not compromise past or future connections.
+- **Authenticated encryption**: GCM provides both confidentiality and integrity. Tampered packets are rejected.
+- **Transparent fallback**: If one side doesn't support E2E (older agent), the handshake times out after 5 seconds and the connection falls back to unencrypted relay with a warning.
+- **Opt-out**: Use `--no-e2e` on either `connect expose` or `connect reach` to disable.
+
+**Scope**: E2E encryption applies to agent-to-agent TCP bridges only. Temporary public tunnels (`npx private-connect tunnel`) and browser-originated connections (e.g., browser terminal) are not E2E encrypted because the other endpoint is not a known agent.
+
+**Limitation**: v1 protects against passive interception by the Hub. Active MITM by a fully compromised Hub (substituting public keys during the handshake) would require out-of-band identity verification, which is not yet implemented.
 
 ## Multi-Tenancy & Workspace Isolation
 
@@ -287,7 +303,7 @@ Production logs automatically redact:
 
 - Malicious workspace owner (they control their workspace)
 - Compromised agent machine (agent has full access to its exposed services)
-- Hub operator with database access (can see metadata, not payloads)
+- Active MITM by a compromised Hub (key substitution during E2E handshake — mitigated in a future version with agent identity verification)
 
 ## Compliance
 
@@ -325,7 +341,7 @@ We aim to acknowledge reports within 48 hours and provide a fix timeline within 
 
 ### Does the Hub see my database queries?
 
-No. The Hub sees that Agent A connected to Agent B for service "prod-db", but the actual SQL queries and responses are opaque base64 packets that the Hub relays without inspection.
+No. Agent-to-agent tunnels are end-to-end encrypted with AES-256-GCM. The Hub sees that Agent A connected to Agent B for service "prod-db", but the actual SQL queries and responses are encrypted ciphertext that the Hub relays without the ability to decrypt.
 
 ### Can other workspaces see my services?
 

@@ -295,6 +295,16 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.tunnelService.handleUdpResponse(agentId, data.serviceId, data.sessionId, buffer);
   }
 
+  @SubscribeMessage('e2e_handshake')
+  handleE2eHandshake(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { connectionId: string; payload: string },
+  ) {
+    const agentId = this.socketToAgent.get(client.id);
+    if (!agentId) return;
+    this.tunnelService.relayE2eHandshake(data.connectionId, data.payload, agentId);
+  }
+
   /**
    * Handle reach_connect: A reaching agent wants to connect to a service
    * exposed by another agent. We bridge the two agents via WebSocket.

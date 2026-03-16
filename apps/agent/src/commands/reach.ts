@@ -9,6 +9,7 @@ import { getStablePort, savePort } from '../port-map';
 import { registerRoute, unregisterRoute } from '../active-routes';
 import { readProxyState, getProxyUrl } from '../proxy-state';
 import { ensureProxyRunning } from './proxy';
+import { E2ESession } from '../e2e';
 
 interface ReachOptions {
   hub: string;
@@ -17,6 +18,7 @@ interface ReachOptions {
   check: boolean;
   json: boolean;
   config?: string;
+  e2e?: boolean;
 }
 
 interface Service {
@@ -209,7 +211,7 @@ export async function reachCommand(target: string, options: ReachOptions) {
     wasAutoSelected = localPort !== preferred;
   }
 
-  await createLocalTunnel(service, localPort, config, hubUrl, wasAutoSelected);
+  await createLocalTunnel(service, localPort, config, hubUrl, wasAutoSelected, options.e2e !== false);
 }
 
 /**
@@ -221,6 +223,7 @@ async function createLocalTunnel(
   config: { agentId: string; token: string; hubUrl: string; apiKey: string; label: string },
   hubUrl: string,
   wasAutoSelected: boolean = false,
+  useE2e: boolean = true,
 ) {
   // Connect to hub via WebSocket
   const socket = io(`${hubUrl}/agent`, {
@@ -235,7 +238,15 @@ async function createLocalTunnel(
     timeout: 30000,
   });
 
-  const connections = new Map<string, { localSocket: net.Socket; ready: boolean; buffer: Buffer[] }>();
+  interface ReachConn {
+    localSocket: net.Socket;
+    ready: boolean;
+    buffer: Buffer[];
+    e2e: E2ESession | null;
+    e2eTimeout: ReturnType<typeof setTimeout> | null;
+  }
+  const connections = new Map<string, ReachConn>();
+  const e2eEnabled = useE2e;
 
   socket.on('connect', () => {
     console.log(chalk.green('  [ok] Connected to hub'));
@@ -249,16 +260,71 @@ async function createLocalTunnel(
   // Handle connection ready from hub
   socket.on('reach_ready', (data: { connectionId: string }) => {
     const conn = connections.get(data.connectionId);
-    if (conn) {
+    if (!conn) return;
+
+    if (!e2eEnabled) {
       conn.ready = true;
-      // Flush any buffered data that arrived before connection was ready
       for (const chunk of conn.buffer) {
         socket.emit('reach_data', {
           connectionId: data.connectionId,
           data: chunk.toString('base64'),
         });
       }
-      conn.buffer = []; // Clear buffer
+      conn.buffer = [];
+      return;
+    }
+
+    const session = new E2ESession(data.connectionId, 'initiator');
+    conn.e2e = session;
+    socket.emit('e2e_handshake', {
+      connectionId: data.connectionId,
+      payload: JSON.stringify({
+        type: 'init',
+        pubkey: session.getPublicKey().toString('base64'),
+      }),
+    });
+
+    conn.e2eTimeout = setTimeout(() => {
+      console.log(chalk.yellow(`  [!] E2E handshake timeout, falling back to unencrypted`));
+      conn.e2e = null;
+      conn.e2eTimeout = null;
+      conn.ready = true;
+      for (const chunk of conn.buffer) {
+        socket.emit('reach_data', {
+          connectionId: data.connectionId,
+          data: chunk.toString('base64'),
+        });
+      }
+      conn.buffer = [];
+    }, 5000);
+  });
+
+  // Handle E2E handshake response from exposing agent
+  socket.on('e2e_handshake', (data: { connectionId: string; payload: string }) => {
+    const conn = connections.get(data.connectionId);
+    if (!conn?.e2e) return;
+
+    try {
+      const msg = JSON.parse(data.payload) as { type: string; pubkey: string };
+      if (msg.type === 'accept') {
+        if (conn.e2eTimeout) {
+          clearTimeout(conn.e2eTimeout);
+          conn.e2eTimeout = null;
+        }
+        conn.e2e.complete(Buffer.from(msg.pubkey, 'base64'));
+        conn.ready = true;
+        console.log(chalk.green(`  [ok] E2E encrypted`));
+
+        for (const chunk of conn.buffer) {
+          socket.emit('reach_data', {
+            connectionId: data.connectionId,
+            data: conn.e2e.encrypt(chunk).toString('base64'),
+          });
+        }
+        conn.buffer = [];
+      }
+    } catch {
+      console.error(chalk.red(`  [x] E2E handshake error`));
     }
   });
 
@@ -266,8 +332,9 @@ async function createLocalTunnel(
   socket.on('reach_data', (data: { connectionId: string; data: string }) => {
     const conn = connections.get(data.connectionId);
     if (conn && !conn.localSocket.destroyed) {
-      const buffer = Buffer.from(data.data, 'base64');
-      conn.localSocket.write(buffer);
+      const raw = Buffer.from(data.data, 'base64');
+      const plaintext = conn.e2e?.ready ? conn.e2e.decrypt(raw) : raw;
+      conn.localSocket.write(plaintext);
     }
   });
 
@@ -294,7 +361,7 @@ async function createLocalTunnel(
   const server = net.createServer((localSocket) => {
     const connectionId = uuidv4();
     
-    connections.set(connectionId, { localSocket, ready: false, buffer: [] });
+    connections.set(connectionId, { localSocket, ready: false, buffer: [], e2e: null, e2eTimeout: null });
 
     // Request connection to the service through the hub
     socket.emit('reach_connect', {
@@ -308,18 +375,16 @@ async function createLocalTunnel(
       }
     });
 
-    // Forward local data to hub
     localSocket.on('data', (chunk) => {
       const conn = connections.get(connectionId);
       if (conn) {
         if (conn.ready) {
-          // Connection ready, forward immediately
+          const payload = conn.e2e?.ready ? conn.e2e.encrypt(chunk) : chunk;
           socket.emit('reach_data', {
             connectionId,
-            data: chunk.toString('base64'),
+            data: payload.toString('base64'),
           });
         } else {
-          // Buffer data until connection is ready
           conn.buffer.push(chunk);
         }
       }

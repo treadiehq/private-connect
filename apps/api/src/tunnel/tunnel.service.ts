@@ -1225,6 +1225,21 @@ export class TunnelService {
   }
 
   /**
+   * Relay E2E handshake between reaching and exposing agents.
+   * The Hub never parses the payload — it is opaque key-exchange data.
+   */
+  relayE2eHandshake(connectionId: string, payload: string, fromAgentId: string) {
+    const bridge = this.agentBridges.get(connectionId);
+    if (!bridge) return;
+
+    if (fromAgentId === bridge.reachingAgentId) {
+      bridge.exposingSocket.emit('e2e_handshake', { connectionId, payload });
+    } else if (fromAgentId === bridge.exposingAgentId) {
+      bridge.reachingSocket.emit('e2e_handshake', { connectionId, payload });
+    }
+  }
+
+  /**
    * Handle close from exposing agent (for bridges)
    */
   handleAgentCloseForBridge(connectionId: string, agentId: string): boolean {

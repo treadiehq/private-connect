@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import * as dgram from 'dgram';
 import { loadConfig, ensureConfig } from '../config';
 import { enforceSecureConnection, handleTokenExpiry, handleSecurityEvent, SecurityError } from '../security';
+import { E2ESession } from '../e2e';
 
 interface ExposeOptions {
   name: string;
@@ -15,6 +16,7 @@ interface ExposeOptions {
   config?: string;
   debug?: boolean;
   aiEnabled?: boolean;
+  e2e?: boolean;
 }
 
 interface DiagnosticResult {
@@ -373,7 +375,68 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
 
   // Handle dial requests
   const net = await import('net');
-  const connections = new Map<string, { socket: any; connected: boolean; pty?: any }>();
+  interface ExposeConn {
+    socket: any;
+    connected: boolean;
+    pty?: any;
+    e2e: E2ESession | null;
+    e2ePending: boolean;
+    e2eBuffer: Buffer[];
+    e2eTimeout: ReturnType<typeof setTimeout> | null;
+  }
+  const connections = new Map<string, ExposeConn>();
+  const e2eEnabled = options.e2e !== false;
+
+  function emitData(connectionId: string, conn: ExposeConn, chunk: Buffer) {
+    const payload = conn.e2e?.ready ? conn.e2e.encrypt(chunk) : chunk;
+    socket.emit('data', {
+      connectionId,
+      data: payload.toString('base64'),
+    });
+  }
+
+  function flushE2eBuffer(connectionId: string, conn: ExposeConn) {
+    for (const chunk of conn.e2eBuffer) {
+      emitData(connectionId, conn, chunk);
+    }
+    conn.e2eBuffer = [];
+  }
+
+  // Handle E2E handshake init from reaching agent
+  socket.on('e2e_handshake', (data: { connectionId: string; payload: string }) => {
+    const conn = connections.get(data.connectionId);
+    if (!conn) return;
+
+    try {
+      const msg = JSON.parse(data.payload) as { type: string; pubkey: string };
+      if (msg.type === 'init') {
+        const session = new E2ESession(data.connectionId, 'responder');
+        session.complete(Buffer.from(msg.pubkey, 'base64'));
+        conn.e2e = session;
+        conn.e2ePending = false;
+
+        if (conn.e2eTimeout) {
+          clearTimeout(conn.e2eTimeout);
+          conn.e2eTimeout = null;
+        }
+
+        socket.emit('e2e_handshake', {
+          connectionId: data.connectionId,
+          payload: JSON.stringify({
+            type: 'accept',
+            pubkey: session.getPublicKey().toString('base64'),
+          }),
+        });
+
+        console.log(chalk.green(`   [ok] E2E encrypted (${data.connectionId.substring(0, 8)})`));
+        flushE2eBuffer(data.connectionId, conn);
+      }
+    } catch {
+      // Handshake failed — continue unencrypted
+      conn.e2ePending = false;
+      flushE2eBuffer(data.connectionId, conn);
+    }
+  });
 
   socket.on('dial', async (data: { connectionId: string; targetHost: string; targetPort: number; pty?: boolean }) => {
     console.log(chalk.gray(`   ← Incoming connection ${data.connectionId.substring(0, 8)}${data.pty ? ' (pty)' : ''}`));
@@ -433,7 +496,10 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
           });
         }
 
-        connections.set(data.connectionId, { socket: ptyHandle, connected: true, pty: ptyHandle });
+        connections.set(data.connectionId, {
+          socket: ptyHandle, connected: true, pty: ptyHandle,
+          e2e: null, e2ePending: false, e2eBuffer: [], e2eTimeout: null,
+        });
         socket.emit('dial_success', { connectionId: data.connectionId });
       } catch (err: any) {
         socket.emit('dial_error', { connectionId: data.connectionId, error: err.message || 'PTY spawn failed' });
@@ -446,28 +512,52 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
       port: data.targetPort,
     });
 
-    connections.set(data.connectionId, { socket: targetSocket, connected: false });
+    connections.set(data.connectionId, {
+      socket: targetSocket, connected: false,
+      e2e: null, e2ePending: e2eEnabled, e2eBuffer: [], e2eTimeout: null,
+    });
 
     targetSocket.on('connect', () => {
       const conn = connections.get(data.connectionId);
       if (conn) conn.connected = true;
       socket.emit('dial_success', { connectionId: data.connectionId });
+
+      // Allow a window for E2E handshake; fall back to unencrypted if it doesn't arrive
+      const conn2 = connections.get(data.connectionId);
+      if (conn2 && conn2.e2ePending) {
+        conn2.e2eTimeout = setTimeout(() => {
+          const c = connections.get(data.connectionId);
+          if (c && c.e2ePending) {
+            c.e2ePending = false;
+            c.e2eTimeout = null;
+            flushE2eBuffer(data.connectionId, c);
+          }
+        }, 5000);
+      }
     });
 
     targetSocket.on('data', (chunk: Buffer) => {
-      socket.emit('data', {
-        connectionId: data.connectionId,
-        data: chunk.toString('base64'),
-      });
+      const conn = connections.get(data.connectionId);
+      if (!conn) return;
+
+      if (conn.e2ePending) {
+        conn.e2eBuffer.push(chunk);
+      } else {
+        emitData(data.connectionId, conn, chunk);
+      }
     });
 
     targetSocket.on('error', (err: Error) => {
       socket.emit('dial_error', { connectionId: data.connectionId, error: err.message });
+      const conn = connections.get(data.connectionId);
+      if (conn?.e2eTimeout) clearTimeout(conn.e2eTimeout);
       connections.delete(data.connectionId);
     });
 
     targetSocket.on('close', () => {
       socket.emit('close', { connectionId: data.connectionId });
+      const conn = connections.get(data.connectionId);
+      if (conn?.e2eTimeout) clearTimeout(conn.e2eTimeout);
       connections.delete(data.connectionId);
     });
   });
@@ -475,10 +565,13 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
   socket.on('data', (data: { connectionId: string; data: string }) => {
     const conn = connections.get(data.connectionId);
     if (conn?.connected) {
+      const raw = Buffer.from(data.data, 'base64');
       if (conn.pty) {
-        conn.pty.write(Buffer.from(data.data, 'base64').toString('utf8'));
+        const plaintext = conn.e2e?.ready ? conn.e2e.decrypt(raw).toString('utf8') : raw.toString('utf8');
+        conn.pty.write(plaintext);
       } else {
-        conn.socket.write(Buffer.from(data.data, 'base64'));
+        const plaintext = conn.e2e?.ready ? conn.e2e.decrypt(raw) : raw;
+        conn.socket.write(plaintext);
       }
     }
   });
