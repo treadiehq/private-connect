@@ -107,15 +107,19 @@
           </button>
           <!-- AI Chat Toggle -->
           <button
-            v-if="session?.aiEnabled"
-            @click="showAIChat = !showAIChat"
+            @click="toggleAIChat"
+            :disabled="enablingAI"
             class="px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all flex items-center gap-1.5 sm:gap-2"
             :class="showAIChat ? 'bg-blue-300 text-black' : 'bg-blue-300/10 border border-blue-300/10 text-blue-300 hover:bg-blue-300/20'"
           >
-            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
+            <svg v-if="enablingAI" class="animate-spin w-3.5 h-3.5 sm:w-4 sm:h-4" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <svg v-else class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L11 6.477V16h2a1 1 0 110 2H7a1 1 0 110-2h2V6.477L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.788l1.599.799L9 4.323V3a1 1 0 011-1z"/>
             </svg>
-            <span class="hidden sm:inline">{{ showAIChat ? 'Hide AI' : 'Ask AI' }}</span>
+            <span class="hidden sm:inline">{{ enablingAI ? 'Enabling...' : showAIChat ? 'Hide AI' : 'Ask AI' }}</span>
           </button>
         </div>
       </div>
@@ -534,7 +538,7 @@
       </div>
 
       <!-- AI Chat Panel -->
-      <div v-if="session?.aiEnabled && showAIChat" class="mt-6">
+      <div v-if="aiEnabled && showAIChat" class="mt-6">
         <div class="bg-gray-500/5 border border-gray-500/10 rounded-xl overflow-hidden">
           <!-- Chat Header -->
           <div class="border-b border-gray-500/10 p-4 flex items-center justify-between">
@@ -736,6 +740,34 @@ const showAIChat = ref(false);
 const aiInput = ref('');
 const aiMessages = ref<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
 const aiThinking = ref(false);
+const enablingAI = ref(false);
+const aiEnabled = ref(false);
+
+watch(() => session.value?.aiEnabled, (val) => {
+  if (val !== undefined) aiEnabled.value = val;
+}, { immediate: true });
+
+const toggleAIChat = async () => {
+  if (!aiEnabled.value) {
+    enablingAI.value = true;
+    try {
+      const token = route.params.token as string;
+      const res = await fetch(`${config.public.apiUrl}/v1/debug/public/${token}/ai/enable`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: true }),
+      });
+      if (res.ok) {
+        aiEnabled.value = true;
+        showAIChat.value = true;
+      }
+    } finally {
+      enablingAI.value = false;
+    }
+  } else {
+    showAIChat.value = !showAIChat.value;
+  }
+};
 
 // Close tunnel state
 const showCloseModal = ref(false);

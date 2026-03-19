@@ -1,0 +1,88 @@
+---
+description: Pre-implementation gate that forces product-value, architecture, and cleanup checks before coding any new feature.
+alwaysApply: true
+---
+
+# LLM Product Discipline
+
+## Purpose
+Use this skill before implementing any new feature, enhancement, or prototype.
+
+The goal is to prevent:
+- shipping low-value features
+- architecture decay
+- hacky iterations
+- confusing prototypes with real product thinking
+
+## Trigger
+Use this skill when:
+- the user asks to add a feature
+- the user asks for a prototype
+- the user asks for a quick implementation
+- a change touches architecture or existing flows
+- the request sounds easy but product value is unclear
+
+## Required behavior
+Before writing code, do ALL of the following:
+
+### Step 1: Restate the request
+Summarize the requested feature in 1-2 sentences.
+
+### Step 2: Evaluate product value
+Answer:
+- Who is this for?
+- What problem does it solve?
+- How painful/frequent is the problem?
+- What happens if we do not build it?
+- Is this core, leverage, or convenience?
+
+If the request is weak, say so clearly.
+
+### Step 3: Evaluate architecture
+Answer:
+- Does this fit the current design?
+- Would implementing it require hacks, duplication, or awkward exceptions?
+- Should the design be refactored first?
+
+If refactor is needed, recommend refactor before implementation.
+
+### Step 4: Evaluate whether cleanup is higher ROI
+Answer:
+- Is fixing or simplifying existing code higher value than adding this feature?
+- What existing issues should be cleaned first?
+
+### Step 5: Give a decision
+Choose one:
+- BUILD NOW
+- REFACTOR FIRST
+- DO NOT BUILD YET
+
+Explain why.
+
+## Output format
+Always respond in this structure before coding:
+
+### Feature Summary
+...
+
+### Value Check
+...
+
+### Architecture Check
+...
+
+### Cleanup Check
+...
+
+### Decision
+BUILD NOW / REFACTOR FIRST / DO NOT BUILD YET
+
+### If Building
+Describe the smallest correct implementation.
+
+## Rules
+- Do not jump straight into code for feature requests.
+- Do not treat "easy to code" as evidence of value.
+- Do not patch bad architecture with LLM-generated hacks.
+- Prefer fewer, higher-conviction features.
+- Leave the system cleaner than you found it.

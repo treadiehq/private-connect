@@ -7,6 +7,7 @@ export interface AIConfig {
   model: string;
   apiKey?: string;
   ollamaUrl?: string;
+  autoAnalyze?: boolean;
 }
 
 export interface AnalysisRequest {
@@ -58,6 +59,7 @@ export class AIService {
         aiModel: true,
         aiApiKey: true,
         aiOllamaUrl: true,
+        aiAutoAnalyze: true,
       },
     });
 
@@ -68,6 +70,7 @@ export class AIService {
       model: workspace.aiModel || this.getDefaultModel(workspace.aiProvider),
       apiKey: workspace.aiApiKey ? decryptField(workspace.aiApiKey) : undefined,
       ollamaUrl: workspace.aiOllamaUrl || this.defaultOllamaUrl,
+      autoAnalyze: workspace.aiAutoAnalyze,
     };
   }
 
@@ -82,6 +85,7 @@ export class AIService {
         aiModel: config.model,
         aiApiKey: config.apiKey != null ? encryptField(config.apiKey) : config.apiKey,
         aiOllamaUrl: config.ollamaUrl,
+        ...(config.autoAnalyze !== undefined && { aiAutoAnalyze: config.autoAnalyze }),
       },
     });
   }

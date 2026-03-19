@@ -88,15 +88,10 @@ export class AIController {
       }
     }
 
-    await this.aiService.updateConfig(workspaceId, body);
-
-    // Also update autoAnalyze if provided
-    if (body.autoAnalyze !== undefined) {
-      await this.prisma.workspace.update({
-        where: { id: workspaceId },
-        data: { aiAutoAnalyze: body.autoAnalyze },
-      });
-    }
+    await this.aiService.updateConfig(workspaceId, {
+      ...body,
+      autoAnalyze: body.autoAnalyze,
+    });
 
     return { success: true };
   }

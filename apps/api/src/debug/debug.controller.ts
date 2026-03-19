@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Param,
   Body,
@@ -15,6 +16,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { DebugService } from './debug.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { CombinedAuthGuard } from '../auth/combined-auth.guard';
 import { AIService } from '../ai/ai.service';
@@ -35,6 +37,7 @@ interface CreateSessionDto {
 export class DebugController {
   constructor(
     private debugService: DebugService,
+    private prisma: PrismaService,
     @Optional() @Inject(forwardRef(() => AIService))
     private aiService?: AIService,
   ) {}
@@ -133,6 +136,51 @@ export class DebugController {
   async endSession(@Param('id') id: string) {
     await this.debugService.endSession(id);
     return { success: true };
+  }
+
+  /**
+   * Toggle AI on a debug session
+   */
+  @Patch('sessions/:id/ai')
+  @UseGuards(AuthGuard)
+  async toggleAI(
+    @Param('id') id: string,
+    @Body() body: { enabled: boolean },
+  ) {
+    const session = await this.debugService.getSession(id);
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    await this.prisma.debugSession.update({
+      where: { id },
+      data: { aiEnabled: body.enabled },
+    });
+
+    return { success: true, aiEnabled: body.enabled };
+  }
+
+  /**
+   * Toggle AI on a debug session (public, token-based)
+   */
+  @Patch('public/:token/ai/enable')
+  @UseGuards(RateLimitGuard)
+  @RateLimit('debug')
+  async toggleAIPublic(
+    @Param('token') token: string,
+    @Body() body: { enabled: boolean },
+  ) {
+    const session = await this.debugService.getSessionByToken(token);
+    if (!session) {
+      throw new NotFoundException('Session not found or expired');
+    }
+
+    await this.prisma.debugSession.update({
+      where: { id: session.id },
+      data: { aiEnabled: body.enabled },
+    });
+
+    return { success: true, aiEnabled: body.enabled };
   }
 
   /**
@@ -567,13 +615,44 @@ export class DebugController {
 
     // Build context from packet data
     const packets = body.packetContext || [];
-    
+
+    // Load conversation history for multi-turn context
+    const history = await this.prisma.debugAIMessage.findMany({
+      where: { sessionId: session.id },
+      orderBy: { createdAt: 'asc' },
+      take: 20,
+    });
+
+    const ai = this.aiService!;
+    const shouldRedact = config.provider !== 'ollama';
+    const messages = [
+      ...history.map(m => ({
+        role: m.role as 'user' | 'assistant',
+        content: shouldRedact ? ai.redactPII(m.content) : m.content,
+      })),
+      { role: 'user' as const, content: shouldRedact ? ai.redactPII(body.message) : body.message },
+    ];
+
     try {
-      const response = await this.aiService.chat(
+      const response = await ai.chat(
         config,
-        [{ role: 'user', content: body.message }],
-        { packets },
+        messages,
+        { packets: shouldRedact
+          ? packets.map((p: any) => ({
+              ...p,
+              parsed: p.parsed ? JSON.parse(ai.redactPII(JSON.stringify(p.parsed))) : undefined,
+            }))
+          : packets,
+        },
       );
+
+      // Store messages for conversation history
+      await this.prisma.debugAIMessage.createMany({
+        data: [
+          { sessionId: session.id, role: 'user', content: body.message },
+          { sessionId: session.id, role: 'assistant', content: response.content, tokensUsed: response.tokensUsed },
+        ],
+      });
 
       return {
         response: response.content,
