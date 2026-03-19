@@ -10,7 +10,7 @@
           </svg>
         </div>
         <h1 class="text-2xl font-bold text-white mb-2">Verify your email</h1>
-        <p class="text-gray-400 text-sm">Check your email for a verification link</p>
+        <p class="text-gray-400 text-sm">Checking your email verification link</p>
       </div>
 
       <!-- Loading State -->

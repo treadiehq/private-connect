@@ -68,6 +68,18 @@
               Server Management
             </NuxtLink>
 
+            <!-- Ask AI -->
+            <NuxtLink
+              to="/ask"
+              @click="showDropdown = false"
+              class="w-full px-4 py-2 text-left text-xs text-gray-300 hover:bg-gray-500/10 transition-colors flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
+              Ask AI
+            </NuxtLink>
+
             <!-- AI Settings -->
             <NuxtLink
               to="/settings/ai"
@@ -78,6 +90,19 @@
                 <path d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L11 6.477V16h2a1 1 0 110 2H7a1 1 0 110-2h2V6.477L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.788l1.599.799L9 4.323V3a1 1 0 011-1z"/>
               </svg>
               AI Settings
+            </NuxtLink>
+
+            <!-- Admin (only visible to admins) -->
+            <NuxtLink
+              v-if="isAdmin"
+              to="/admin"
+              @click="showDropdown = false"
+              class="w-full px-4 py-2 text-left text-xs text-gray-300 hover:bg-gray-500/10 transition-colors flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+              </svg>
+              Admin
             </NuxtLink>
 
             <!-- Log out -->
@@ -114,7 +139,7 @@
 import type { WorkspaceUsage } from '~/types';
 
 const router = useRouter();
-const { user, workspace, isAuthenticated, isLoading, logout, fetchCurrentUser } = useAuth();
+const { user, workspace, isAuthenticated, isAdmin, isLoading, logout, fetchCurrentUser } = useAuth();
 const { fetchWorkspace, upgradeWorkspace } = useApi();
 
 const workspaceData = ref<WorkspaceUsage | null>(null);

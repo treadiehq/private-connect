@@ -60,7 +60,7 @@
               </div>
               <span class="font-medium">OpenAI</span>
             </div>
-            <p class="text-sm text-gray-400">GPT-4o and other models. Requires API key.</p>
+            <p class="text-sm text-gray-400">GPT-5.4 and other models. Requires API key.</p>
           </button>
 
           <!-- Anthropic -->
@@ -260,16 +260,12 @@ const models = {
     { id: 'mistral', name: 'Mistral 7B' },
   ],
   openai: [
-    { id: 'gpt-5.2', name: 'GPT-5.2' },
-    { id: 'gpt-4.5-preview', name: 'GPT-4.5 Preview' },
-    { id: 'gpt-4o', name: 'GPT-4o' },
-    { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+    { id: 'gpt-5.4', name: 'GPT-5.4' },
+    { id: 'gpt-5.3-codex', name: 'GPT-5.3 Codex' },
   ],
   anthropic: [
-    { id: 'claude-opus-4.5-20250120', name: 'Claude Opus 4.5' },
-    { id: 'claude-sonnet-4-20250114', name: 'Claude Sonnet 4' },
-    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
-    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku' },
+    { id: 'claude-opus-4.6-20260205', name: 'Claude Opus 4.6' },
+    { id: 'claude-sonnet-4.6-20260217', name: 'Claude Sonnet 4.6' },
   ],
 };
 

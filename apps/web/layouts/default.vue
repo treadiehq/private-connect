@@ -85,21 +85,11 @@ const { workspace } = useAuth();
 const { getSocket } = useSocket();
 const { prefetchServices, prefetchAgents } = usePrefetch();
 
-const { isAdmin } = useAuth();
-
-const navItems = computed(() => {
-  const items = [
-    { path: '/services', label: 'Services' },
-    { path: '/agents', label: 'Agents' },
-    { path: '/dashboard', label: 'Overview' },
-  ];
-  
-  if (isAdmin.value) {
-    items.push({ path: '/admin', label: 'Admin' });
-  }
-  
-  return items;
-});
+const navItems = [
+  { path: '/services', label: 'Services' },
+  { path: '/agents', label: 'Agents' },
+  { path: '/dashboard', label: 'Overview' },
+];
 
 const isActive = (path: string) => {
   return route.path === path || route.path.startsWith(path + '/');

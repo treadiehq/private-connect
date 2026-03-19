@@ -357,9 +357,9 @@ Be helpful, concise, and provide actionable advice.`;
       case 'ollama':
         return 'llama3';
       case 'openai':
-        return 'gpt-4o-mini';
+        return 'gpt-5.4';
       case 'anthropic':
-        return 'claude-3-haiku-20240307';
+        return 'claude-sonnet-4.6-20260217';
       default:
         return 'llama3';
     }

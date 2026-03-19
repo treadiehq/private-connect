@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from './email.service';
 import { randomBytes, createHash } from 'crypto';
@@ -52,6 +52,8 @@ const RESERVED_WORKSPACE_NAMES = [
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
@@ -164,6 +166,9 @@ export class AuthService {
       });
 
       if (!user) {
+        if (process.env.NODE_ENV !== 'production') {
+          this.logger.warn(`Login attempted for non-existent email: ${normalizedEmail} — no magic link sent. Did you mean to register?`);
+        }
         return { message: genericMessage };
       }
 
