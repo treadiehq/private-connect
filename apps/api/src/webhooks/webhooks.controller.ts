@@ -33,6 +33,8 @@ const VALID_EVENTS: WebhookEventType[] = [
   'agent.connected',
   'agent.disconnected',
   'agent.registered',
+  'grant.created',
+  'grant.revoked',
 ];
 
 const CreateWebhookSchema = z.object({

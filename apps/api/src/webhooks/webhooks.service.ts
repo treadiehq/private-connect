@@ -12,7 +12,9 @@ export type WebhookEventType =
   | 'share.revoked'
   | 'agent.connected'
   | 'agent.disconnected'
-  | 'agent.registered';
+  | 'agent.registered'
+  | 'grant.created'
+  | 'grant.revoked';
 
 export interface WebhookPayload {
   id: string;
