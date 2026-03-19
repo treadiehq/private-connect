@@ -119,8 +119,17 @@
         <div class="animate-spin w-6 h-6 border-2 border-gray-400 border-t-transparent rounded-full mx-auto"></div>
       </div>
 
-      <div v-else-if="recentActivity.length === 0" class="p-6 text-center text-gray-500 text-sm">
-        No recent activity
+      <div v-else-if="recentActivity.length === 0" class="py-10 px-6 text-center">
+        <div class="relative w-16 h-16 mx-auto mb-4">
+          <div class="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-full blur-xl"></div>
+          <div class="relative w-full h-full rounded-xl bg-gradient-to-br from-white/[0.04] to-transparent border border-white/[0.06] flex items-center justify-center">
+            <svg class="w-7 h-7 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        </div>
+        <p class="text-sm font-medium text-gray-400 mb-1">No recent activity</p>
+        <p class="text-xs text-gray-600">Activity from your agents and services will appear here</p>
       </div>
 
       <div v-else class="divide-y divide-gray-500/10">
