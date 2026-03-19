@@ -33,6 +33,7 @@ const VALID_EVENTS: WebhookEventType[] = [
   'agent.connected',
   'agent.disconnected',
   'agent.registered',
+  'agent.deleted',
   'grant.created',
   'grant.revoked',
 ];
@@ -268,6 +269,7 @@ export class WebhooksController {
         { name: 'agent.connected', description: 'An agent came online' },
         { name: 'agent.disconnected', description: 'An agent went offline' },
         { name: 'agent.registered', description: 'A new agent was registered' },
+        { name: 'agent.deleted', description: 'An agent was permanently removed' },
       ],
     };
   }

@@ -13,6 +13,7 @@ export type WebhookEventType =
   | 'agent.connected'
   | 'agent.disconnected'
   | 'agent.registered'
+  | 'agent.deleted'
   | 'grant.created'
   | 'grant.revoked';
 
