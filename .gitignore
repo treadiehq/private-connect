@@ -58,3 +58,4 @@ docs/terminal-browser-wedge.md
 
 # Boot dev stack runtime files
 .boot/
+boot.yaml
