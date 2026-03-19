@@ -4,6 +4,7 @@ import { ServicesService } from '../services/services.service';
 import { TemporaryTunnelService } from '../tunnel/temporary-tunnel.service';
 import { TunnelService } from '../tunnel/tunnel.service';
 import { DebugService } from '../debug/debug.service';
+import { GrantsService } from '../grants/grants.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { proxyRateLimiter, proxySubdomainLimiter } from '../common/rate-limiter';
 import { 
@@ -97,7 +98,7 @@ function injectWidgetIntoHtml(body: string, widget: string): string {
   return body + widget;
 }
 
-@Controller('w')
+@Controller()
 export class ProxyController {
   private readonly logger = new SecureLogger('ProxyController');
 
@@ -110,11 +111,147 @@ export class ProxyController {
     private tunnelService: TunnelService,
     @Inject(forwardRef(() => DebugService))
     private debugService: DebugService,
+    @Inject(forwardRef(() => GrantsService))
+    private grantsService: GrantsService,
     private prisma: PrismaService,
   ) {}
 
+  // ─── Grant-based proxy: /g/:resource/* ───────────────────────────────────────
+  // AI agents use grant tokens to access private resources via this path.
+
+  @All('grant/:resource')
+  async grantProxyRoot(
+    @Param('resource') resource: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    return this.handleGrantProxy(resource, '', req, res);
+  }
+
+  @All('grant/:resource/*')
+  async grantProxyPath(
+    @Param('resource') resource: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const fullPath = req.path;
+    const prefixLength = `/grant/${resource}`.length;
+    const targetPath = fullPath.substring(prefixLength) || '/';
+    return this.handleGrantProxy(resource, targetPath, req, res);
+  }
+
+  private async handleGrantProxy(
+    resource: string,
+    targetPath: string,
+    req: Request,
+    res: Response,
+  ) {
+    // Extract grant token from Authorization header or query param
+    const authHeader = req.headers['authorization'];
+    const tokenFromHeader = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const tokenFromQuery = req.query['token'] as string | undefined;
+    const grantToken = tokenFromHeader || tokenFromQuery;
+
+    if (!grantToken) {
+      return res.status(401).json({
+        error: 'Grant token required',
+        message: 'Provide a grant token via Authorization: Bearer <token> or ?token=<token>',
+      });
+    }
+
+    const grant = await this.grantsService.validateGrantToken(grantToken);
+
+    if (!grant) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'Grant invalid, expired, or revoked. Run `connect grant ...` to create a new one.',
+      });
+    }
+
+    if (grant.resourceName !== resource) {
+      return res.status(403).json({
+        error: 'Resource mismatch',
+        message: `This grant is for "${grant.resourceName}", not "${resource}".`,
+      });
+    }
+
+    if (!grant.service) {
+      return res.status(404).json({
+        error: 'Service not found',
+        message: `No service is mapped to resource "${resource}". Expose it first with: connect expose ... --name ${resource}`,
+      });
+    }
+
+    if (!grant.service.agentId || !this.tunnelService.isAgentConnected(grant.service.agentId)) {
+      return res.status(503).json({
+        error: 'Service unavailable',
+        message: 'The agent exposing this service is currently offline.',
+      });
+    }
+
+    // Enforce read-only scope for HTTP (block mutating methods)
+    if (grant.scope === 'read-only') {
+      const readOnlyMethods = ['GET', 'HEAD', 'OPTIONS'];
+      if (!readOnlyMethods.includes(req.method.toUpperCase())) {
+        return res.status(403).json({
+          error: 'Read-only grant',
+          message: `This grant is read-only. ${req.method} is not allowed.`,
+        });
+      }
+    }
+
+    // Proxy to the service (same as public proxy path)
+    try {
+      const requestBody = await this.getRequestBody(req);
+      const queryString = req.url.includes('?') ? '?' + req.url.split('?').slice(1).join('?').replace(/[&?]token=[^&]*/, '') : '';
+      const requestPath = (targetPath || '/') + queryString;
+      const requestHeaders = this.filterHeaders(req.headers as Record<string, string>);
+
+      const response = await this.tunnelService.forwardHttpRequest(
+        grant.service.agentId,
+        grant.service.id,
+        {
+          method: req.method,
+          path: requestPath,
+          headers: requestHeaders,
+          body: requestBody,
+        },
+      );
+
+      for (const [key, value] of Object.entries(response.headers)) {
+        if (value && !['transfer-encoding', 'connection', 'content-length'].includes(key.toLowerCase())) {
+          res.setHeader(key, value);
+        }
+      }
+
+      res.setHeader('X-Grant-Agent', grant.agentLabel);
+      res.setHeader('X-Grant-Scope', grant.scope);
+      res.setHeader('X-Grant-Expires', grant.expiresAt.toISOString());
+
+      const contentType = response.headers['content-type'] || '';
+      if (contentType.includes('text/html')) {
+        res.status(response.status).send(response.body.toString('utf-8'));
+      } else {
+        res.status(response.status).send(response.body);
+      }
+    } catch (error) {
+      const err = error as Error;
+      this.logger.error(`Grant proxy error for ${resource}: ${err.message}`);
+
+      if (err.message === 'Agent not connected') {
+        return res.status(503).json({ error: 'Service unavailable', message: 'Agent is offline.' });
+      } else if (err.message === 'Request timeout') {
+        return res.status(504).json({ error: 'Gateway timeout', message: 'Service did not respond in time.' });
+      } else {
+        return res.status(502).json({ error: 'Bad gateway', message: 'Failed to forward request.' });
+      }
+    }
+  }
+
+  // ─── Public subdomain proxy: /w/abc123/* ────────────────────────────────────
+
   // Handle requests like: /w/abc123/* -> forward to service with subdomain "abc123"
-  @All(':subdomain')
+  @All('w/:subdomain')
   async proxyRequestRoot(
     @Param('subdomain') subdomain: string,
     @Req() req: Request,
@@ -123,7 +260,7 @@ export class ProxyController {
     return this.handleProxy(subdomain, '', req, res);
   }
 
-  @All(':subdomain/*')
+  @All('w/:subdomain/*')
   async proxyRequestPath(
     @Param('subdomain') subdomain: string,
     @Req() req: Request,

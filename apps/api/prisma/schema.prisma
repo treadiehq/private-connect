@@ -138,6 +138,7 @@ model Service {
   diagnostics     DiagnosticResult[]
   sessions        Session[]
   shares          ServiceShare[]
+  grants          Grant[]
 
   @@unique([workspaceId, name])
   @@index([workspaceId])
@@ -470,6 +471,28 @@ model DebugAIMessage {
   session       DebugSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, createdAt])
+}
+
+// Grant: time-limited, scoped access for AI agents to private resources
+model Grant {
+  id            String    @id @default(uuid())
+  workspaceId   String
+  agentLabel    String              // User-chosen label (e.g., "claude", "cursor")
+  resourceType  String              // db | api | path
+  resourceName  String              // Logical name (e.g., "postgres", "staging")
+  serviceId     String?             // Resolved Service FK (null if resource not yet mapped)
+  scope         String    @default("read-only") // read-only | full
+  token         String    @unique   // Grant token (secret, given to the AI)
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  service       Service?  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([token])
+  @@index([expiresAt])
+  @@index([serviceId])
 }
 
 // InstallEvent: track CLI installations for analytics

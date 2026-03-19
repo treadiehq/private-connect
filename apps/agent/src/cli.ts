@@ -23,6 +23,7 @@ import { dnsCommand, serveDns } from './commands/dns';
 import { mcpCommand } from './commands/mcp';
 import { cloneCommand, cloneListCommand } from './commands/clone';
 import { brokerCommand } from './commands/broker';
+import { grantCommand } from './commands/grant';
 import { connectCommand } from './commands/connect';
 import { debugCommand } from './commands/debug';
 import { loginCommand } from './commands/login';
@@ -626,6 +627,24 @@ program
   .option('-u, --uninstall', 'Uninstall hooks')
   .action(async (action, args, options) => {
     await brokerCommand(action, args, options);
+  });
+
+// Grant Commands - Temporary AI agent access
+program
+  .command('grant [agent]')
+  .description('Grant an AI agent temporary access to a private resource')
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('--db <name>', 'Database resource name (e.g., postgres)')
+  .option('--api <name>', 'API resource name (e.g., staging)')
+  .option('--path <path>', 'File path resource')
+  .option('--ttl <duration>', 'Time to live: 60s, 5m, 1h, 1d (default: 5m)', '5m')
+  .option('--scope <scope>', 'Access scope: read-only, full (default: read-only)', 'read-only')
+  .option('-l, --list', 'List active grants')
+  .option('-r, --revoke <id>', 'Revoke a grant by ID')
+  .option('-c, --config <path>', 'Config file path')
+  .action(async (agent, options) => {
+    if (options.config) setConfigPath(options.config);
+    await grantCommand(agent, options);
   });
 
 program

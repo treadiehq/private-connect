@@ -21,6 +21,7 @@ import { EventsModule } from './events/events.module';
 import { DebugModule } from './debug/debug.module';
 import { AIModule } from './ai/ai.module';
 import { AskModule } from './ask/ask.module';
+import { GrantsModule } from './grants/grants.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { AskModule } from './ask/ask.module';
     DebugModule,
     AIModule,
     AskModule,
+    GrantsModule,
   ],
 })
 export class AppModule {}

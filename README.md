@@ -76,6 +76,24 @@ connect shell && connect share
 
 They open `privateconnect.co/terminal`, enter the code, and get a live terminal.
 
+## AI agent access
+
+Grant an AI agent (Cursor, Claude, etc.) temporary, scoped access to a private resource, no credentials in prompts, no exposing services publicly.
+
+```bash
+connect grant claude --db postgres --ttl 5m
+```
+
+Give the endpoint and token to the AI. Access expires automatically.
+
+```bash
+# List active grants
+connect grant --list
+
+# Revoke early
+connect grant --revoke <id>
+```
+
 ## Build from source
 
 ```bash

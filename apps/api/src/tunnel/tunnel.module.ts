@@ -11,6 +11,7 @@ import { ServicesModule } from '../services/services.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { DebugModule } from '../debug/debug.module';
 import { EnvSharesModule } from '../env-shares/env-shares.module';
+import { GrantsModule } from '../grants/grants.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { EnvSharesModule } from '../env-shares/env-shares.module';
     forwardRef(() => ServicesModule),
     forwardRef(() => DebugModule),
     forwardRef(() => EnvSharesModule),
+    forwardRef(() => GrantsModule),
   ],
   controllers: [ProxyController, TemporaryTunnelController],
   providers: [TunnelGateway, ShellGateway, TunnelService, TemporaryTunnelService, TemporaryTunnelGateway],
