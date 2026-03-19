@@ -22,6 +22,10 @@
             :disabled="connecting"
             autocomplete="off"
           />
+          <label class="flex items-center gap-2 mt-4 cursor-pointer select-none">
+            <input v-model="shared" type="checkbox" class="w-4 h-4 rounded border-gray-500/20 bg-gray-500/10 text-blue-300 focus:ring-blue-300" />
+            <span class="text-sm text-gray-400">Shared session <span class="text-gray-500">(everyone sees the same terminal)</span></span>
+          </label>
           <p v-if="authError" class="mt-3 text-sm text-red-400">{{ authError }}</p>
           <button
             type="submit"
@@ -53,11 +57,19 @@
             <span>Private Connect</span>
           </a>
         </span>
-        <span class="text-sm text-gray-400">
-          Connected to shell via share code:
-          <span class="group relative ml-1 inline-block font-mono text-gray-200">
-            <span class="transition-opacity duration-150 group-hover:opacity-0">{{ maskedCode }}</span>
-            <span class="absolute inset-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100">{{ code }}</span>
+        <span class="text-sm text-gray-400 flex items-center gap-2">
+          <span>
+            Connected to shell via share code:
+            <span class="group relative ml-1 inline-block font-mono text-gray-200">
+              <span class="transition-opacity duration-150 group-hover:opacity-0">{{ maskedCode }}</span>
+              <span class="absolute inset-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100">{{ code }}</span>
+            </span>
+          </span>
+          <span v-if="isShared && participants > 0" class="inline-flex items-center gap-1 bg-blue-300/10 text-blue-300 px-2 py-0.5 rounded-full text-xs font-medium">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3">
+              <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM12.735 14c.618 0 1.093-.561.872-1.139a6.002 6.002 0 0 0-11.215 0c-.22.578.254 1.139.872 1.139h9.47Z" />
+            </svg>
+            {{ participants }}
           </span>
         </span>
         <button
@@ -81,8 +93,11 @@ definePageMeta({ layout: false });
 
 const config = useRuntimeConfig();
 const code = ref('');
+const shared = ref(false);
 const connecting = ref(false);
 const connected = ref(false);
+const isShared = ref(false);
+const participants = ref(0);
 const authError = ref('');
 const connectionId = ref('');
 const socket = ref<Socket | null>(null);
@@ -112,7 +127,10 @@ function connect() {
   });
 
   socket.value.on('connect', () => {
-    socket.value?.emit('auth', { code: code.value.trim().toLowerCase() });
+    socket.value?.emit('auth', {
+      code: code.value.trim().toLowerCase(),
+      ...(shared.value ? { shared: true } : {}),
+    });
   });
 
   socket.value.on('reach_ready', () => {
@@ -138,8 +156,13 @@ function connect() {
     writeTerminal('\r\n[Connection closed by host]\r\n');
   });
 
-  socket.value.on('auth_ok', (data: { connectionId: string }) => {
+  socket.value.on('session_participants', (data: { count: number }) => {
+    participants.value = data.count;
+  });
+
+  socket.value.on('auth_ok', (data: { connectionId: string; shared?: boolean }) => {
     connectionId.value = data.connectionId;
+    isShared.value = data.shared === true;
     connecting.value = false;
     connected.value = true;
 
