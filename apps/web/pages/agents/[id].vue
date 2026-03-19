@@ -169,8 +169,21 @@
               </span>
             </NuxtLink>
           </div>
-          <div v-else class="px-5 py-8 text-center text-sm text-gray-500">
-            No services exposed by this agent
+          <div v-else class="px-5 py-10 text-center">
+            <div class="relative w-16 h-16 mx-auto mb-4">
+              <div class="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-full blur-xl"></div>
+              <div class="relative w-full h-full rounded-xl bg-gradient-to-br from-white/[0.04] to-transparent border border-white/[0.06] flex items-center justify-center">
+                <svg class="w-7 h-7 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
+                </svg>
+              </div>
+            </div>
+            <p class="text-sm font-medium text-gray-300 mb-1">No services exposed</p>
+            <p class="text-xs text-gray-500 mb-4 max-w-xs mx-auto">Expose a local service from this agent to make it reachable from other devices.</p>
+            <div class="inline-flex items-center gap-2 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2 font-mono text-xs">
+              <span class="text-blue-400 select-none">$</span>
+              <code class="text-gray-300">connect expose localhost:3000</code>
+            </div>
           </div>
         </div>
       </div>
