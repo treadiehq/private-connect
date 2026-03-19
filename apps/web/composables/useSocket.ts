@@ -19,17 +19,17 @@ export function useSocket() {
     });
 
     socket.on('connect', () => {
-      console.log('Connected to realtime server');
+      // console.log('Connected to realtime server');
       isConnected.value = true;
     });
 
     socket.on('disconnect', () => {
-      console.log('Disconnected from realtime server');
+      // console.log('Disconnected from realtime server');
       isConnected.value = false;
     });
 
     socket.on('reconnect', () => {
-      console.log('Reconnected to realtime server');
+      // console.log('Reconnected to realtime server');
       isConnected.value = true;
     });
 

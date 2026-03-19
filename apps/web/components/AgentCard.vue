@@ -29,7 +29,7 @@
         </button>
         <NuxtLink 
           :to="`/agents/${agent.id}`"
-          class="text-sm text-gray-500 hover:text-blue-400 group transition-colors"
+          class="text-sm text-gray-500 hover:text-blue-300 group transition-colors"
         >
           Details <span class="">→</span>
         </NuxtLink>
