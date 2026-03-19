@@ -194,7 +194,7 @@ After VM creation, connect from any device:
 connect reach openclaw
 ```
 
-See [scripts/exe-dev-openclaw.md](../scripts/exe-dev-openclaw.md) for the full template.
+See [docs/recipes/exe-dev-openclaw.md](recipes/exe-dev-openclaw.md) for the full template.
 
 ## Troubleshooting
 

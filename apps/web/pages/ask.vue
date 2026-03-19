@@ -1,7 +1,6 @@
 <template>
   <div class="flex items-center justify-center p-6 bg-black relative">
     <div class="radial-gradient absolute top-0 md:right-14 right-5"></div>
-    <!-- <LandingHeader /> -->
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 pt-20 relative">
       <div class="text-center mb-8">
         <div class="inline-flex items-center gap-2 mb-3">

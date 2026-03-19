@@ -166,7 +166,7 @@ case "$MODE" in
         show_usage
         ;;
     *)
-        print_error "Unknown mode: $MODE"
+        print_warning "Unknown mode: $MODE"
         show_usage
         exit 1
         ;;

@@ -279,7 +279,7 @@ connect reach k8s-api --port 6443
 
 Control plane and nodes stay private; Private Connect routes traffic by name. Works with path-based multicluster API servers and distributed worker nodes.
 
-See the [full virtual Kubernetes guide](docs/kubernetes-virtual-clusters-and-private-connect.md) and [recipe](scripts/kubernetes-virtual-clusters-and-private-connect.md).
+See the [full virtual Kubernetes guide](docs/kubernetes-virtual-clusters-and-private-connect.md).
 
 ---
 
