@@ -85,6 +85,15 @@ export function useApi() {
     return response.json();
   };
 
+  const deleteAgent = async (id: string): Promise<{ success: boolean; deleted: boolean }> => {
+    const response = await fetch(`${baseUrl}/v1/agents/${id}`, {
+      method: 'DELETE',
+      ...fetchOptions(),
+    });
+    if (!response.ok) throw new Error('Failed to delete agent');
+    return response.json();
+  };
+
   const fetchOnlineAgents = async (): Promise<Agent[]> => {
     const response = await fetch(`${baseUrl}/v1/agents/online`, fetchOptions());
     if (!response.ok) throw new Error('Failed to fetch online agents');
@@ -349,6 +358,7 @@ export function useApi() {
     runReachCheck,
     fetchAgents,
     fetchAgent,
+    deleteAgent,
     fetchOnlineAgents,
     fetchDiagnostic,
     fetchDiagnosticByShareToken,

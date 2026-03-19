@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, Query, HttpException, HttpStatus, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, Get, Delete, Param, Query, HttpException, HttpStatus, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiSecurity, ApiQuery } from '@nestjs/swagger';
 import { AgentsService, VALID_CLIENT_TYPES } from './agents.service';
 import { CombinedAuthGuard } from '../auth/combined-auth.guard';
@@ -242,6 +242,22 @@ export class AgentsController {
     }
 
     return agent;
+  }
+
+  @Delete(':id')
+  @UseGuards(CombinedAuthGuard)
+  @ApiSecurity('api-key')
+  @ApiOperation({ summary: 'Delete agent', description: 'Permanently removes an agent and all its associated data (services, messages, capabilities, sessions). If the agent is online it will be disconnected.' })
+  @ApiResponse({ status: 200, description: 'Agent deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Agent not found' })
+  @ApiResponse({ status: 401, description: 'Invalid API key' })
+  async deleteAgent(
+    @Param('id') id: string,
+    @Req() req: any,
+  ) {
+    const workspace = req.workspace;
+    const result = await this.agentsService.deleteAgent(id, workspace.id);
+    return { success: true, ...result };
   }
 
   @Post('rotate-token')

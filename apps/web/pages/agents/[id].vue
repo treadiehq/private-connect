@@ -44,6 +44,45 @@
           </div>
           <p class="text-gray-400 font-mono text-sm">{{ agent.id }}</p>
         </div>
+        <button
+          @click="showDeleteConfirm = true"
+          :disabled="deleting"
+          class="px-4 py-2 text-sm font-medium text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg hover:bg-red-400/20 hover:border-red-400/30 transition-colors disabled:opacity-50"
+        >
+          Remove Agent
+        </button>
+      </div>
+
+      <!-- Delete Confirmation Modal -->
+      <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" @click.self="showDeleteConfirm = false">
+        <div class="bg-[#111] border border-white/[0.08] rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+          <h3 class="text-lg font-semibold text-white mb-2">Remove Agent</h3>
+          <p class="text-sm text-gray-400 mb-1">
+            Are you sure you want to remove <span class="text-white font-medium">{{ agent.label }}</span>?
+          </p>
+          <p class="text-sm text-gray-500 mb-6">
+            This will permanently delete the agent and all its services, sessions, and audit logs. This action cannot be undone.
+          </p>
+          <div class="flex items-center justify-end gap-3">
+            <button
+              @click="showDeleteConfirm = false"
+              class="px-4 py-2 text-sm font-medium text-gray-400 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              @click="handleDelete"
+              :disabled="deleting"
+              class="px-4 py-2 text-sm font-medium text-white bg-red-500/80 rounded-lg hover:bg-red-500 transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              <svg v-if="deleting" class="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {{ deleting ? 'Removing...' : 'Remove Agent' }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Agent Info -->
@@ -153,12 +192,14 @@ definePageMeta({
 });
 
 const route = useRoute();
-const { fetchAgent } = useApi();
+const router = useRouter();
+const { fetchAgent, deleteAgent } = useApi();
 
 const agent = ref<Agent | null>(null);
 const loading = ref(true);
+const showDeleteConfirm = ref(false);
+const deleting = ref(false);
 
-// Dynamic page title
 const pageTitle = computed(() => 
   agent.value ? `${agent.value.label} - Private Connect` : 'Agent - Private Connect'
 )
@@ -173,6 +214,19 @@ onMounted(async () => {
     loading.value = false;
   }
 });
+
+const handleDelete = async () => {
+  if (!agent.value) return;
+  deleting.value = true;
+  try {
+    await deleteAgent(agent.value.id);
+    router.push('/agents');
+  } catch (error) {
+    console.error('Failed to delete agent:', error);
+    deleting.value = false;
+    showDeleteConfirm.value = false;
+  }
+};
 
 const formatTime = (date: string) => {
   return new Date(date).toLocaleString();

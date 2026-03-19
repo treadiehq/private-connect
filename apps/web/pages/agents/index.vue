@@ -56,7 +56,40 @@
         :agent="agent"
         class="animate-slide-up"
         :style="{ animationDelay: `${index * 50}ms` }"
+        @delete="confirmDelete"
       />
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div v-if="agentToDelete" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" @click.self="agentToDelete = null">
+      <div class="bg-[#111] border border-white/[0.08] rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+        <h3 class="text-lg font-semibold text-white mb-2">Remove Agent</h3>
+        <p class="text-sm text-gray-400 mb-1">
+          Are you sure you want to remove <span class="text-white font-medium">{{ agentToDelete.label }}</span>?
+        </p>
+        <p class="text-sm text-gray-500 mb-6">
+          This will permanently delete the agent and all its services, sessions, and audit logs. This action cannot be undone.
+        </p>
+        <div class="flex items-center justify-end gap-3">
+          <button
+            @click="agentToDelete = null"
+            class="px-4 py-2 text-sm font-medium text-gray-400 hover:text-white transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            @click="handleDelete"
+            :disabled="deleting"
+            class="px-4 py-2 text-sm font-medium text-white bg-red-500/80 rounded-lg hover:bg-red-500 transition-colors disabled:opacity-50 flex items-center gap-2"
+          >
+            <svg v-if="deleting" class="animate-spin h-4 w-4" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            {{ deleting ? 'Removing...' : 'Remove Agent' }}
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -70,10 +103,12 @@ definePageMeta({
   middleware: 'auth',
 });
 
-const { fetchAgents } = useApi();
+const { fetchAgents, deleteAgent } = useApi();
 
 const agents = ref<Agent[]>([]);
 const loading = ref(true);
+const agentToDelete = ref<Agent | null>(null);
+const deleting = ref(false);
 
 onMounted(async () => {
   try {
@@ -84,4 +119,22 @@ onMounted(async () => {
     loading.value = false;
   }
 });
+
+const confirmDelete = (agentId: string) => {
+  agentToDelete.value = agents.value.find(a => a.id === agentId) || null;
+};
+
+const handleDelete = async () => {
+  if (!agentToDelete.value) return;
+  deleting.value = true;
+  try {
+    await deleteAgent(agentToDelete.value.id);
+    agents.value = agents.value.filter(a => a.id !== agentToDelete.value!.id);
+    agentToDelete.value = null;
+  } catch (error) {
+    console.error('Failed to delete agent:', error);
+  } finally {
+    deleting.value = false;
+  }
+};
 </script>

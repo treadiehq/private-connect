@@ -750,6 +750,38 @@ export class AgentsService {
   }
 
   /**
+   * Delete an agent and all related data (services, messages, capabilities, audit logs, sessions).
+   * If the agent is currently online, it will be disconnected first.
+   */
+  async deleteAgent(agentId: string, workspaceId: string): Promise<{ deleted: boolean }> {
+    const agent = await this.prisma.agent.findUnique({
+      where: { id: agentId },
+      include: { services: true },
+    });
+
+    if (!agent || agent.workspaceId !== workspaceId) {
+      throw new HttpException('Agent not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (agent.isOnline) {
+      this.realtimeGateway.broadcastAgentStatus(agentId, false, workspaceId);
+    }
+
+    await this.prisma.agent.delete({ where: { id: agentId } });
+
+    this.webhooksService.emit(workspaceId, 'agent.deleted', {
+      agentId,
+      label: agent.label,
+      name: agent.name,
+      deletedAt: new Date().toISOString(),
+    }).catch(err => this.logger.error(`Webhook emit failed: ${err.message}`));
+
+    this.logger.log(`Agent ${agentId} (${agent.label}) deleted from workspace ${workspaceId}`);
+
+    return { deleted: true };
+  }
+
+  /**
    * Cleanup expired messages
    */
   async cleanupExpiredMessages() {
