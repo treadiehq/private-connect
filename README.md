@@ -81,8 +81,11 @@ They open `privateconnect.co/terminal`, enter the code, and get a live terminal.
 Grant an AI agent (Cursor, Claude, etc.) temporary, scoped access to a private resource, no credentials in prompts, no exposing services publicly.
 
 ```bash
-connect grant claude --db postgres --ttl 5m
+connect grant codex --db postgres --ttl 5m
 ```
+
+- `codex` is a **label** — any name to identify which AI agent gets access (for audit logs and revocation).
+- `--db postgres` refers to a **service name** — it must match the `--name` you used when exposing: `connect expose localhost:5432 --name postgres`.
 
 Give the endpoint and token to the AI. Access expires automatically.
 
