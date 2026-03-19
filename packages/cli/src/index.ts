@@ -598,15 +598,16 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
     if (!response.ok) {
       console.log(`${fail}`);
       console.log();
-      if (response.status === 503 || response.status === 404 || response.status === 501) {
-        console.log(`  ${c.yellow}Temporary tunnels coming soon!${c.reset}`);
-        console.log();
-        console.log(`  For now, use the full CLI:`);
-        console.log(`  ${c.cyan}curl -fsSL https://privateconnect.co/install.sh | bash${c.reset}`);
-        console.log(`  ${c.cyan}connect up && connect localhost:${port} --share${c.reset}`);
+      if (response.status === 503) {
+        console.log(`  ${c.yellow}Tunnel service is temporarily unavailable.${c.reset}`);
+      } else if (response.status === 404) {
+        console.log(`  ${c.yellow}Tunnel endpoint not found. Is the server up to date?${c.reset}`);
       } else {
         console.log(`  ${c.red}Failed to create tunnel: ${response.status}${c.reset}`);
       }
+      console.log();
+      console.log(`  You can also use the full CLI:`);
+      console.log(`  ${c.cyan}connect up && connect localhost:${port} --share${c.reset}`);
       console.log();
       process.exit(1);
     }
@@ -745,10 +746,9 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
     console.log();
     
     if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
-      console.log(`  ${c.yellow}Temporary tunnels coming soon!${c.reset}`);
+      console.log(`  ${c.yellow}Could not reach the tunnel server.${c.reset}`);
       console.log();
-      console.log(`  For now, use the full CLI:`);
-      console.log(`  ${c.cyan}curl -fsSL https://privateconnect.co/install.sh | bash${c.reset}`);
+      console.log(`  You can also use the full CLI:`);
       console.log(`  ${c.cyan}connect up && connect localhost:${port} --share${c.reset}`);
     } else {
       console.log(`  ${c.red}Error: ${err.message}${c.reset}`);

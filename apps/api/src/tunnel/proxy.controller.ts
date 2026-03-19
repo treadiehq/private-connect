@@ -1,4 +1,5 @@
 import { Controller, All, Req, Res, Param, Inject, forwardRef } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { ServicesService } from '../services/services.service';
 import { TemporaryTunnelService } from '../tunnel/temporary-tunnel.service';
@@ -98,6 +99,7 @@ function injectWidgetIntoHtml(body: string, widget: string): string {
   return body + widget;
 }
 
+@ApiTags('Proxy')
 @Controller()
 export class ProxyController {
   private readonly logger = new SecureLogger('ProxyController');
@@ -120,6 +122,18 @@ export class ProxyController {
   // AI agents use grant tokens to access private resources via this path.
 
   @All('grant/:resource')
+  @ApiOperation({
+    summary: 'Proxy via grant token (root path)',
+    description:
+      'Proxies HTTP to the private resource named `:resource`. Provide the grant token via `Authorization: Bearer <token>` or `?token=`.',
+  })
+  @ApiResponse({ status: 200, description: 'Proxied response from the exposed service.' })
+  @ApiResponse({ status: 401, description: 'Grant token missing.' })
+  @ApiResponse({ status: 403, description: 'Grant invalid, revoked, resource mismatch, or read-only method blocked.' })
+  @ApiResponse({ status: 404, description: 'Service not mapped to the resource.' })
+  @ApiResponse({ status: 502, description: 'Bad gateway (forwarding failed).' })
+  @ApiResponse({ status: 503, description: 'Agent offline or unavailable.' })
+  @ApiResponse({ status: 504, description: 'Gateway timeout.' })
   async grantProxyRoot(
     @Param('resource') resource: string,
     @Req() req: Request,
@@ -129,6 +143,18 @@ export class ProxyController {
   }
 
   @All('grant/:resource/*')
+  @ApiOperation({
+    summary: 'Proxy via grant token (with subpath)',
+    description:
+      'Same as `grant/:resource` but forwards the path segment after `/grant/:resource` to the service.',
+  })
+  @ApiResponse({ status: 200, description: 'Proxied response from the exposed service.' })
+  @ApiResponse({ status: 401, description: 'Grant token missing.' })
+  @ApiResponse({ status: 403, description: 'Grant invalid, revoked, resource mismatch, or read-only method blocked.' })
+  @ApiResponse({ status: 404, description: 'Service not mapped to the resource.' })
+  @ApiResponse({ status: 502, description: 'Bad gateway (forwarding failed).' })
+  @ApiResponse({ status: 503, description: 'Agent offline or unavailable.' })
+  @ApiResponse({ status: 504, description: 'Gateway timeout.' })
   async grantProxyPath(
     @Param('resource') resource: string,
     @Req() req: Request,
@@ -252,6 +278,20 @@ export class ProxyController {
 
   // Handle requests like: /w/abc123/* -> forward to service with subdomain "abc123"
   @All('w/:subdomain')
+  @ApiOperation({
+    summary: 'Proxy by subdomain (root path)',
+    description:
+      'Resolves `:subdomain` to a temporary tunnel or a public workspace service and forwards the request (any HTTP method).',
+  })
+  @ApiResponse({ status: 200, description: 'Proxied response (HTML, JSON, or binary depending on upstream).' })
+  @ApiResponse({ status: 403, description: 'Service exists but is not public.' })
+  @ApiResponse({ status: 404, description: 'No tunnel or service for this subdomain.' })
+  @ApiResponse({ status: 413, description: 'Request body too large.' })
+  @ApiResponse({ status: 414, description: 'URI path too long.' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded.' })
+  @ApiResponse({ status: 502, description: 'Bad gateway.' })
+  @ApiResponse({ status: 503, description: 'Tunnel disconnected or agent offline.' })
+  @ApiResponse({ status: 504, description: 'Gateway timeout.' })
   async proxyRequestRoot(
     @Param('subdomain') subdomain: string,
     @Req() req: Request,
@@ -261,6 +301,20 @@ export class ProxyController {
   }
 
   @All('w/:subdomain/*')
+  @ApiOperation({
+    summary: 'Proxy by subdomain (with subpath)',
+    description:
+      'Same as `w/:subdomain` but forwards the path after `/w/:subdomain` to the tunnel or public service.',
+  })
+  @ApiResponse({ status: 200, description: 'Proxied response (HTML, JSON, or binary depending on upstream).' })
+  @ApiResponse({ status: 403, description: 'Service exists but is not public.' })
+  @ApiResponse({ status: 404, description: 'No tunnel or service for this subdomain.' })
+  @ApiResponse({ status: 413, description: 'Request body too large.' })
+  @ApiResponse({ status: 414, description: 'URI path too long.' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded.' })
+  @ApiResponse({ status: 502, description: 'Bad gateway.' })
+  @ApiResponse({ status: 503, description: 'Tunnel disconnected or agent offline.' })
+  @ApiResponse({ status: 504, description: 'Gateway timeout.' })
   async proxyRequestPath(
     @Param('subdomain') subdomain: string,
     @Req() req: Request,

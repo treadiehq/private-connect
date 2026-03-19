@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Delete, All, Param, Body, Req, Res, Headers, HttpException, HttpStatus, Inject, forwardRef, OnModuleInit } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import * as net from 'net';
 import { TemporaryTunnelService } from './temporary-tunnel.service';
@@ -54,6 +55,7 @@ interface CreateTunnelDto {
   slug?: string; // Optional slug prefix for subdomain (e.g. "stripe" → "stripe-a1b2")
 }
 
+@ApiTags('Temporary Tunnels')
 @Controller()
 export class TemporaryTunnelController implements OnModuleInit {
   constructor(
@@ -149,6 +151,14 @@ export class TemporaryTunnelController implements OnModuleInit {
    * Supports both HTTP and TCP tunnels
    */
   @Post('v1/tunnels/temporary')
+  @ApiOperation({
+    summary: 'Create a temporary tunnel',
+    description:
+      'Creates an HTTP, TCP, or UDP tunnel to a local service. No authentication. Body: `localHost`, `localPort`, optional `ttlMinutes`, `type` (http | tcp | udp), `slug`, `tunnelId`.',
+  })
+  @ApiResponse({ status: 200, description: 'Tunnel created; response includes `managementToken` and connection URLs.' })
+  @ApiResponse({ status: 400, description: 'Missing or invalid `localHost` / `localPort`.' })
+  @ApiResponse({ status: 409, description: '`tunnelId` already exists.' })
   async createTunnel(@Body() body: CreateTunnelDto) {
     const tunnelId = body.tunnelId || randomBytes(6).toString('hex');
     const ttlMinutes = Math.min(body.ttlMinutes || 120, MAX_TEMP_TUNNEL_TTL_MINUTES);
@@ -258,6 +268,15 @@ export class TemporaryTunnelController implements OnModuleInit {
    * Close/delete a tunnel (requires management token from create response)
    */
   @Delete('v1/tunnels/temporary/:tunnelId')
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Close a temporary tunnel',
+    description:
+      'Deletes the tunnel. Requires the management token from create: `Authorization: Bearer <token>`, `x-tunnel-management-token`, or `?token=`.',
+  })
+  @ApiResponse({ status: 200, description: 'Tunnel closed.' })
+  @ApiResponse({ status: 403, description: 'Invalid or missing management token.' })
+  @ApiResponse({ status: 404, description: 'Tunnel not found or expired.' })
   async closeTunnel(
     @Param('tunnelId') tunnelId: string,
     @Req() req: Request,
@@ -285,6 +304,13 @@ export class TemporaryTunnelController implements OnModuleInit {
    * Create a bundle of TCP tunnels for multi-port sharing
    */
   @Post('v1/tunnels/temporary/bundle')
+  @ApiOperation({
+    summary: 'Create a bundle of TCP tunnels',
+    description: 'Creates multiple TCP tunnels for multi-port sharing. Body: `ports` (array of port numbers), optional `ttlMinutes`.',
+  })
+  @ApiResponse({ status: 200, description: 'Bundle created with join `code` and per-tunnel details.' })
+  @ApiResponse({ status: 400, description: 'Invalid or empty `ports`, or more than 10 ports.' })
+  @ApiResponse({ status: 500, description: 'Internal error while creating the bundle.' })
   async createBundle(@Body() body: { ports: number[]; ttlMinutes?: number }) {
     if (!body.ports || !Array.isArray(body.ports) || body.ports.length === 0) {
       throw new HttpException('ports array required', HttpStatus.BAD_REQUEST);
@@ -327,6 +353,12 @@ export class TemporaryTunnelController implements OnModuleInit {
    * Get bundle info by join code (for the `join` command)
    */
   @Get('v1/tunnels/temporary/bundle/:code')
+  @ApiOperation({
+    summary: 'Get bundle info by join code',
+    description: 'Returns bundle metadata and tunnel connection status for the given join code (e.g. for a `join` command).',
+  })
+  @ApiResponse({ status: 200, description: 'Bundle details and tunnel statuses.' })
+  @ApiResponse({ status: 404, description: 'Bundle not found or expired.' })
   async getBundle(@Param('code') code: string) {
     const bundle = this.tempTunnelService.getBundle(code);
 
@@ -353,6 +385,16 @@ export class TemporaryTunnelController implements OnModuleInit {
    */
   @All('t/:tunnelId')
   @All('t/:tunnelId/*')
+  @ApiOperation({
+    summary: 'Proxy HTTP through temporary tunnel',
+    description:
+      'Forwards any HTTP method to `t/:tunnelId` and `t/:tunnelId/*` to the local service behind the tunnel. No management token on this path.',
+  })
+  @ApiResponse({ status: 200, description: 'Proxied response from the local service (varies by upstream).' })
+  @ApiResponse({ status: 404, description: 'Tunnel not found or expired.' })
+  @ApiResponse({ status: 502, description: 'Bad gateway (forwarding failed).' })
+  @ApiResponse({ status: 503, description: 'Tunnel client not connected.' })
+  @ApiResponse({ status: 504, description: 'Gateway timeout (local service did not respond in time).' })
   async proxyRequest(
     @Param('tunnelId') tunnelId: string,
     @Req() req: Request,
@@ -433,6 +475,15 @@ export class TemporaryTunnelController implements OnModuleInit {
    * Get tunnel info for the web viewer (requires management token)
    */
   @Get('v1/tunnels/temporary/:tunnelId/info')
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Get tunnel info',
+    description:
+      'Returns tunnel metadata for viewers. Requires management token: Bearer, `x-tunnel-management-token`, or `?token=`.',
+  })
+  @ApiResponse({ status: 200, description: 'Tunnel type, ports, connection state, expiry.' })
+  @ApiResponse({ status: 403, description: 'Invalid or missing management token.' })
+  @ApiResponse({ status: 404, description: 'Tunnel not found or expired.' })
   async getTunnelInfo(
     @Param('tunnelId') tunnelId: string,
     @Req() req: Request,
@@ -462,6 +513,19 @@ export class TemporaryTunnelController implements OnModuleInit {
    * Execute a SQL query through a temporary TCP tunnel (requires management token)
    */
   @Post('v1/tunnels/temporary/:tunnelId/query')
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Execute SQL via TCP tunnel',
+    description:
+      'Runs a SQL query through a TCP tunnel to a supported database port. Body: `{ "query": "..." }`. Requires management token.',
+  })
+  @ApiResponse({ status: 200, description: 'Query result (columns, rows, rowCount).' })
+  @ApiResponse({ status: 400, description: 'Not a TCP/DB tunnel, or invalid query.' })
+  @ApiResponse({ status: 403, description: 'Invalid or missing management token.' })
+  @ApiResponse({ status: 404, description: 'Tunnel not found or expired.' })
+  @ApiResponse({ status: 501, description: 'Database type not implemented for query execution.' })
+  @ApiResponse({ status: 503, description: 'Tunnel not connected.' })
+  @ApiResponse({ status: 500, description: 'Query execution failed.' })
   async executeQuery(
     @Param('tunnelId') tunnelId: string,
     @Body() body: { query?: string },
@@ -624,6 +688,17 @@ export class TemporaryTunnelController implements OnModuleInit {
    * Create a debug session for a temporary tunnel (requires management token)
    */
   @Post('v1/tunnels/temporary/:tunnelId/debug')
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Create debug session for tunnel',
+    description:
+      'Creates a debug/inspector session linked to the tunnel. Optional body: `{ "aiEnabled": boolean }`. Requires management token.',
+  })
+  @ApiResponse({ status: 200, description: 'Debug session created with token and public URL.' })
+  @ApiResponse({ status: 403, description: 'Invalid or missing management token.' })
+  @ApiResponse({ status: 404, description: 'Tunnel not found or expired.' })
+  @ApiResponse({ status: 503, description: 'Debug service unavailable.' })
+  @ApiResponse({ status: 500, description: 'Failed to create debug session.' })
   async createDebugSession(
     @Param('tunnelId') tunnelId: string,
     @Body() body: { aiEnabled?: boolean },

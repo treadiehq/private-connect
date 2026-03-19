@@ -223,6 +223,12 @@ All endpoints are prefixed with \`/v1/\`. Future breaking changes will use \`/v2
     .addTag('API Keys', 'API key management')
     .addTag('Workspace', 'Workspace settings and usage')
     .addTag('Admin', 'Admin operations (requires admin privileges)')
+    .addTag('Debug', 'Debug sessions and packet capture')
+    .addTag('AI', 'AI configuration and traffic analysis')
+    .addTag('Environment Shares', 'Environment sharing between agents')
+    .addTag('Temporary Tunnels', 'Temporary HTTP/TCP/UDP tunnels')
+    .addTag('Proxy', 'Request proxying for services and tunnels')
+    .addTag('Diagnostics', 'Service diagnostics and health checks')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

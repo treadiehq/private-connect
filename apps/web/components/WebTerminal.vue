@@ -1,219 +1,253 @@
 <template>
   <div class="h-full flex flex-col bg-black">
     <!-- Header -->
-    <div class="flex items-center justify-between px-4 py-3 bg-gray-500/5 border-b border-gray-500/10">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-lg bg-purple-300/10 flex items-center justify-center">
-          <svg class="w-5 h-5 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    <div class="flex items-center justify-between px-4 py-2 bg-gray-500/5 border-b border-gray-500/10 shrink-0">
+      <span class="text-sm text-gray-400 flex items-center gap-2">
+        <span>Powered by </span>
+        <a href="/" target="_blank" class="text-blue-300 hover:text-blue-400 flex items-center gap-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+            <path fill-rule="evenodd" d="M9.638 1.093a.75.75 0 0 1 .724 0l2 1.104a.75.75 0 1 1-.724 1.313L10 2.607l-1.638.903a.75.75 0 1 1-.724-1.313l2-1.104ZM5.403 4.287a.75.75 0 0 1-.295 1.019l-.805.444.805.444a.75.75 0 0 1-.724 1.314L3.5 7.02v.73a.75.75 0 0 1-1.5 0v-2a.75.75 0 0 1 .388-.657l1.996-1.1a.75.75 0 0 1 1.019.294Zm9.194 0a.75.75 0 0 1 1.02-.295l1.995 1.101A.75.75 0 0 1 18 5.75v2a.75.75 0 0 1-1.5 0v-.73l-.884.488a.75.75 0 1 1-.724-1.314l.806-.444-.806-.444a.75.75 0 0 1-.295-1.02ZM7.343 8.284a.75.75 0 0 1 1.02-.294L10 8.893l1.638-.903a.75.75 0 1 1 .724 1.313l-1.612.89v1.557a.75.75 0 0 1-1.5 0v-1.557l-1.612-.89a.75.75 0 0 1-.295-1.019ZM2.75 11.5a.75.75 0 0 1 .75.75v1.557l1.608.887a.75.75 0 0 1-.724 1.314l-1.996-1.101A.75.75 0 0 1 2 14.25v-2a.75.75 0 0 1 .75-.75Zm14.5 0a.75.75 0 0 1 .75.75v2a.75.75 0 0 1-.388.657l-1.996 1.1a.75.75 0 1 1-.724-1.313l1.608-.887V12.25a.75.75 0 0 1 .75-.75Zm-7.25 4a.75.75 0 0 1 .75.75v.73l.888-.49a.75.75 0 0 1 .724 1.313l-2 1.104a.75.75 0 0 1-.724 0l-2-1.104a.75.75 0 1 1 .724-1.313l.888.49v-.73a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
-        </div>
-        <div>
-          <h1 class="text-sm font-semibold text-white">{{ serviceName }}</h1>
-          <p class="text-xs text-gray-500">{{ connectionInfo }}</p>
-        </div>
-      </div>
-      <div class="flex items-center gap-2">
-        <span v-if="isConnected" class="flex items-center gap-1.5 text-xs text-emerald-300 bg-emerald-300/10 px-2.5 py-1 rounded-full border border-emerald-300/20">
+          <span>Private Connect</span>
+        </a>
+      </span>
+      <span class="text-sm text-gray-400 flex items-center gap-2">
+        <span v-if="connected" class="flex items-center gap-1.5">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>
-          Connected
+          <span class="text-emerald-300 text-xs">Connected</span>
         </span>
-        <span v-else-if="isConnecting" class="flex items-center gap-1.5 text-xs text-amber-300 bg-amber-300/10 px-2.5 py-1 rounded-full border border-amber-300/20">
-          <svg class="animate-spin h-3 w-3" viewBox="0 0 24 24">
+        <span v-else-if="connecting" class="flex items-center gap-1.5">
+          <svg class="animate-spin h-3 w-3 text-amber-300" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
           </svg>
-          Connecting...
+          <span class="text-amber-300 text-xs">Connecting...</span>
         </span>
-        <span v-else class="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-500/10 px-2.5 py-1 rounded-full border border-gray-500/20">
+        <span v-else class="flex items-center gap-1.5">
           <span class="w-1.5 h-1.5 rounded-full bg-gray-500"></span>
-          Disconnected
+          <span class="text-gray-500 text-xs">Disconnected</span>
         </span>
-      </div>
-    </div>
-
-    <!-- Terminal Body -->
-    <div 
-      ref="terminalBody"
-      @click="focusInput"
-      class="flex-1 p-4 font-mono text-sm leading-relaxed overflow-y-auto bg-black/50 cursor-text"
-    >
-      <!-- Welcome Message -->
-      <div class="text-gray-500 mb-4 pb-4 border-b border-gray-500/10">
-        <p class="text-gray-400">Private Connect Web Terminal (Preview)</p>
-        <p class="text-xs mt-1">Service: {{ serviceName }}</p>
-        <div class="mt-3 p-3 bg-amber-500/5 rounded-lg border border-amber-500/20">
-          <p class="text-xs text-amber-300 mb-2">⚠️ Web terminal is a preview feature</p>
-          <p class="text-xs text-gray-500 mb-2">For full SSH access, install the CLI:</p>
-          <code class="text-xs text-blue-300">connect {{ serviceName }}</code>
-        </div>
-      </div>
-
-      <!-- Output Lines -->
-      <div 
-        v-for="(line, index) in lines" 
-        :key="index"
-        class="flex items-start gap-2 py-0.5"
+        <span v-if="isShared && participants > 0" class="inline-flex items-center gap-1 bg-blue-300/10 text-blue-300 px-2 py-0.5 rounded-full text-xs font-medium">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3">
+            <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM12.735 14c.618 0 1.093-.561.872-1.139a6.002 6.002 0 0 0-11.215 0c-.22.578.254 1.139.872 1.139h9.47Z" />
+          </svg>
+          {{ participants }}
+        </span>
+      </span>
+      <button
+        v-if="connected"
+        type="button"
+        @click="doDisconnect"
+        class="text-sm text-gray-400 hover:text-white transition-colors border border-gray-500/10 bg-gray-500/10 rounded-lg px-2 py-1"
       >
-        <span v-if="line.type === 'input'" class="text-blue-300">$</span>
-        <span v-else-if="line.type === 'error'" class="text-red-400">!</span>
-        <span v-else class="text-gray-600">&nbsp;</span>
-        <span :class="getLineClass(line.type)">{{ line.text }}</span>
-      </div>
-
-      <!-- Current Input -->
-      <div class="flex items-start gap-2 mt-1">
-        <span class="text-blue-300">$</span>
-        <div class="flex-1 relative">
-          <input
-            ref="inputRef"
-            v-model="currentInput"
-            @keydown="handleKeydown"
-            class="w-full bg-transparent text-gray-200 focus:outline-none"
-            :disabled="!isConnected"
-            spellcheck="false"
-            autocomplete="off"
-          />
-          <span v-if="!isConnected" class="absolute inset-0 text-gray-600">
-            {{ isConnecting ? 'Connecting...' : 'Disconnected' }}
-          </span>
-        </div>
-      </div>
+        Disconnect
+      </button>
     </div>
 
-    <!-- Footer -->
-    <div class="flex items-center justify-between px-4 py-2.5 bg-gray-500/5 border-t border-gray-500/10 text-xs text-gray-500">
-      <div class="flex items-center gap-4">
-        <span>Press <kbd class="bg-gray-500/20 px-1.5 py-0.5 rounded text-gray-400">↑</kbd> for history</span>
-        <span>Press <kbd class="bg-gray-500/20 px-1.5 py-0.5 rounded text-gray-400">Ctrl+L</kbd> to clear</span>
-      </div>
-      <div>
-        <button 
-          @click="clearTerminal"
-          class="text-gray-500 hover:text-white transition-colors px-2 py-1 rounded-lg hover:bg-gray-500/10"
-        >
-          Clear
-        </button>
-      </div>
+    <!-- Error -->
+    <div v-if="authError" class="px-4 py-3 bg-red-400/10 border-b border-red-400/20">
+      <p class="text-sm text-red-400">{{ authError }}</p>
     </div>
+
+    <!-- Terminal body -->
+    <div ref="terminalEl" class="flex-1 min-h-0 p-2 pt-0" />
   </div>
 </template>
 
 <script setup lang="ts">
-interface TerminalLine {
-  type: 'input' | 'output' | 'error';
-  text: string;
-}
+import { io, Socket } from 'socket.io-client';
+import 'xterm/css/xterm.css';
 
 const props = defineProps<{
-  token: string;
-  serviceName: string;
-  connectionInfo: string;
+  code?: string;
+  token?: string;
+  shared?: boolean;
+}>();
+
+const emit = defineEmits<{
+  (e: 'connected'): void;
+  (e: 'disconnected'): void;
+  (e: 'error', message: string): void;
 }>();
 
 const config = useRuntimeConfig();
-const lines = ref<TerminalLine[]>([]);
-const currentInput = ref('');
-const commandHistory = ref<string[]>([]);
-const historyIndex = ref(-1);
-const isConnected = ref(false);
-const isConnecting = ref(true);
+const connecting = ref(false);
+const connected = ref(false);
+const isShared = ref(false);
+const participants = ref(0);
+const authError = ref('');
+const connectionId = ref('');
+const socket = ref<Socket | null>(null);
+const terminalEl = ref<HTMLElement | null>(null);
 
-const terminalBody = ref<HTMLElement | null>(null);
-const inputRef = ref<HTMLInputElement | null>(null);
+let term: any = null;
+let fitAddon: any = null;
+let resizeHandler: (() => void) | null = null;
+let pendingOutput = '';
 
-// Simulate connection
-onMounted(async () => {
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  isConnecting.value = false;
-  isConnected.value = true;
-  
-  lines.value.push({
-    type: 'output',
-    text: 'Connection established. Type commands to execute remotely.',
+function writeTerminal(data: string) {
+  if (term) {
+    term.write(data);
+    return;
+  }
+  pendingOutput += data;
+}
+
+function doConnect() {
+  authError.value = '';
+  connecting.value = true;
+  const apiUrl = config.public.apiUrl as string;
+  socket.value = io(`${apiUrl}/shell`, {
+    transports: ['websocket'],
+    reconnection: false,
   });
-  
-  scrollToBottom();
-  inputRef.value?.focus();
+
+  socket.value.on('connect', () => {
+    const authPayload: Record<string, any> = {};
+    if (props.token) {
+      authPayload.token = props.token;
+    } else if (props.code) {
+      authPayload.code = props.code.trim().toLowerCase();
+      if (props.shared) authPayload.shared = true;
+    }
+    socket.value?.emit('auth', authPayload);
+  });
+
+  socket.value.on('reach_ready', () => {
+    writeTerminal('\r\nConnected via Private Connect\r\n');
+  });
+  socket.value.on('reach_data', (payload: { connectionId: string; data: string }) => {
+    if (payload.connectionId !== connectionId.value) return;
+    try {
+      const decoded = typeof atob !== 'undefined'
+        ? decodeURIComponent(escape(atob(payload.data)))
+        : Buffer.from(payload.data, 'base64').toString('utf8');
+      writeTerminal(decoded);
+    } catch {
+      writeTerminal('[decode error]');
+    }
+  });
+  socket.value.on('reach_error', (payload: { connectionId: string; error?: string }) => {
+    if (payload.connectionId !== connectionId.value) return;
+    writeTerminal(`\r\n[Error: ${payload.error || 'Unknown'}]\r\n`);
+  });
+  socket.value.on('reach_close', (payload: { connectionId: string }) => {
+    if (payload.connectionId !== connectionId.value) return;
+    writeTerminal('\r\n[Connection closed by host]\r\n');
+  });
+
+  socket.value.on('session_participants', (data: { count: number }) => {
+    participants.value = data.count;
+  });
+
+  socket.value.on('auth_ok', (data: { connectionId: string; shared?: boolean }) => {
+    connectionId.value = data.connectionId;
+    isShared.value = data.shared === true;
+    connecting.value = false;
+    connected.value = true;
+    emit('connected');
+
+    nextTick(() => initTerminal());
+  });
+
+  socket.value.on('auth_error', (data: { message?: string }) => {
+    const msg = data?.message || 'Authentication failed';
+    authError.value = msg;
+    connecting.value = false;
+    emit('error', msg);
+    socket.value?.disconnect();
+    socket.value = null;
+  });
+
+  socket.value.on('disconnect', () => {
+    connecting.value = false;
+    if (!connected.value) return;
+    connected.value = false;
+    socket.value = null;
+    connectionId.value = '';
+    emit('disconnected');
+    if (term) {
+      term.write('\r\n\r\n[Disconnected]\r\n');
+    }
+  });
+
+  socket.value.on('connect_error', () => {
+    authError.value = 'Could not reach server. Check the URL and try again.';
+    connecting.value = false;
+    emit('error', authError.value);
+  });
+}
+
+function initTerminal() {
+  if (!terminalEl.value || term) return;
+
+  import('xterm').then(({ Terminal }) => {
+    import('xterm-addon-fit').then(({ FitAddon }) => {
+      term = new Terminal({
+        cursorBlink: true,
+        theme: {
+          background: '#0a0a0a',
+          foreground: '#e5e5e5',
+          cursor: '#e5e5e5',
+        },
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+        fontSize: 14,
+      });
+      fitAddon = new FitAddon();
+      term.loadAddon(fitAddon);
+      term.open(terminalEl.value);
+      fitAddon.fit();
+      if (pendingOutput) {
+        term.write(pendingOutput);
+        pendingOutput = '';
+      }
+
+      term.onData((data: string) => {
+        if (socket.value && connectionId.value) {
+          const base64 = typeof btoa !== 'undefined'
+            ? btoa(unescape(encodeURIComponent(data)))
+            : Buffer.from(data, 'utf8').toString('base64');
+          socket.value.emit('reach_data', { connectionId: connectionId.value, data: base64 });
+        }
+      });
+
+      term.onResize(({ cols, rows }: { cols: number; rows: number }) => {
+        if (socket.value && connectionId.value) {
+          socket.value.emit('resize', { connectionId: connectionId.value, cols, rows });
+        }
+      });
+
+      resizeHandler = () => fitAddon?.fit();
+      window.addEventListener('resize', resizeHandler);
+    });
+  });
+}
+
+function doDisconnect() {
+  if (socket.value && connectionId.value) {
+    socket.value.emit('reach_close', { connectionId: connectionId.value });
+  }
+  socket.value?.disconnect();
+  socket.value = null;
+  connected.value = false;
+  connectionId.value = '';
+  emit('disconnected');
+}
+
+onMounted(() => {
+  if (props.code || props.token) {
+    doConnect();
+  }
 });
 
-const focusInput = () => {
-  inputRef.value?.focus();
-};
-
-const handleKeydown = async (e: KeyboardEvent) => {
-  if (e.key === 'Enter' && currentInput.value.trim()) {
-    await executeCommand(currentInput.value.trim());
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    navigateHistory(1);
-  } else if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    navigateHistory(-1);
-  } else if (e.key === 'l' && e.ctrlKey) {
-    e.preventDefault();
-    clearTerminal();
+onBeforeUnmount(() => {
+  if (socket.value && connectionId.value) {
+    socket.value.emit('reach_close', { connectionId: connectionId.value });
   }
-};
+  socket.value?.disconnect();
+  socket.value = null;
+  if (resizeHandler) window.removeEventListener('resize', resizeHandler);
+});
 
-const executeCommand = async (command: string) => {
-  // Add to display
-  lines.value.push({ type: 'input', text: command });
-  
-  // Add to history
-  if (commandHistory.value[0] !== command) {
-    commandHistory.value.unshift(command);
-    if (commandHistory.value.length > 50) {
-      commandHistory.value.pop();
-    }
-  }
-  historyIndex.value = -1;
-  currentInput.value = '';
-
-  // Web terminal is a preview feature - full SSH requires the CLI
-  lines.value.push({ 
-    type: 'output', 
-    text: 'Web terminal preview: Command execution requires the CLI.' 
-  });
-  lines.value.push({ 
-    type: 'output', 
-    text: `Run: connect ${props.serviceName}` 
-  });
-
-  scrollToBottom();
-};
-
-const navigateHistory = (direction: number) => {
-  const newIndex = historyIndex.value + direction;
-  
-  if (newIndex < -1 || newIndex >= commandHistory.value.length) return;
-  
-  historyIndex.value = newIndex;
-  
-  if (newIndex === -1) {
-    currentInput.value = '';
-  } else {
-    currentInput.value = commandHistory.value[newIndex];
-  }
-};
-
-const clearTerminal = () => {
-  lines.value = [];
-};
-
-const scrollToBottom = () => {
-  nextTick(() => {
-    if (terminalBody.value) {
-      terminalBody.value.scrollTop = terminalBody.value.scrollHeight;
-    }
-  });
-};
-
-const getLineClass = (type: string): string => {
-  switch (type) {
-    case 'input': return 'text-gray-200';
-    case 'error': return 'text-red-400';
-    default: return 'text-gray-400';
-  }
-};
+defineExpose({ connect: doConnect, disconnect: doDisconnect });
 </script>

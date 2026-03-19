@@ -788,17 +788,24 @@ useHead({
   title: `Debug Session - Private Connect`,
 });
 
+// Clear loading and fetch history once session data arrives
+watch(session, (val) => {
+  if (val && loading.value) {
+    loading.value = false;
+    requestHistory(50);
+  }
+});
+
+watch(error, (val) => {
+  if (val) {
+    loading.value = false;
+  }
+});
+
 // Connect on mount
-onMounted(async () => {
+onMounted(() => {
   const token = route.params.token as string;
   connect(token);
-  
-  // Wait a bit for connection
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  loading.value = false;
-  
-  // Load initial history
-  await requestHistory(50);
 });
 
 // Cleanup on unmount
@@ -837,9 +844,6 @@ const reconnect = () => {
   loading.value = true;
   const token = route.params.token as string;
   connect(token);
-  setTimeout(() => {
-    loading.value = false;
-  }, 1000);
 };
 
 // Show close tunnel modal
@@ -1181,10 +1185,9 @@ const sendMessage = async () => {
         content: data.response || data.analysis || 'I analyzed the traffic but could not generate a response.',
       });
     } else {
-      // If the endpoint doesn't exist or fails, provide a helpful message
       aiMessages.value.push({ 
         role: 'assistant', 
-        content: `I can see ${packets.value.length} packets in this session. The traffic appears to be ${getProtocolSummary()}. To enable full AI analysis, please configure AI settings in your workspace.`,
+        content: `AI analysis is not available. Please configure AI settings in your workspace to enable this feature.`,
       });
     }
   } catch (error: unknown) {

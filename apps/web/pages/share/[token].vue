@@ -103,7 +103,7 @@
           <span v-if="shareInfo.expiresAt" class="text-xs text-gray-500">
             Expires {{ formatExpiry(shareInfo.expiresAt) }}
           </span>
-          <span class="text-xs text-gray-600">Web Terminal Preview</span>
+          <span class="text-xs text-gray-600">Web Terminal</span>
           <a href="/" class="text-xs text-blue-300 hover:text-blue-400 transition-colors hidden sm:block">
             Powered by Private Connect
           </a>
@@ -112,11 +112,7 @@
 
       <!-- Terminal -->
       <div class="flex-1">
-        <WebTerminal
-          :token="token"
-          :service-name="shareInfo.service.name"
-          :connection-info="`${shareInfo.service.targetHost}:${shareInfo.service.targetPort}`"
-        />
+        <WebTerminal :token="token" />
       </div>
     </div>
 

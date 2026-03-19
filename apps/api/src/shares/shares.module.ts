@@ -8,7 +8,7 @@ import { TunnelModule } from '../tunnel/tunnel.module';
 import { DebugModule } from '../debug/debug.module';
 
 @Module({
-  imports: [PrismaModule, ServicesModule, AuthModule, forwardRef(() => TunnelModule), forwardRef(() => DebugModule)],
+  imports: [PrismaModule, forwardRef(() => ServicesModule), AuthModule, forwardRef(() => TunnelModule), forwardRef(() => DebugModule)],
   controllers: [SharesController],
   providers: [SharesService],
   exports: [SharesService],

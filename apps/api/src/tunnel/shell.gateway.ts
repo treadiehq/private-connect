@@ -7,15 +7,18 @@ import {
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
+import { Inject, forwardRef } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { randomUUID } from 'crypto';
 import { TunnelService } from './tunnel.service';
 import { EnvSharesService } from '../env-shares/env-shares.service';
+import { SharesService } from '../shares/shares.service';
 import { SecureLogger } from '../common/security';
 
 interface ShellSession {
   connectionId: string;
-  code: string;
+  /** The env-share code or share token used to authenticate */
+  credential: string;
   shared?: boolean;
 }
 
@@ -94,6 +97,8 @@ export class ShellGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private tunnelService: TunnelService,
     private envSharesService: EnvSharesService,
+    @Inject(forwardRef(() => SharesService))
+    private sharesService: SharesService,
   ) {}
 
   handleConnection(client: Socket) {
@@ -107,15 +112,15 @@ export class ShellGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.socketToSession.delete(client.id);
 
     if (session.shared) {
-      const shared = this.sharedSessions.get(session.code);
+      const shared = this.sharedSessions.get(session.credential);
       if (shared) {
         shared.proxy.removeClient(client.id);
         this.broadcastParticipants(shared);
-        this.logger.log(`Shell client ${client.id} left shared session for ${session.code} (${shared.proxy.clientCount} remaining)`);
+        this.logger.log(`Shell client ${client.id} left shared session for ${session.credential} (${shared.proxy.clientCount} remaining)`);
         if (shared.proxy.clientCount === 0) {
           this.tunnelService.handleReachCloseFromBrowser(shared.connectionId);
-          this.sharedSessions.delete(session.code);
-          this.logger.log(`Shared session for ${session.code} closed (no clients left)`);
+          this.sharedSessions.delete(session.credential);
+          this.logger.log(`Shared session for ${session.credential} closed (no clients left)`);
         }
       }
     } else {
@@ -127,17 +132,25 @@ export class ShellGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('auth')
   async handleAuth(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { code?: string; shared?: boolean },
+    @MessageBody() data: { code?: string; token?: string; shared?: boolean },
   ) {
     const code = data?.code?.trim();
-    if (!code) {
-      client.emit('auth_error', { message: 'Share code is required' });
+    const token = data?.token?.trim();
+
+    if (!code && !token) {
+      client.emit('auth_error', { message: 'Share code or token is required' });
       client.disconnect();
       return;
     }
 
-    const shared = data?.shared === true;
+    if (token) {
+      return this.handleTokenAuth(client, token);
+    }
 
+    return this.handleCodeAuth(client, code!, data?.shared === true);
+  }
+
+  private async handleCodeAuth(client: Socket, code: string, shared: boolean) {
     const service = await this.envSharesService.getShellServiceForShare(code);
     if (!service) {
       client.emit('auth_error', {
@@ -151,13 +164,12 @@ export class ShellGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return this.handleSharedAuth(client, code, service.id);
     }
 
-    // Default: private session (one PTY per browser)
     const connectionId = `browser-${randomUUID()}`;
     try {
       await this.tunnelService.createBrowserBridge(connectionId, service.id, client);
-      this.socketToSession.set(client.id, { connectionId, code });
+      this.socketToSession.set(client.id, { connectionId, credential: code });
       client.emit('auth_ok', { connectionId });
-      this.logger.log(`Shell bridge ${connectionId} created for share ${code}`);
+      this.logger.log(`Shell bridge ${connectionId} created for share code ${code}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create shell connection';
       client.emit('auth_error', { message });
@@ -165,39 +177,79 @@ export class ShellGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  private async handleSharedAuth(client: Socket, code: string, serviceId: string) {
-    const existing = this.sharedSessions.get(code);
+  private async handleTokenAuth(client: Socket, token: string) {
+    const validation = await this.sharesService.validateShare(token);
+    if (!validation.valid || !validation.share) {
+      client.emit('auth_error', {
+        message: validation.reason || 'Share not found or expired',
+      });
+      client.disconnect();
+      return;
+    }
+
+    const share = validation.share;
+    const service = share.service;
+
+    if (!service || !service.agent) {
+      client.emit('auth_error', { message: 'Service not available' });
+      client.disconnect();
+      return;
+    }
+
+    const isShellCapable = service.targetPort === 22 || service.name === 'shell';
+    if (!isShellCapable) {
+      client.emit('auth_error', {
+        message: 'This share does not support terminal access',
+      });
+      client.disconnect();
+      return;
+    }
+
+    const connectionId = `browser-token-${randomUUID()}`;
+    try {
+      await this.tunnelService.createBrowserBridge(connectionId, service.id, client);
+      this.socketToSession.set(client.id, { connectionId, credential: token });
+      client.emit('auth_ok', { connectionId });
+      this.logger.log(`Shell bridge ${connectionId} created for share token`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create shell connection';
+      client.emit('auth_error', { message });
+      client.disconnect();
+    }
+  }
+
+  private async handleSharedAuth(client: Socket, credential: string, serviceId: string) {
+    const existing = this.sharedSessions.get(credential);
 
     if (existing) {
       existing.proxy.addClient(client.id, client);
       this.socketToSession.set(client.id, {
         connectionId: existing.connectionId,
-        code,
+        credential,
         shared: true,
       });
       client.emit('auth_ok', { connectionId: existing.connectionId, shared: true });
       existing.proxy.replayTo(client);
       this.broadcastParticipants(existing);
-      this.logger.log(`Shell client ${client.id} joined shared session for ${code} (${existing.proxy.clientCount} clients)`);
+      this.logger.log(`Shell client ${client.id} joined shared session for ${credential} (${existing.proxy.clientCount} clients)`);
       return;
     }
 
-    // First joiner — create the shared session
     const connectionId = `shared-${randomUUID()}`;
     const proxy = new BroadcastSocket();
     proxy.addClient(client.id, client);
 
-    const entry: SharedSessionEntry = { connectionId, code, serviceId, proxy };
-    this.sharedSessions.set(code, entry);
-    this.socketToSession.set(client.id, { connectionId, code, shared: true });
+    const entry: SharedSessionEntry = { connectionId, code: credential, serviceId, proxy };
+    this.sharedSessions.set(credential, entry);
+    this.socketToSession.set(client.id, { connectionId, credential, shared: true });
 
     try {
       await this.tunnelService.createBrowserBridge(connectionId, serviceId, proxy as any);
       client.emit('auth_ok', { connectionId, shared: true });
       this.broadcastParticipants(entry);
-      this.logger.log(`Shared session ${connectionId} created for share ${code}`);
+      this.logger.log(`Shared session ${connectionId} created for ${credential}`);
     } catch (err) {
-      this.sharedSessions.delete(code);
+      this.sharedSessions.delete(credential);
       this.socketToSession.delete(client.id);
       const message = err instanceof Error ? err.message : 'Failed to create shell connection';
       client.emit('auth_error', { message });
@@ -247,13 +299,13 @@ export class ShellGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     if (session.shared) {
-      const shared = this.sharedSessions.get(session.code);
+      const shared = this.sharedSessions.get(session.credential);
       if (shared) {
         shared.proxy.removeClient(client.id);
         this.broadcastParticipants(shared);
         if (shared.proxy.clientCount === 0) {
           this.tunnelService.handleReachCloseFromBrowser(shared.connectionId);
-          this.sharedSessions.delete(session.code);
+          this.sharedSessions.delete(session.credential);
         }
       }
     } else {

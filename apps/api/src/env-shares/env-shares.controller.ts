@@ -11,6 +11,15 @@ import {
   Req,
 } from '@nestjs/common';
 import { Request } from 'express';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiSecurity,
+  ApiBody,
+  ApiParam,
+  ApiHeader,
+} from '@nestjs/swagger';
 import { EnvSharesService } from './env-shares.service';
 import { ServicesService } from '../services/services.service';
 import { AgentsService } from '../agents/agents.service';
@@ -47,6 +56,7 @@ const JoinEnvShareSchema = z.object({
   agentLabel: z.string().optional(),
 });
 
+@ApiTags('Environment Shares')
 @Controller('v1/env-shares')
 export class EnvSharesController {
   private readonly logger = new SecureLogger('EnvSharesController');
@@ -62,6 +72,39 @@ export class EnvSharesController {
    * POST /v1/env-shares
    */
   @Post()
+  @ApiSecurity('api-key')
+  @ApiHeader({ name: 'x-agent-id', required: true, description: 'Agent making the request.' })
+  @ApiOperation({
+    summary: 'Create environment share',
+    description: "Creates a share for the agent's workspace routes (or uses a provided route list).",
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', maxLength: 100 },
+        expiresInHours: { type: 'number', minimum: 1, maximum: 168 },
+        requireDeviceApproval: { type: 'boolean' },
+        routes: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              serviceName: { type: 'string' },
+              serviceId: { type: 'string' },
+              targetHost: { type: 'string' },
+              targetPort: { type: 'number' },
+              localPort: { type: 'number' },
+              protocol: { type: 'string', default: 'auto' },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Share created.' })
+  @ApiResponse({ status: 400, description: 'Invalid body or no services to share.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid API key / agent.' })
   async createShare(
     @Req() req: Request,
     @Body() body: unknown,
@@ -139,6 +182,26 @@ export class EnvSharesController {
    * POST /v1/env-shares/:code/join
    */
   @Post(':code/join')
+  @ApiParam({ name: 'code', description: 'Share code.' })
+  @ApiSecurity('api-key')
+  @ApiHeader({ name: 'x-agent-id', required: true, description: 'Agent joining the share.' })
+  @ApiOperation({
+    summary: 'Join shared environment',
+    description: 'Joins an active share in the same workspace; may enter pending approval if required.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        agentLabel: { type: 'string' },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Joined successfully.' })
+  @ApiResponse({ status: 400, description: 'Invalid body.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid API key / agent.' })
+  @ApiResponse({ status: 403, description: 'Host approval required before joining.' })
+  @ApiResponse({ status: 404, description: 'Share not found or not in this workspace.' })
   async joinShare(
     @Req() req: Request,
     @Param('code') code: string,
@@ -228,6 +291,13 @@ export class EnvSharesController {
    * GET /v1/env-shares/:code
    */
   @Get(':code')
+  @ApiParam({ name: 'code', description: 'Share code.' })
+  @ApiOperation({
+    summary: 'Get share details',
+    description: 'Returns non-sensitive share metadata for preview (no authentication).',
+  })
+  @ApiResponse({ status: 200, description: 'Share details.' })
+  @ApiResponse({ status: 404, description: 'Share not found or expired.' })
   async getShare(@Param('code') code: string) {
     const validation = await this.envSharesService.validateShare(code);
     if (!validation.valid || !validation.share) {
@@ -259,6 +329,14 @@ export class EnvSharesController {
    * GET /v1/env-shares
    */
   @Get()
+  @ApiSecurity('api-key')
+  @ApiHeader({ name: 'x-agent-id', required: true, description: 'Agent whose shares are listed.' })
+  @ApiOperation({
+    summary: 'List active shares',
+    description: 'Lists non-revoked shares created by the authenticated agent.',
+  })
+  @ApiResponse({ status: 200, description: 'List of shares.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid API key / agent.' })
   async listShares(
     @Req() req: Request,
     @Headers('x-api-key') apiKey: string,
@@ -292,6 +370,17 @@ export class EnvSharesController {
    * GET /v1/env-shares/:code/pending
    */
   @Get(':code/pending')
+  @ApiParam({ name: 'code', description: 'Share code.' })
+  @ApiSecurity('api-key')
+  @ApiHeader({ name: 'x-agent-id', required: true, description: 'Share creator (host) agent.' })
+  @ApiOperation({
+    summary: 'List pending join requests',
+    description: 'Returns pending devices for this share (creator only).',
+  })
+  @ApiResponse({ status: 200, description: 'Pending join requests.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid API key / agent.' })
+  @ApiResponse({ status: 403, description: 'Caller is not the share creator.' })
+  @ApiResponse({ status: 404, description: 'Share not found.' })
   async listPending(
     @Req() req: Request,
     @Param('code') code: string,
@@ -328,6 +417,27 @@ export class EnvSharesController {
    * POST /v1/env-shares/:code/approve
    */
   @Post(':code/approve')
+  @ApiParam({ name: 'code', description: 'Share code.' })
+  @ApiSecurity('api-key')
+  @ApiHeader({ name: 'x-agent-id', required: true, description: 'Share creator (host) agent.' })
+  @ApiOperation({
+    summary: 'Approve pending device',
+    description: 'Allows a pending agent to join the share (creator only).',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['agentId'],
+      properties: {
+        agentId: { type: 'string', description: 'Agent to approve.' },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Device approved.' })
+  @ApiResponse({ status: 400, description: 'Invalid body or approval failed.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid API key / agent.' })
+  @ApiResponse({ status: 403, description: 'Caller is not the share creator.' })
+  @ApiResponse({ status: 404, description: 'Share not found.' })
   async approveDevice(
     @Req() req: Request,
     @Param('code') code: string,
@@ -367,6 +477,27 @@ export class EnvSharesController {
    * POST /v1/env-shares/:code/deny
    */
   @Post(':code/deny')
+  @ApiParam({ name: 'code', description: 'Share code.' })
+  @ApiSecurity('api-key')
+  @ApiHeader({ name: 'x-agent-id', required: true, description: 'Share creator (host) agent.' })
+  @ApiOperation({
+    summary: 'Deny pending device',
+    description: 'Removes a pending join request (creator only).',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['agentId'],
+      properties: {
+        agentId: { type: 'string', description: 'Agent to deny.' },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Device denied.' })
+  @ApiResponse({ status: 400, description: 'Invalid body.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid API key / agent.' })
+  @ApiResponse({ status: 403, description: 'Caller is not the share creator.' })
+  @ApiResponse({ status: 404, description: 'Share not found.' })
   async denyDevice(
     @Req() req: Request,
     @Param('code') code: string,
@@ -402,6 +533,16 @@ export class EnvSharesController {
    * DELETE /v1/env-shares/:code
    */
   @Delete(':code')
+  @ApiParam({ name: 'code', description: 'Share code.' })
+  @ApiSecurity('api-key')
+  @ApiHeader({ name: 'x-agent-id', required: true, description: 'Agent revoking the share.' })
+  @ApiOperation({
+    summary: 'Revoke share',
+    description: 'Invalidates a share so it can no longer be used (creator only).',
+  })
+  @ApiResponse({ status: 200, description: 'Share revoked.' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid API key / agent.' })
+  @ApiResponse({ status: 403, description: 'Caller cannot revoke this share.' })
   async revokeShare(
     @Req() req: Request,
     @Param('code') code: string,

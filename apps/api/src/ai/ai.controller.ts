@@ -11,6 +11,13 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiBody,
+} from '@nestjs/swagger';
 import { AIService, AIConfig, ChatMessage } from './ai.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
@@ -33,6 +40,8 @@ interface ChatDto {
   messages: ChatMessage[];
 }
 
+@ApiTags('AI')
+@ApiBearerAuth('bearer')
 @Controller('v1/ai')
 @UseGuards(AuthGuard)
 export class AIController {
@@ -45,6 +54,13 @@ export class AIController {
    * Get AI configuration for workspace
    */
   @Get('config')
+  @ApiOperation({
+    summary: 'Get AI configuration',
+    description: 'Returns AI configuration for the workspace; the API key is masked in the response.',
+  })
+  @ApiResponse({ status: 200, description: 'AI configuration (masked API key)' })
+  @ApiResponse({ status: 400, description: 'Workspace context required' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getConfig(@Req() req: any) {
     const workspaceId = req.workspaceId;
     if (!workspaceId) {
@@ -65,6 +81,30 @@ export class AIController {
    * Update AI configuration
    */
   @Put('config')
+  @ApiOperation({
+    summary: 'Update AI configuration',
+    description: 'Updates provider, model, API key, Ollama URL, and auto-analyze settings.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['provider'],
+      properties: {
+        provider: {
+          type: 'string',
+          enum: ['ollama', 'openai', 'anthropic'],
+          example: 'ollama',
+        },
+        model: { type: 'string' },
+        apiKey: { type: 'string' },
+        ollamaUrl: { type: 'string' },
+        autoAnalyze: { type: 'boolean' },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Configuration updated' })
+  @ApiResponse({ status: 400, description: 'Invalid input or workspace context' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async updateConfig(
     @Req() req: any,
     @Body() body: UpdateConfigDto,
@@ -100,6 +140,13 @@ export class AIController {
    * Test AI configuration
    */
   @Post('test')
+  @ApiOperation({
+    summary: 'Test AI configuration',
+    description: 'Runs a simple prompt against the configured provider to verify connectivity.',
+  })
+  @ApiResponse({ status: 200, description: 'Test result with success flag and response or error message' })
+  @ApiResponse({ status: 400, description: 'Workspace context or AI configuration missing' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async testConfig(@Req() req: any) {
     const workspaceId = req.workspaceId;
     if (!workspaceId) {
@@ -134,6 +181,24 @@ export class AIController {
    * Analyze traffic from a debug session
    */
   @Post('analyze')
+  @ApiOperation({
+    summary: 'Analyze debug session traffic',
+    description: 'Sends recent session traffic to the AI for analysis with an optional follow-up question.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['sessionId'],
+      properties: {
+        sessionId: { type: 'string' },
+        question: { type: 'string' },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Traffic analysis result' })
+  @ApiResponse({ status: 400, description: 'Invalid request, workspace mismatch, or AI not configured' })
+  @ApiResponse({ status: 404, description: 'Debug session not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async analyze(
     @Req() req: any,
     @Body() body: AnalyzeDto,
@@ -210,6 +275,34 @@ export class AIController {
    * Chat with AI about a debug session
    */
   @Post('chat')
+  @ApiOperation({
+    summary: 'Chat about a debug session',
+    description: 'Sends messages with session traffic context and returns the assistant reply.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['sessionId', 'messages'],
+      properties: {
+        sessionId: { type: 'string' },
+        messages: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: ['role', 'content'],
+            properties: {
+              role: { type: 'string', enum: ['user', 'assistant', 'system'] },
+              content: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Assistant message and token usage' })
+  @ApiResponse({ status: 400, description: 'Invalid request, workspace mismatch, or AI not configured' })
+  @ApiResponse({ status: 404, description: 'Debug session not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async chat(
     @Req() req: any,
     @Body() body: ChatDto,
@@ -290,6 +383,14 @@ export class AIController {
    * Get chat history for a session
    */
   @Get('sessions/:sessionId/messages')
+  @ApiOperation({
+    summary: 'Get AI chat history',
+    description: 'Returns stored AI messages for a debug session in chronological order.',
+  })
+  @ApiResponse({ status: 200, description: 'List of AI messages for the session' })
+  @ApiResponse({ status: 400, description: 'Workspace context required' })
+  @ApiResponse({ status: 404, description: 'Session not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getMessages(
     @Req() req: any,
     @Param('sessionId') sessionId: string,

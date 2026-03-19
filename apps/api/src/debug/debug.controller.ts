@@ -15,6 +15,15 @@ import {
   forwardRef,
   Optional,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiBody,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { DebugService } from './debug.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthGuard } from '../auth/auth.guard';
@@ -33,6 +42,7 @@ interface CreateSessionDto {
   expiresIn?: number;
 }
 
+@ApiTags('Debug')
 @Controller('v1/debug')
 export class DebugController {
   constructor(
@@ -47,6 +57,28 @@ export class DebugController {
    */
   @Post('sessions')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Create debug session',
+    description: 'Creates a new debug session for the current workspace.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        serviceId: { type: 'string' },
+        agentId: { type: 'string' },
+        name: { type: 'string' },
+        aiEnabled: { type: 'boolean' },
+        aiProvider: { type: 'string' },
+        aiModel: { type: 'string' },
+        expiresIn: { type: 'number' },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Session created' })
+  @ApiResponse({ status: 400, description: 'Invalid request or missing workspace' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async createSession(
     @Req() req: any,
     @Body() body: CreateSessionDto,
@@ -76,6 +108,15 @@ export class DebugController {
    */
   @Get('sessions')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'List debug sessions',
+    description: 'Returns debug sessions for the current workspace.',
+  })
+  @ApiQuery({ name: 'includeEnded', required: false, description: 'Include ended sessions when true', type: String })
+  @ApiResponse({ status: 200, description: 'Session list' })
+  @ApiResponse({ status: 400, description: 'Missing workspace context' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async listSessions(
     @Req() req: any,
     @Query('includeEnded') includeEnded?: string,
@@ -98,6 +139,15 @@ export class DebugController {
    */
   @Get('sessions/:id')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Get debug session',
+    description: 'Returns a debug session by its ID.',
+  })
+  @ApiParam({ name: 'id', description: 'Debug session ID' })
+  @ApiResponse({ status: 200, description: 'Session details' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Session not found' })
   async getSession(@Param('id') id: string) {
     const session = await this.debugService.getSession(id);
     if (!session) {
@@ -112,6 +162,14 @@ export class DebugController {
   @Get('public/:token')
   @UseGuards(RateLimitGuard)
   @RateLimit('debug')
+  @ApiOperation({
+    summary: 'Get session by token',
+    description: 'Returns limited session info for the public debug viewer using the share token.',
+  })
+  @ApiParam({ name: 'token', description: 'Public debug session token' })
+  @ApiResponse({ status: 200, description: 'Limited session info' })
+  @ApiResponse({ status: 404, description: 'Session not found or expired' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   async getSessionByToken(@Param('token') token: string) {
     const session = await this.debugService.getSessionByToken(token);
     if (!session) {
@@ -133,6 +191,14 @@ export class DebugController {
    */
   @Delete('sessions/:id')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'End debug session',
+    description: 'Ends an active debug session by ID.',
+  })
+  @ApiParam({ name: 'id', description: 'Debug session ID' })
+  @ApiResponse({ status: 200, description: 'Session ended' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async endSession(@Param('id') id: string) {
     await this.debugService.endSession(id);
     return { success: true };
@@ -143,6 +209,22 @@ export class DebugController {
    */
   @Patch('sessions/:id/ai')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Toggle session AI',
+    description: 'Enables or disables AI for a debug session.',
+  })
+  @ApiParam({ name: 'id', description: 'Debug session ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['enabled'],
+      properties: { enabled: { type: 'boolean' } },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'AI state updated' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Session not found' })
   async toggleAI(
     @Param('id') id: string,
     @Body() body: { enabled: boolean },
@@ -166,6 +248,21 @@ export class DebugController {
   @Patch('public/:token/ai/enable')
   @UseGuards(RateLimitGuard)
   @RateLimit('debug')
+  @ApiOperation({
+    summary: 'Toggle session AI by token',
+    description: 'Enables or disables AI for a session using the public debug token.',
+  })
+  @ApiParam({ name: 'token', description: 'Public debug session token' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['enabled'],
+      properties: { enabled: { type: 'boolean' } },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'AI state updated' })
+  @ApiResponse({ status: 404, description: 'Session not found or expired' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   async toggleAIPublic(
     @Param('token') token: string,
     @Body() body: { enabled: boolean },
@@ -189,6 +286,14 @@ export class DebugController {
   @Delete('public/:token')
   @UseGuards(RateLimitGuard)
   @RateLimit('debug')
+  @ApiOperation({
+    summary: 'End session by token',
+    description: 'Ends a debug session using the public share token.',
+  })
+  @ApiParam({ name: 'token', description: 'Public debug session token' })
+  @ApiResponse({ status: 200, description: 'Session ended' })
+  @ApiResponse({ status: 404, description: 'Session not found or expired' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   async endSessionPublic(@Param('token') token: string) {
     const session = await this.debugService.getSessionByToken(token);
     if (!session) {
@@ -203,6 +308,16 @@ export class DebugController {
    */
   @Get('sessions/:id/packets')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'List session packets',
+    description: 'Returns captured packets for a debug session with optional pagination.',
+  })
+  @ApiParam({ name: 'id', description: 'Debug session ID' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Max packets to return', type: String })
+  @ApiQuery({ name: 'before', required: false, description: 'Cursor for older packets', type: String })
+  @ApiResponse({ status: 200, description: 'Packet list' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getPackets(
     @Param('id') id: string,
     @Query('limit') limit?: string,
@@ -223,6 +338,16 @@ export class DebugController {
   @Get('public/:token/packets')
   @UseGuards(RateLimitGuard)
   @RateLimit('debug')
+  @ApiOperation({
+    summary: 'List packets by token',
+    description: 'Returns captured packets for the session identified by the public token.',
+  })
+  @ApiParam({ name: 'token', description: 'Public debug session token' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Max packets to return', type: String })
+  @ApiQuery({ name: 'before', required: false, description: 'Cursor for older packets', type: String })
+  @ApiResponse({ status: 200, description: 'Packet list' })
+  @ApiResponse({ status: 404, description: 'Session not found or expired' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   async getPacketsByToken(
     @Param('token') token: string,
     @Query('limit') limit?: string,
@@ -247,6 +372,15 @@ export class DebugController {
    */
   @Get('packets/:id')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Get packet',
+    description: 'Returns a single captured packet including its payload.',
+  })
+  @ApiParam({ name: 'id', description: 'Packet ID' })
+  @ApiResponse({ status: 200, description: 'Packet details' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Packet not found' })
   async getPacket(@Param('id') id: string) {
     const packet = await this.debugService.getPacket(id);
     if (!packet) {
@@ -260,6 +394,22 @@ export class DebugController {
    */
   @Post('packets/:id/replay')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Replay packet',
+    description: 'Replays an outbound HTTP packet, optionally against a different target URL.',
+  })
+  @ApiParam({ name: 'id', description: 'Packet ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { targetUrl: { type: 'string', description: 'Optional override URL for the replay request' } },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Replay result' })
+  @ApiResponse({ status: 400, description: 'Invalid replay request or unsupported packet' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Packet not found' })
   async replayPacket(
     @Param('id') id: string,
     @Body() body: { targetUrl?: string },
@@ -328,6 +478,22 @@ export class DebugController {
   @Post('public/:token/packets/:packetId/replay')
   @UseGuards(RateLimitGuard)
   @RateLimit('debug')
+  @ApiOperation({
+    summary: 'Replay packet by token',
+    description: 'Replays an outbound HTTP packet for the session token, optionally against a different URL.',
+  })
+  @ApiParam({ name: 'token', description: 'Public debug session token' })
+  @ApiParam({ name: 'packetId', description: 'Packet ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { targetUrl: { type: 'string', description: 'Optional override URL for the replay request' } },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Replay result' })
+  @ApiResponse({ status: 400, description: 'Invalid replay request or unsupported packet' })
+  @ApiResponse({ status: 404, description: 'Session or packet not found' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   async replayPacketByToken(
     @Param('token') token: string,
     @Param('packetId') packetId: string,
@@ -397,6 +563,27 @@ export class DebugController {
    */
   @Post('sessions/cli')
   @UseGuards(CombinedAuthGuard)
+  @ApiOperation({
+    summary: 'Create debug session (CLI)',
+    description: 'Creates a debug session using session or API key authentication for CLI clients.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        serviceId: { type: 'string' },
+        agentId: { type: 'string' },
+        name: { type: 'string' },
+        aiEnabled: { type: 'boolean' },
+        aiProvider: { type: 'string' },
+        aiModel: { type: 'string' },
+        expiresIn: { type: 'number' },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Session created' })
+  @ApiResponse({ status: 400, description: 'Invalid request or missing workspace' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async createSessionCli(
     @Req() req: any,
     @Body() body: CreateSessionDto,
@@ -427,6 +614,15 @@ export class DebugController {
   @Get('public/:token/export')
   @UseGuards(RateLimitGuard)
   @RateLimit('debug')
+  @ApiOperation({
+    summary: 'Export debug session',
+    description: 'Exports session summary and packets as JSON or markdown.',
+  })
+  @ApiParam({ name: 'token', description: 'Public debug session token' })
+  @ApiQuery({ name: 'format', required: false, description: 'Export format: json (default) or markdown', type: String })
+  @ApiResponse({ status: 200, description: 'Export payload' })
+  @ApiResponse({ status: 404, description: 'Session not found or expired' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   async exportSession(
     @Param('token') token: string,
     @Query('format') format: string = 'json',
@@ -590,6 +786,25 @@ export class DebugController {
   @Post('public/:token/ai/chat')
   @UseGuards(RateLimitGuard)
   @RateLimit('debug-ai')
+  @ApiOperation({
+    summary: 'Debug viewer AI chat',
+    description: 'Sends a chat message with optional packet context for the public debug viewer.',
+  })
+  @ApiParam({ name: 'token', description: 'Public debug session token' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['message'],
+      properties: {
+        message: { type: 'string' },
+        packetContext: { type: 'array', items: { type: 'object' }, description: 'Optional packet snippets for context' },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Assistant reply' })
+  @ApiResponse({ status: 400, description: 'AI disabled, not configured, or model error' })
+  @ApiResponse({ status: 404, description: 'Session not found or expired' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   async publicAIChat(
     @Param('token') token: string,
     @Body() body: { message: string; packetContext?: any[] },
