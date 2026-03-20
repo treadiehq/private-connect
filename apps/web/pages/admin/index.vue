@@ -377,8 +377,8 @@
           v-if="deleteModal.show" 
           class="fixed inset-0 z-50 flex items-center justify-center"
         >
-          <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="deleteModal.show = false"></div>
-          <div class="relative bg-black border border-gray-500/20 rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4 animate-modal-in">
+          <div class="absolute inset-0 bg-[#09090b]/70 backdrop-blur-sm" @click="deleteModal.show = false"></div>
+          <div class="relative bg-black-main border border-gray-500/20 rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4 animate-modal-in">
             <h2 class="text-xl font-bold mb-1">Delete User</h2>
             <p class="text-gray-400 text-sm mb-6">
               Are you sure you want to delete <span class="text-white font-medium">{{ deleteModal.user?.email }}</span>? 

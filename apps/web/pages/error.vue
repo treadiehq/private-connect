@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-black relative antialiased flex items-center justify-center">
+  <div class="min-h-screen bg-black-main relative antialiased flex items-center justify-center">
 		<div class="radial-gradient absolute top-0 md:right-14 right-5"></div>
 		<main class="">
 			<header class="mb-8">

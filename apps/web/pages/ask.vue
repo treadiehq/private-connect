@@ -1,5 +1,5 @@
 <template>
-  <div class="flex items-center justify-center p-6 bg-black relative">
+  <div class="flex items-center justify-center p-6 bg-black-main relative">
     <div class="radial-gradient absolute top-0 md:right-14 right-5"></div>
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 pt-20 relative">
       <div class="text-center mb-8">
@@ -26,7 +26,7 @@
               v-model="service"
               type="text"
               placeholder="https://api.example.com or my-api.internal"
-              class="w-full bg-black/50 border border-gray-500/20 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-300 font-mono text-sm"
+              class="w-full bg-[#09090b]/50 border border-gray-500/20 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-300 font-mono text-sm"
             />
             <div class="flex flex-wrap items-center gap-2 mt-2">
               <span class="text-gray-500 text-xs">Try:</span>
@@ -48,7 +48,7 @@
               v-model="question"
               rows="3"
               placeholder="e.g. Is it healthy? What version is running?"
-              class="w-full bg-black/50 border border-gray-500/20 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-300 resize-none text-sm"
+              class="w-full bg-[#09090b]/50 border border-gray-500/20 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-300 resize-none text-sm"
             />
           </div>
           <div class="flex flex-wrap items-center justify-between gap-2">
@@ -99,7 +99,7 @@
               :key="i"
               class="border border-gray-500/20 rounded-lg overflow-hidden"
             >
-              <div class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 bg-black/30 text-sm">
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 bg-[#09090b]/30 text-sm">
                 <span class="font-mono font-medium text-white">{{ r.method }} {{ r.path }}</span>
                 <span :class="r.ok ? 'text-emerald-300' : 'text-red-400'">
                   {{ r.status ?? r.error ?? '—' }}
@@ -108,7 +108,7 @@
               </div>
               <pre
                 v-if="r.bodySnippet"
-                class="px-4 py-2 text-xs text-gray-400 font-mono overflow-x-auto border-t border-gray-500/20 bg-black/20"
+                class="px-4 py-2 text-xs text-gray-400 font-mono overflow-x-auto border-t border-gray-500/20 bg-[#09090b]/20"
               >{{ r.bodySnippet }}</pre>
             </li>
           </ul>
@@ -167,7 +167,7 @@
             <div>
               <p class="text-sm font-medium text-gray-300 mb-2">1. Install</p>
               <div class="flex items-center gap-2 flex-wrap">
-                <code class="flex-1 min-w-0 bg-black/50 rounded-lg px-3 py-2 text-xs text-gray-300 font-mono break-all">
+                <code class="flex-1 min-w-0 bg-[#09090b]/50 rounded-lg px-3 py-2 text-xs text-gray-300 font-mono break-all">
                   curl -fsSL https://privateconnect.co/install.sh | bash
                 </code>
                 <button
@@ -182,7 +182,7 @@
             <div>
               <p class="text-sm font-medium text-gray-300 mb-2">2. Connect</p>
               <div class="flex items-center gap-2 flex-wrap">
-                <code class="flex-1 min-w-0 bg-black/50 rounded-lg px-3 py-2 text-xs text-gray-300 font-mono">connect up</code>
+                <code class="flex-1 min-w-0 bg-[#09090b]/50 rounded-lg px-3 py-2 text-xs text-gray-300 font-mono">connect up</code>
                 <button
                   type="button"
                   class="px-3 py-2 bg-gray-500/20 text-gray-300 text-xs rounded-lg hover:bg-gray-500/30 transition-colors"

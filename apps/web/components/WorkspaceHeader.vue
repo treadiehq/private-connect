@@ -36,7 +36,7 @@
           <!-- Dropdown menu -->
           <div 
             v-if="showDropdown"
-            class="absolute right-0 mt-2 w-56 bg-black border border-gray-500/20 rounded-lg shadow-xl z-50 py-1"
+            class="absolute right-0 mt-2 w-56 bg-black-main border border-gray-500/20 rounded-lg shadow-xl z-50 py-1"
           >
             <!-- Email -->
             <div class="px-4 py-3 border-b border-gray-500/20">

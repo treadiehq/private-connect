@@ -170,6 +170,10 @@ body, html {
   min-height: 100vh;
 }
 
+.bg-black-main {
+  background: var(--dark-bg);
+}
+
 /* body, html {
   @apply bg-black w-full antialiased;
   min-height: 100vh;

@@ -9,7 +9,7 @@
     </div>
 
     <!-- Zoom Controls -->
-    <div class="absolute top-4 right-4 z-30 flex flex-col gap-1 bg-black/60 backdrop-blur-sm rounded-lg border border-gray-500/10 p-1">
+    <div class="absolute top-4 right-4 z-30 flex flex-col gap-1 bg-[#09090b]/60 backdrop-blur-sm rounded-lg border border-gray-500/10 p-1">
       <button 
         @click="zoomIn" 
         class="p-1.5 text-gray-400 hover:text-white hover:bg-gray-500/10 rounded transition-colors"
@@ -257,7 +257,7 @@
         <Transition name="tooltip">
           <div 
             v-if="hoveredNode === 'hub'"
-            class="absolute left-full ml-4 top-1/2 -translate-y-1/2 bg-black/90 backdrop-blur-sm border border-gray-500/20 rounded-xl p-4 min-w-48 z-50 pointer-events-none"
+            class="absolute left-full ml-4 top-1/2 -translate-y-1/2 bg-[#09090b]/90 backdrop-blur-sm border border-gray-500/20 rounded-xl p-4 min-w-48 z-50 pointer-events-none"
           >
             <div class="text-sm font-semibold text-white mb-2">Private Connect Hub</div>
             <div class="space-y-1 text-xs">
@@ -334,7 +334,7 @@
           <Transition name="tooltip">
             <div 
               v-if="hoveredNode === agent.id"
-              class="absolute left-full ml-4 top-1/2 -translate-y-1/2 bg-black/90 backdrop-blur-sm border border-gray-500/20 rounded-xl p-4 min-w-52 z-50 pointer-events-none"
+              class="absolute left-full ml-4 top-1/2 -translate-y-1/2 bg-[#09090b]/90 backdrop-blur-sm border border-gray-500/20 rounded-xl p-4 min-w-52 z-50 pointer-events-none"
             >
               <div class="flex items-center gap-2 mb-3">
                 <div :class="['w-2 h-2 rounded-full', agent.isOnline ? 'bg-emerald-300' : 'bg-gray-500']"></div>
@@ -431,7 +431,7 @@
             <!-- Protocol badge -->
             <div 
               v-if="service.protocol && service.protocol !== 'auto'"
-              class="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-black/80 rounded text-[8px] font-mono uppercase"
+              class="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-[#09090b]/80 rounded text-[8px] font-mono uppercase"
               :class="getProtocolColor(service.protocol)"
             >
               {{ service.protocol }}
@@ -442,7 +442,7 @@
           <Transition name="tooltip">
             <div 
               v-if="hoveredNode === service.id"
-              class="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-black/90 backdrop-blur-sm border border-gray-500/20 rounded-xl p-4 min-w-56 z-50 pointer-events-none"
+              class="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-[#09090b]/90 backdrop-blur-sm border border-gray-500/20 rounded-xl p-4 min-w-56 z-50 pointer-events-none"
             >
               <div class="flex items-center gap-2 mb-3">
                 <div :class="['w-2 h-2 rounded-full', service.status === 'OK' ? 'bg-emerald-300' : service.status === 'FAIL' ? 'bg-red-400' : 'bg-gray-500']"></div>
@@ -496,7 +496,7 @@
     </div>
 
     <!-- Legend -->
-    <div class="absolute bottom-4 left-4 z-30 flex items-center gap-4 text-xs text-gray-500 bg-black/40 backdrop-blur-sm rounded-lg px-3 py-2 border border-gray-500/20">
+    <div class="absolute bottom-4 left-4 z-30 flex items-center gap-4 text-xs text-gray-500 bg-[#09090b]/40 backdrop-blur-sm rounded-lg px-3 py-2 border border-gray-500/20">
       <div class="flex items-center gap-1.5">
         <div class="w-2 h-2 rounded-full bg-emerald-300"></div>
         <span>Healthy</span>
@@ -516,7 +516,7 @@
     </div>
 
     <!-- Stats -->
-    <div class="absolute bottom-4 right-4 z-30 flex items-center gap-4 text-xs text-gray-400 bg-black/40 backdrop-blur-sm rounded-lg px-3 py-2 border border-white/5">
+    <div class="absolute bottom-4 right-4 z-30 flex items-center gap-4 text-xs text-gray-400 bg-[#09090b]/40 backdrop-blur-sm rounded-lg px-3 py-2 border border-white/5">
       <span>{{ agents.filter(a => a.isOnline).length }}/{{ agents.length }} agents online</span>
       <span>{{ services.filter(s => s.status === 'OK').length }}/{{ services.length }} services healthy</span>
     </div>

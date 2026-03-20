@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-black text-white">
+  <div class="min-h-screen bg-black-main text-white">
     <!-- Loading State -->
     <div v-if="loading" class="min-h-screen flex items-center justify-center">
       <div class="text-center">
@@ -129,7 +129,7 @@
       <!-- Minimal floating banner -->
       <div 
         v-if="showBanner"
-        class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2 bg-black/80 backdrop-blur-sm rounded-full border border-gray-700/50 shadow-2xl"
+        class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2 bg-[#09090b]/80 backdrop-blur-sm rounded-full border border-gray-700/50 shadow-2xl"
       >
         <div class="flex items-center gap-2">
           <div class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></div>
@@ -190,7 +190,7 @@
             <h1 class="text-2xl font-bold text-white mb-2">{{ shareInfo.name }}</h1>
             <p v-if="shareInfo.description" class="text-gray-400 mb-6">{{ shareInfo.description }}</p>
             
-            <div class="bg-black/50 rounded-xl p-6 mb-6 border border-gray-500/10">
+            <div class="bg-[#09090b]/50 rounded-xl p-6 mb-6 border border-gray-500/10">
               <div class="text-sm text-gray-500 mb-2">Service</div>
               <div class="text-lg font-mono text-white">{{ shareInfo.service.name }}</div>
               <div class="text-sm text-gray-500 mt-1">
@@ -203,12 +203,12 @@
             </div>
 
             <!-- Install Command -->
-            <div class="bg-black/50 rounded-lg p-4 mb-4 border border-gray-500/10">
+            <div class="bg-[#09090b]/50 rounded-lg p-4 mb-4 border border-gray-500/10">
               <div class="text-xs text-gray-500 mb-2">Quick install:</div>
               <code class="text-sm text-blue-300 font-mono">curl -fsSL https://privateconnect.co/install.sh | bash</code>
             </div>
 
-            <div class="bg-black/50 rounded-lg p-4 border border-gray-500/10">
+            <div class="bg-[#09090b]/50 rounded-lg p-4 border border-gray-500/10">
               <div class="text-xs text-gray-500 mb-2">Then connect:</div>
               <code class="text-sm text-emerald-300 font-mono">connect {{ shareInfo.service.name }}</code>
             </div>

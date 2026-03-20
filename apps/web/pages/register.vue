@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center p-6 bg-black relative">
+  <div class="min-h-screen flex items-center justify-center p-6 bg-black-main relative">
     <div class="radial-gradient absolute top-0 md:right-14 right-5"></div>
     <div class="w-full max-w-md relative z-10">
       <!-- Logo -->

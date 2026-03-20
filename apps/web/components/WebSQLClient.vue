@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col bg-black">
+  <div class="h-full flex flex-col bg-black-main">
     <!-- Header -->
     <div class="flex items-center justify-between px-4 py-3 bg-gray-500/5 border-b border-gray-500/10">
       <div class="flex items-center gap-3">
@@ -49,7 +49,7 @@
         </div>
 
         <!-- Editor -->
-        <div class="flex-1 relative min-h-[200px] bg-black/50">
+        <div class="flex-1 relative min-h-[200px] bg-[#09090b]/50">
           <textarea
             ref="editorRef"
             v-model="query"
@@ -74,7 +74,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
               </svg>
               <span>{{ isExecuting ? 'Running...' : 'Run Query' }}</span>
-              <kbd class="hidden sm:inline-block text-[10px] bg-black/20 px-1.5 py-0.5 rounded ml-1">⌘↵</kbd>
+              <kbd class="hidden sm:inline-block text-[10px] bg-[#09090b]/20 px-1.5 py-0.5 rounded ml-1">⌘↵</kbd>
             </button>
           </div>
         </div>
@@ -108,7 +108,7 @@
         </div>
 
         <!-- Results Content -->
-        <div class="flex-1 overflow-auto bg-black/50">
+        <div class="flex-1 overflow-auto bg-[#09090b]/50">
           <!-- Empty State -->
           <div v-if="!result && !error" class="h-full flex items-center justify-center text-gray-500">
             <div class="text-center">
@@ -207,7 +207,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
-      <div v-if="showHistory" class="max-h-32 overflow-y-auto bg-black/50">
+      <div v-if="showHistory" class="max-h-32 overflow-y-auto bg-[#09090b]/50">
         <button 
           v-for="(item, index) in queryHistory" 
           :key="index"

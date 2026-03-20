@@ -1,10 +1,10 @@
 <template>
-  <div class="min-h-screen bg-black">
+  <div class="min-h-screen bg-black-main">
     <!-- Connection Status Banner -->
     <ConnectionBanner />
     
     <!-- Header -->
-    <header class="border-b border-gray-500/10 bg-black/80 backdrop-blur-xl sticky top-0 z-50">
+    <header class="border-b border-gray-500/10 bg-[#09090b]/80 backdrop-blur-xl sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-6 py-2.5">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-4">

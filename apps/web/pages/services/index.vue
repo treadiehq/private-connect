@@ -55,8 +55,8 @@
     <Teleport to="body">
       <Transition name="modal">
         <div v-if="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center">
-          <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="showAddModal = false"></div>
-          <div class="relative bg-black border border-gray-500/20 rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4 animate-modal-in">
+          <div class="absolute inset-0 bg-[#09090b]/70 backdrop-blur-sm" @click="showAddModal = false"></div>
+          <div class="relative bg-black-main border border-gray-500/20 rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4 animate-modal-in">
             <h2 class="text-xl font-bold mb-1">Add External Service</h2>
             <p class="text-gray-400 text-sm mb-6">
               Register an external endpoint to track and test connectivity.
@@ -124,7 +124,7 @@
                       >
                         <div 
                           v-if="showProtocolDropdown"
-                          class="absolute z-50 mt-2 w-full bg-black border border-gray-500/20 rounded-lg shadow-xl overflow-hidden"
+                          class="absolute z-50 mt-2 w-full bg-black-main border border-gray-500/20 rounded-lg shadow-xl overflow-hidden"
                         >
                           <button
                             v-for="option in protocolOptions"

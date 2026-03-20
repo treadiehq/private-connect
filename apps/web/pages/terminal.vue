@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-black text-white flex flex-col">
+  <div class="min-h-screen bg-black-main text-white flex flex-col">
     <!-- Connect form (when not connected) -->
     <div v-if="!connected" class="flex-1 flex items-center justify-center p-6">
       <div class="w-full max-w-md">

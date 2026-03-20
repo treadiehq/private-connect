@@ -90,7 +90,7 @@
           <Transition name="dropdown">
             <div 
               v-if="showAgentDropdown"
-              class="absolute right-0 mt-2 w-52 bg-black border border-gray-500/20 rounded-xl shadow-2xl z-10 overflow-hidden"
+              class="absolute right-0 mt-2 w-52 bg-black-main border border-gray-500/20 rounded-xl shadow-2xl z-10 overflow-hidden"
             >
               <button
                 @click="handleCheck"
@@ -148,8 +148,8 @@
             class="fixed inset-0 z-50 flex items-center justify-center p-4"
             @click.self="showSubdomainModal = false"
           >
-            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
-            <div class="relative bg-black border border-gray-500/20 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+            <div class="absolute inset-0 bg-[#09090b]/70 backdrop-blur-sm"></div>
+            <div class="relative bg-black-main border border-gray-500/20 rounded-2xl w-full max-w-md p-6 shadow-2xl">
               <h3 class="text-lg font-semibold text-white mb-2">Custom Public URL</h3>
               <p class="text-sm text-gray-400 mb-4">
                 Set a custom subdomain for this service. Anyone with the URL can access it.
@@ -241,8 +241,8 @@
             class="fixed inset-0 z-50 flex items-center justify-center p-4"
             @click.self="showRenameModal = false"
           >
-            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
-            <div class="relative bg-black border border-gray-500/20 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+            <div class="absolute inset-0 bg-[#09090b]/70 backdrop-blur-sm"></div>
+            <div class="relative bg-black-main border border-gray-500/20 rounded-2xl w-full max-w-md p-6 shadow-2xl">
               <h3 class="text-lg font-semibold text-white mb-2">Rename Service</h3>
               <p class="text-sm text-gray-400 mb-4">
                 Change the display name for this service.
@@ -303,8 +303,8 @@
             class="fixed inset-0 z-50 flex items-center justify-center p-4"
             @click.self="showDeleteModal = false"
           >
-            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
-            <div class="relative bg-black border border-gray-500/20 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+            <div class="absolute inset-0 bg-[#09090b]/70 backdrop-blur-sm"></div>
+            <div class="relative bg-black-main border border-gray-500/20 rounded-2xl w-full max-w-md p-6 shadow-2xl">
               <h3 class="text-lg font-semibold text-white mb-2">Delete Service</h3>
               <p class="text-sm text-gray-400 mb-4">
                 Are you sure you want to delete <span class="text-white font-medium">{{ service.name }}</span>? This will stop all tunnels and remove the service permanently.

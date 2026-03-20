@@ -1,10 +1,10 @@
 <template>
-  <div class="min-h-screen bg-black relative antialiased">
+  <div class="min-h-screen bg-black-main relative antialiased">
     <!-- Background gradient -->
     <!-- <div class="radial-gradient absolute top-0 right-14 pointer-events-none"></div> -->
     
     <!-- Header -->
-    <div class="border-b border-gray-500/10 bg-black/80 backdrop-blur-md sticky top-0 z-50">
+    <div class="border-b border-gray-500/10 bg-[#09090b]/80 backdrop-blur-md sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
         <div class="flex items-center gap-3">
           <NuxtLink to="/" class="text-gray-400 hover:text-white transition-colors">
@@ -73,7 +73,7 @@
             </button>
             <div 
               v-if="showExportMenu"
-              class="absolute right-0 mt-2 w-48 bg-black border border-gray-500/20 rounded-xl shadow-2xl z-50 overflow-hidden"
+              class="absolute right-0 mt-2 w-48 bg-black-main border border-gray-500/20 rounded-xl shadow-2xl z-50 overflow-hidden"
             >
               <button
                 @click="exportSession('json')"
@@ -416,7 +416,7 @@
                 <!-- Headers table -->
                 <div v-if="parsedData.headers && Object.keys(parsedData.headers).length > 0" class="mb-3">
                   <div class="text-xs text-gray-500 mb-2 font-medium">Headers</div>
-                  <div class="bg-black/40 rounded-lg border border-gray-500/10 overflow-hidden max-h-48 overflow-y-auto">
+                  <div class="bg-[#09090b]/40 rounded-lg border border-gray-500/10 overflow-hidden max-h-48 overflow-y-auto">
                     <div 
                       v-for="(value, key) in parsedData.headers" 
                       :key="key"
@@ -435,12 +435,12 @@
                 <!-- Body Preview -->
                 <div v-if="parsedData.bodyPreview" class="mb-3">
                   <div class="text-xs text-gray-500 mb-2 font-medium">Body</div>
-                  <pre class="text-xs text-gray-300 font-mono whitespace-pre-wrap break-all bg-black/40 rounded-lg p-3 max-h-40 overflow-auto border border-gray-500/10">{{ formatBodyPreview(parsedData.bodyPreview) }}</pre>
+                  <pre class="text-xs text-gray-300 font-mono whitespace-pre-wrap break-all bg-[#09090b]/40 rounded-lg p-3 max-h-40 overflow-auto border border-gray-500/10">{{ formatBodyPreview(parsedData.bodyPreview) }}</pre>
                 </div>
 
                 <!-- Fallback: Show all parsed fields as table for non-HTTP or missing structure -->
                 <div v-if="selectedPacket.protocol !== 'http' || (!parsedData.method && !parsedData.status && !parsedData.headers)">
-                  <div class="bg-black/40 rounded-lg border border-gray-500/10 overflow-hidden">
+                  <div class="bg-[#09090b]/40 rounded-lg border border-gray-500/10 overflow-hidden">
                     <div 
                       v-for="(value, key) in parsedData" 
                       :key="key"
@@ -476,7 +476,7 @@
                   </button>
                 </div>
                 <div v-if="selectedPacket.payload" class="relative">
-                  <pre class="font-mono text-xs text-gray-300 bg-black/40 rounded-lg border border-gray-500/10 p-3 max-h-40 overflow-auto whitespace-pre-wrap break-all">{{ truncatePayload(selectedPacket.payload) }}</pre>
+                  <pre class="font-mono text-xs text-gray-300 bg-[#09090b]/40 rounded-lg border border-gray-500/10 p-3 max-h-40 overflow-auto whitespace-pre-wrap break-all">{{ truncatePayload(selectedPacket.payload) }}</pre>
                   <div v-if="isPayloadTruncated(selectedPacket.payload)" class="mt-2 text-xs text-gray-500">
                     Showing first 2KB of {{ formatBytes(selectedPacket.payloadSize) }}
                   </div>
@@ -524,7 +524,7 @@
                     </div>
                     <div v-if="replayResult.body" class="mt-2">
                       <div class="text-gray-500 text-xs mb-1 font-medium">Response Body</div>
-                      <pre class="text-xs text-gray-300 bg-black/40 rounded-lg p-2 max-h-32 overflow-auto border border-gray-500/10">{{ replayResult.body.substring(0, 500) }}</pre>
+                      <pre class="text-xs text-gray-300 bg-[#09090b]/40 rounded-lg p-2 max-h-32 overflow-auto border border-gray-500/10">{{ replayResult.body.substring(0, 500) }}</pre>
                     </div>
                   </div>
                   <div v-else class="text-red-400">
@@ -630,7 +630,7 @@
                 v-model="aiInput"
                 type="text"
                 placeholder="Ask about the traffic..."
-                class="flex-1 bg-black border border-gray-500/20 rounded-lg px-4 py-2.5 text-white text-sm placeholder-gray-500 focus:ring-2 focus:ring-blue-300/50 focus:border-transparent outline-none transition"
+                class="flex-1 bg-black-main border border-gray-500/20 rounded-lg px-4 py-2.5 text-white text-sm placeholder-gray-500 focus:ring-2 focus:ring-blue-300/50 focus:border-transparent outline-none transition"
                 :disabled="aiThinking"
               />
               <button
@@ -657,10 +657,10 @@
       <Transition name="modal">
         <div v-if="showCloseModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <!-- Backdrop -->
-          <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="showCloseModal = false"></div>
+          <div class="absolute inset-0 bg-[#09090b]/80 backdrop-blur-sm" @click="showCloseModal = false"></div>
           
           <!-- Modal -->
-          <div class="relative bg-black border border-gray-500/20 rounded-2xl shadow-2xl max-w-md w-full p-6">
+          <div class="relative bg-black-main border border-gray-500/20 rounded-2xl shadow-2xl max-w-md w-full p-6">
             <!-- Icon -->
             <div class="w-14 h-14 rounded-full bg-red-400/10 flex items-center justify-center mx-auto mb-5">
               <svg class="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">

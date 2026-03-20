@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center p-6 bg-black relative">
+  <div class="min-h-screen flex items-center justify-center p-6 bg-black-main relative">
     <div class="radial-gradient absolute top-0 md:right-14 right-5"></div>
     <div class="w-full max-w-md relative z-10">
       <!-- Logo -->
@@ -69,7 +69,7 @@
               :type="showKey ? 'text' : 'password'"
               :value="apiKey"
               readonly
-              class="w-full px-3 py-2 pr-24 bg-black border border-gray-500/10 rounded-lg font-mono text-sm"
+              class="w-full px-3 py-2 pr-24 bg-black-main border border-gray-500/10 rounded-lg font-mono text-sm"
             />
             <div class="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
               <button
@@ -105,7 +105,7 @@
         </div>
 
         <!-- CLI Command -->
-        <div class="mb-6 p-4 bg-black border border-gray-500/10 rounded-lg">
+        <div class="mb-6 p-4 bg-black-main border border-gray-500/10 rounded-lg">
           <p class="text-xs text-gray-500 mb-2">Connect your first agent:</p>
           <code class="text-sm text-blue-300 break-all">
             connect up --api-key {{ apiKey }}

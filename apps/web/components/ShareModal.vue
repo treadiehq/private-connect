@@ -4,12 +4,12 @@
       <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
         <!-- Backdrop -->
         <div 
-          class="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          class="absolute inset-0 bg-[#09090b]/60 backdrop-blur-sm"
           @click="$emit('close')"
         ></div>
         
         <!-- Modal -->
-        <div class="relative bg-black border border-gray-500/20 rounded-2xl shadow-2xl w-full max-w-lg animate-modal-in">
+        <div class="relative bg-black-main border border-gray-500/20 rounded-2xl shadow-2xl w-full max-w-lg animate-modal-in">
           <!-- Header -->
           <div class="flex items-center justify-between p-6 border-b border-gray-500/10">
             <div class="flex items-center gap-3">

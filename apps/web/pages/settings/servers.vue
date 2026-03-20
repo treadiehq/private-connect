@@ -374,7 +374,7 @@
             <div class="p-4 bg-gray-500/10 rounded-lg border border-gray-500/10">
               <p class="text-xs text-gray-400 mb-3">Run this command in your terminal:</p>
               <div class="flex items-center gap-2 mb-3">
-                <code class="text-xs text-blue-300 font-mono bg-black/50 px-3 py-2 rounded flex-1">connect mcp serve</code>
+                <code class="text-xs text-blue-300 font-mono bg-[#09090b]/50 px-3 py-2 rounded flex-1">connect mcp serve</code>
                 <button
                   @click="copyCommand('connect mcp serve')"
                   class="px-3 py-2 bg-gray-500/10 hover:bg-gray-500/20 text-white text-xs font-medium rounded-md transition-colors flex items-center gap-1.5"
@@ -392,7 +392,7 @@
                   <li>Make sure you've run <code class="text-gray-300">connect up</code> first to authenticate</li>
                   <li>The <code class="text-gray-300">connect</code> CLI must be installed and in your PATH</li>
                   <li>Once running, the status will update automatically</li>
-                  <li>After starting the MCP server, configure it in your AI tool (Cursor, Claude Desktop, etc.) using the setup command: <code class="text-xs text-blue-300 font-mono block mt-2 bg-black/50 px-2 py-1 rounded">connect mcp setup</code></li>
+                  <li>After starting the MCP server, configure it in your AI tool (Cursor, Claude Desktop, etc.) using the setup command: <code class="text-xs text-blue-300 font-mono block mt-2 bg-[#09090b]/50 px-2 py-1 rounded">connect mcp setup</code></li>
                 </ul>
               </div>
             </div>

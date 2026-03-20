@@ -111,8 +111,8 @@
     </div>
 
     <!-- Create Modal -->
-    <div v-if="showCreateModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" @click.self="closeCreateModal">
-      <div class="bg-black border border-gray-500/20 rounded-lg w-full max-w-md p-6 animate-fade-in">
+    <div v-if="showCreateModal" class="fixed inset-0 bg-[#09090b]/80 flex items-center justify-center z-50 p-4" @click.self="closeCreateModal">
+      <div class="bg-black-main border border-gray-500/20 rounded-lg w-full max-w-md p-6 animate-fade-in">
         <h2 class="text-xl font-semibold mb-4">Create API Key</h2>
 
         <!-- Show key after creation -->
@@ -124,7 +124,7 @@
               <input
                 :value="newlyCreatedKey.key"
                 readonly
-                class="w-full px-4 py-3 pr-12 bg-black border border-gray-500/10 rounded-lg font-mono text-sm"
+                class="w-full px-4 py-3 pr-12 bg-black-main border border-gray-500/10 rounded-lg font-mono text-sm"
               />
               <button
                 @click="copyKey"
@@ -141,7 +141,7 @@
             <p class="mt-2 text-xs text-amber-300">Save this key now. It won't be shown again!</p>
           </div>
 
-          <div class="p-3 bg-black rounded-lg mb-4 overflow-hidden">
+          <div class="p-3 bg-black-main rounded-lg mb-4 overflow-hidden">
             <p class="text-xs text-gray-500 mb-1">Connect an agent:</p>
             <code class="text-sm text-blue-300 break-all">connect up --api-key {{ newlyCreatedKey.key }}</code>
           </div>
@@ -196,8 +196,8 @@
     </div>
 
     <!-- Revoke Confirmation Modal -->
-    <div v-if="keyToRevoke" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" @click.self="keyToRevoke = null">
-      <div class="bg-black border border-gray-500/20 rounded-xl w-full max-w-md p-6 animate-fade-in">
+    <div v-if="keyToRevoke" class="fixed inset-0 bg-[#09090b]/80 flex items-center justify-center z-50 p-4" @click.self="keyToRevoke = null">
+      <div class="bg-black-main border border-gray-500/20 rounded-xl w-full max-w-md p-6 animate-fade-in">
         <h2 class="text-xl font-semibold mb-4">Revoke API Key</h2>
         <p class="text-gray-400 mb-6">
           Are you sure you want to revoke <span class="text-white font-medium">{{ keyToRevoke.name }}</span>? 
@@ -229,8 +229,8 @@
     </div>
 
     <!-- IP Restrictions Modal -->
-    <div v-if="ipEditKey" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" @click.self="closeIpModal">
-      <div class="bg-black border border-gray-500/20 rounded-xl w-full max-w-lg p-6 animate-fade-in">
+    <div v-if="ipEditKey" class="fixed inset-0 bg-[#09090b]/80 flex items-center justify-center z-50 p-4" @click.self="closeIpModal">
+      <div class="bg-black-main border border-gray-500/20 rounded-xl w-full max-w-lg p-6 animate-fade-in">
         <h2 class="text-xl font-semibold mb-2">IP Restrictions</h2>
         <p class="text-gray-400 text-sm mb-6">
           Limit which IP addresses can use <span class="text-white font-medium">{{ ipEditKey.name }}</span>. 
