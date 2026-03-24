@@ -76,26 +76,63 @@ connect shell && connect share
 
 They open `privateconnect.co/terminal`, enter the code, and get a live terminal.
 
-## AI agent access (experimental)
+## AI agent access
 
-Grant an AI agent (Cursor, Claude, etc.) temporary, scoped access to a private resource, no credentials in prompts, no exposing services publicly.
-
-```bash
-connect grant codex --db postgres --ttl 5m
-```
-
-- `codex` is a **label** — any name to identify which AI agent gets access (for audit logs and revocation).
-- `--db postgres` refers to a **service name** — it must match the `--name` you used when exposing: `connect expose localhost:5432 --name postgres`.
-
-Give the endpoint and token to the AI. Access expires automatically.
+Grant an AI agent temporary, scoped access to a private resource. No credentials in prompts, no exposing services publicly.
 
 ```bash
-# List active grants
-connect grant --list
-
-# Revoke early
-connect grant --revoke <id>
+connect grant claude --db postgres --ttl 5m
+# → Token: gnt_...
+# → Endpoint: https://api.privateconnect.co/grant/postgres
 ```
+
+The AI can query the database over HTTP:
+
+```bash
+curl -X POST https://api.privateconnect.co/grant/postgres/query \
+  -H "Authorization: Bearer gnt_..." \
+  -d '{"sql": "SELECT count(*) FROM users"}'
+# → {"rows": [{"count": 42}], "rowCount": 1}
+```
+
+Read-only grants block mutations. Access expires automatically.
+
+```bash
+connect grant --list          # Active grants
+connect grant --revoke <id>   # Revoke early
+```
+
+Or manage grants programmatically with the SDK:
+
+```typescript
+import { PrivateConnect } from '@privateconnect/sdk';
+
+const pc = new PrivateConnect({ apiKey: process.env.PRIVATECONNECT_API_KEY });
+const grant = await pc.grants.create({
+  agentLabel: 'claude',
+  resourceType: 'db',
+  resourceName: 'postgres',
+  ttl: '5m',
+});
+// grant.token → give this to the AI agent
+```
+
+See [examples/](examples/) for LangChain and OpenAI integrations.
+
+## CI / preview environments
+
+Expose a local service from GitHub Actions and post a preview URL on the PR:
+
+```yaml
+- uses: treadiehq/private-connect/.github/actions/tunnel@main
+  with:
+    api-key: ${{ secrets.PRIVATE_CONNECT_KEY }}
+    port: 3000
+    ttl: 2h
+    comment-on-pr: 'true'
+```
+
+See [the example workflow](.github/workflows/preview.yml.example) for a full setup.
 
 ## Build from source
 
@@ -112,6 +149,7 @@ cd apps/agent && pnpm run build:binary
 - [Security](docs/security.md)
 - [Terminal from anywhere](docs/terminal.md)
 - [SDK](packages/sdk)
+- [AI agent examples](examples/)
 - [Use cases](USE_CASES.md)
 
 ## Community

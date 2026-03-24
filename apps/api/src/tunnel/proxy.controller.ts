@@ -118,6 +118,145 @@ export class ProxyController {
     private prisma: PrismaService,
   ) {}
 
+  // ─── Grant SQL query endpoint ─────────────────────────────────────────────
+  // AI agents use grant tokens to query databases via this endpoint.
+
+  @All('grant/:resource/query')
+  @ApiOperation({
+    summary: 'Run a SQL query via grant token',
+    description:
+      'Runs a SQL query against the database resource. The grant must have `resourceType: db`. ' +
+      'Read-only grants only allow SELECT, SHOW, DESCRIBE, and EXPLAIN statements.',
+  })
+  @ApiResponse({ status: 200, description: 'Query results as JSON.' })
+  @ApiResponse({ status: 400, description: 'Missing SQL or invalid request.' })
+  @ApiResponse({ status: 401, description: 'Grant token missing.' })
+  @ApiResponse({ status: 403, description: 'Grant invalid, wrong resource type, or read-only violation.' })
+  @ApiResponse({ status: 404, description: 'Service not mapped.' })
+  @ApiResponse({ status: 503, description: 'Agent offline.' })
+  @ApiResponse({ status: 504, description: 'Query timeout.' })
+  async grantQueryEndpoint(
+    @Param('resource') resource: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const authHeader = req.headers['authorization'];
+    const tokenFromHeader = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const tokenFromQuery = req.query['token'] as string | undefined;
+    const grantToken = tokenFromHeader || tokenFromQuery;
+
+    if (!grantToken) {
+      return res.status(401).json({
+        error: 'Grant token required',
+        message: 'Provide a grant token via Authorization: Bearer <token> or ?token=<token>',
+      });
+    }
+
+    const grant = await this.grantsService.validateGrantToken(grantToken);
+    if (!grant) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'Grant invalid, expired, or revoked.',
+      });
+    }
+
+    if (grant.resourceName !== resource) {
+      return res.status(403).json({
+        error: 'Resource mismatch',
+        message: `This grant is for "${grant.resourceName}", not "${resource}".`,
+      });
+    }
+
+    if (grant.resourceType !== 'db') {
+      return res.status(403).json({
+        error: 'Wrong resource type',
+        message: `The /query endpoint is for database grants (resourceType: db). This grant is type "${grant.resourceType}".`,
+      });
+    }
+
+    if (!grant.service) {
+      return res.status(404).json({
+        error: 'Service not found',
+        message: `No service mapped to "${resource}". Expose it first.`,
+      });
+    }
+
+    if (!grant.service.agentId || !this.tunnelService.isAgentConnected(grant.service.agentId)) {
+      return res.status(503).json({
+        error: 'Service unavailable',
+        message: 'The agent exposing this service is currently offline.',
+      });
+    }
+
+    // Parse request body
+    let body: { sql?: string; params?: unknown[] };
+    try {
+      const rawBody = await this.getRequestBody(req);
+      body = rawBody ? JSON.parse(rawBody) : {};
+    } catch {
+      return res.status(400).json({ error: 'Invalid JSON body' });
+    }
+
+    if (!body.sql || typeof body.sql !== 'string') {
+      return res.status(400).json({
+        error: 'Missing SQL',
+        message: 'POST body must include { "sql": "SELECT ..." }',
+      });
+    }
+
+    // Enforce read-only scope: only allow read statements
+    if (grant.scope === 'read-only') {
+      const normalized = body.sql.trim().toUpperCase();
+      const readOnlyPrefixes = ['SELECT', 'SHOW', 'DESCRIBE', 'DESC', 'EXPLAIN', 'WITH'];
+      const isReadOnly = readOnlyPrefixes.some(p => normalized.startsWith(p));
+      if (!isReadOnly) {
+        return res.status(403).json({
+          error: 'Read-only grant',
+          message: 'This grant only allows SELECT, SHOW, DESCRIBE, and EXPLAIN queries.',
+        });
+      }
+    }
+
+    try {
+      const result = await this.tunnelService.forwardSqlQuery(
+        grant.service.agentId,
+        grant.service.id,
+        {
+          sql: body.sql,
+          params: body.params,
+          protocol: grant.service.protocol,
+        },
+      );
+
+      if (!result.success) {
+        return res.status(400).json({
+          error: 'Query failed',
+          message: result.error || 'Unknown database error',
+        });
+      }
+
+      res.setHeader('X-Grant-Agent', grant.agentLabel);
+      res.setHeader('X-Grant-Scope', grant.scope);
+      res.setHeader('X-Grant-Expires', grant.expiresAt.toISOString());
+
+      return res.status(200).json({
+        rows: result.rows,
+        fields: result.fields,
+        rowCount: result.rowCount,
+      });
+    } catch (error) {
+      const err = error as Error;
+      this.logger.error(`Grant SQL query error for ${resource}: ${err.message}`);
+
+      if (err.message === 'Agent not connected' || err.message === 'Agent did not acknowledge query') {
+        return res.status(503).json({ error: 'Service unavailable', message: 'Agent is offline.' });
+      } else if (err.message === 'Query timeout') {
+        return res.status(504).json({ error: 'Query timeout', message: 'Query did not complete within 30 seconds.' });
+      }
+      return res.status(502).json({ error: 'Bad gateway', message: 'Failed to forward query.' });
+    }
+  }
+
   // ─── Grant-based proxy: /g/:resource/* ───────────────────────────────────────
   // AI agents use grant tokens to access private resources via this path.
 

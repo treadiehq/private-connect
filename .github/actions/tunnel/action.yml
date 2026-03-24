@@ -1,0 +1,124 @@
+name: 'Private Connect Tunnel'
+description: 'Create a secure tunnel to expose a local service from CI. Optionally post a preview URL as a PR comment.'
+
+inputs:
+  api-key:
+    description: 'PrivateConnect workspace API key'
+    required: true
+  port:
+    description: 'Local port to expose'
+    required: true
+  name:
+    description: 'Service name (e.g., "preview-app")'
+    required: false
+    default: ''
+  protocol:
+    description: 'Protocol: http, tcp, or udp'
+    required: false
+    default: 'http'
+  public:
+    description: 'Make the tunnel publicly accessible via URL'
+    required: false
+    default: 'true'
+  ttl:
+    description: 'Tunnel time-to-live (e.g., 30m, 1h, 2h)'
+    required: false
+    default: '1h'
+  hub-url:
+    description: 'Hub URL (for self-hosted deployments)'
+    required: false
+    default: 'https://api.privateconnect.co'
+  comment-on-pr:
+    description: 'Post a comment with the preview URL on the pull request'
+    required: false
+    default: 'false'
+  github-token:
+    description: 'GitHub token for posting PR comments (defaults to github.token)'
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  url:
+    description: 'Public URL for the tunnel'
+    value: ${{ steps.tunnel.outputs.url }}
+  subdomain:
+    description: 'Tunnel subdomain'
+    value: ${{ steps.tunnel.outputs.subdomain }}
+  tunnel-id:
+    description: 'Tunnel ID for cleanup'
+    value: ${{ steps.tunnel.outputs.tunnel_id }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Private Connect CLI
+      shell: bash
+      run: |
+        npm install -g private-connect@latest 2>/dev/null || npx --yes private-connect --version
+
+    - name: Create tunnel
+      id: tunnel
+      shell: bash
+      env:
+        CONNECT_HUB_URL: ${{ inputs.hub-url }}
+        PRIVATECONNECT_API_KEY: ${{ inputs.api-key }}
+      run: |
+        ARGS="${{ inputs.port }}"
+
+        if [ -n "${{ inputs.name }}" ]; then
+          ARGS="$ARGS --slug ${{ inputs.name }}"
+        fi
+
+        if [ "${{ inputs.protocol }}" = "tcp" ]; then
+          ARGS="$ARGS --tcp"
+        elif [ "${{ inputs.protocol }}" = "udp" ]; then
+          ARGS="$ARGS --udp"
+        fi
+
+        TTL_MINUTES=$(echo "${{ inputs.ttl }}" | sed -E 's/^([0-9]+)m$/\1/; s/^([0-9]+)h$/\1*60/' | bc)
+        ARGS="$ARGS --ttl $TTL_MINUTES"
+
+        OUTPUT=$(npx private-connect tunnel $ARGS 2>&1)
+        echo "$OUTPUT"
+
+        # Parse the public URL from output
+        URL=$(echo "$OUTPUT" | grep -oE 'https?://[^ ]+' | head -1)
+        SUBDOMAIN=$(echo "$URL" | sed -E 's|.*/w/([^/]+).*|\1|')
+        TUNNEL_ID=$(echo "$OUTPUT" | grep -oE '[a-f0-9-]{36}' | head -1)
+
+        echo "url=$URL" >> "$GITHUB_OUTPUT"
+        echo "subdomain=$SUBDOMAIN" >> "$GITHUB_OUTPUT"
+        echo "tunnel_id=$TUNNEL_ID" >> "$GITHUB_OUTPUT"
+
+        if [ -z "$URL" ]; then
+          echo "::error::Failed to parse tunnel URL from output"
+          exit 1
+        fi
+
+        echo "::notice::Tunnel created: $URL"
+
+    - name: Comment on PR
+      if: inputs.comment-on-pr == 'true' && github.event_name == 'pull_request'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        URL: ${{ steps.tunnel.outputs.url }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        COMMENT_MARKER="<!-- private-connect-preview -->"
+        BODY="${COMMENT_MARKER}
+        **Preview** $URL
+
+        Tunnel expires in \`${{ inputs.ttl }}\`. Created by [Private Connect](https://privateconnect.co)."
+
+        # Update existing comment or create new one
+        EXISTING=$(gh api repos/${{ github.repository }}/issues/${PR_NUMBER}/comments \
+          --jq ".[] | select(.body | contains(\"${COMMENT_MARKER}\")) | .id" 2>/dev/null | head -1)
+
+        if [ -n "$EXISTING" ]; then
+          gh api repos/${{ github.repository }}/issues/comments/${EXISTING} \
+            -X PATCH -f body="$BODY"
+        else
+          gh api repos/${{ github.repository }}/issues/${PR_NUMBER}/comments \
+            -f body="$BODY"
+        fi

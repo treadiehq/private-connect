@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as readline from 'readline';
-import { spawn } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import chalk from 'chalk';
 import { loadConfig, getConfigDir } from '../config';
 import { loadPolicy, evaluateFileWrite, evaluateCommand } from '../broker/policy';
@@ -103,18 +103,14 @@ export async function mcpServeCommand(options: McpOptions) {
       },
     },
     {
-      name: 'reach_service',
-      description: 'Connect to a service and create a local tunnel. Returns the local port where the service is accessible.',
+      name: 'get_service_status',
+      description: 'Check if a service is online and get its tunnel port. Does NOT establish a tunnel — use "connect reach <name>" in the terminal to create one.',
       inputSchema: {
         type: 'object',
         properties: {
           service: {
             type: 'string',
-            description: 'Name of the service to connect to',
-          },
-          port: {
-            type: 'number',
-            description: 'Local port to use (optional, auto-selected if not provided)',
+            description: 'Name of the service to check',
           },
         },
         required: ['service'],
@@ -132,42 +128,6 @@ export async function mcpServeCommand(options: McpOptions) {
           },
         },
         required: ['service'],
-      },
-    },
-    {
-      name: 'expose_service',
-      description: 'Expose a local service to the Private Connect network, making it accessible to teammates.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          target: {
-            type: 'string',
-            description: 'Target to expose (e.g., "localhost:3000" or "192.168.1.10:8080")',
-          },
-          name: {
-            type: 'string',
-            description: 'Name for the exposed service',
-          },
-        },
-        required: ['target', 'name'],
-      },
-    },
-    {
-      name: 'share_environment',
-      description: 'Create a share code that allows teammates to connect to your current environment with one command.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          name: {
-            type: 'string',
-            description: 'Friendly name for the share (optional)',
-          },
-          expires: {
-            type: 'string',
-            description: 'Expiration duration (e.g., "1h", "24h", "7d")',
-            default: '24h',
-          },
-        },
       },
     },
     {
@@ -397,43 +357,6 @@ export async function mcpServeCommand(options: McpOptions) {
         required: ['capability'],
       },
     },
-    {
-      name: 'create_session',
-      description: 'Create an ephemeral orchestration session. Useful for coordinating multi-agent workflows with automatic cleanup.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          name: {
-            type: 'string',
-            description: 'Session name/identifier',
-          },
-          ttlMinutes: {
-            type: 'number',
-            description: 'Session time-to-live in minutes (default: 60)',
-            default: 60,
-          },
-          metadata: {
-            type: 'object',
-            description: 'Optional metadata to attach to the session',
-          },
-        },
-        required: ['name'],
-      },
-    },
-    {
-      name: 'end_session',
-      description: 'End an ephemeral orchestration session and clean up resources.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          sessionId: {
-            type: 'string',
-            description: 'Session ID to end',
-          },
-        },
-        required: ['sessionId'],
-      },
-    },
   ];
 
   // Resource definitions
@@ -555,29 +478,29 @@ export async function mcpServeCommand(options: McpOptions) {
           break;
         }
 
-        case 'reach_service': {
+        case 'get_service_status': {
           const serviceName = args.service as string;
-          const localPort = args.port as number | undefined;
-          
+
           const services = await refreshServices();
           const service = services.find(s => s.name.toLowerCase() === serviceName.toLowerCase());
-          
+
           if (!service) {
             throw new Error(`Service "${serviceName}" not found`);
           }
-          
-          if (!service.tunnelPort) {
-            throw new Error(`Service "${serviceName}" is offline`);
-          }
-          
-          const port = localPort || service.targetPort;
-          
+
+          const isOnline = !!service.tunnelPort;
+
           result = {
             service: serviceName,
-            localHost: 'localhost',
-            localPort: port,
-            status: 'connected',
-            usage: `Connect to localhost:${port} to access ${serviceName}`,
+            status: isOnline ? 'online' : 'offline',
+            tunnelPort: service.tunnelPort || null,
+            targetHost: service.targetHost,
+            targetPort: service.targetPort,
+            protocol: service.protocol,
+            agent: service.agentLabel,
+            hint: isOnline
+              ? `Service is online. If you need a local tunnel, run: connect reach ${serviceName}`
+              : `Service is offline. The agent exposing it may not be running.`,
           };
           break;
         }
@@ -603,43 +526,6 @@ export async function mcpServeCommand(options: McpOptions) {
             },
             agent: service.agentLabel,
             targetPort: service.targetPort,
-          };
-          break;
-        }
-
-        case 'expose_service': {
-          const target = args.target as string;
-          const serviceName = args.name as string;
-          
-          // Parse target
-          const [host, portStr] = target.includes(':') ? target.split(':') : ['localhost', target];
-          const port = parseInt(portStr, 10);
-          
-          if (isNaN(port)) {
-            throw new Error('Invalid target format. Use "host:port" or just "port"');
-          }
-          
-          result = {
-            status: 'exposed',
-            name: serviceName,
-            target: `${host}:${port}`,
-            message: `Service "${serviceName}" is now exposed. Others can reach it with: connect reach ${serviceName}`,
-          };
-          break;
-        }
-
-        case 'share_environment': {
-          const shareName = args.name as string | undefined;
-          const expires = (args.expires as string) || '24h';
-          
-          // Generate a simple share code
-          const code = Math.random().toString(36).substring(2, 8);
-          
-          result = {
-            shareCode: code,
-            name: shareName || 'Unnamed share',
-            expires,
-            usage: `Share this code with teammates: connect join ${code}`,
           };
           break;
         }
@@ -801,34 +687,41 @@ export async function mcpServeCommand(options: McpOptions) {
               rule: evaluation.rule?.command,
             };
           } else {
-            // Allow - run the command
             try {
-              const { execSync } = require('child_process');
-              const output = execSync(command, {
+              const proc = spawnSync('sh', ['-c', command], {
                 cwd: cmdWorkingDir,
                 encoding: 'utf-8',
                 timeout: 30000,
                 maxBuffer: 1024 * 1024,
+                shell: false,
               });
-              
+
               logCommand(command, 'allow', {
                 agent: 'mcp',
                 rule: evaluation.rule?.command,
                 workingDir: cmdWorkingDir,
               });
-              
-              result = {
-                success: true,
-                action: 'allow',
-                output: output.trim(),
-              };
+
+              if (proc.status === 0) {
+                result = {
+                  success: true,
+                  action: 'allow',
+                  output: (proc.stdout || '').trim(),
+                };
+              } else {
+                result = {
+                  success: false,
+                  action: 'error',
+                  exitCode: proc.status,
+                  stderr: (proc.stderr || '').trim(),
+                  reason: `Command exited with code ${proc.status}`,
+                };
+              }
             } catch (err) {
-              const error = err as { status?: number; stderr?: string; message: string };
+              const error = err as { message: string };
               result = {
                 success: false,
                 action: 'error',
-                exitCode: error.status,
-                stderr: error.stderr,
                 reason: error.message,
               };
             }
@@ -1135,87 +1028,6 @@ export async function mcpServeCommand(options: McpOptions) {
           break;
         }
 
-        case 'create_session': {
-          const sessionName = args.name as string;
-          const ttlMinutes = (args.ttlMinutes as number) || 60;
-          const metadata = args.metadata as Record<string, unknown> | undefined;
-          
-          // Create a local session tracker
-          const sessionId = `${agentId}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-          const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
-          
-          // Store session info (in practice, this would be persisted)
-          const session = {
-            id: sessionId,
-            name: sessionName,
-            createdBy: agentId,
-            createdAt: new Date().toISOString(),
-            expiresAt: expiresAt.toISOString(),
-            metadata,
-          };
-          
-          // Broadcast session creation to other agents
-          try {
-            await fetch(`${hubUrl}/v1/agents/${agentId}/messages/broadcast`, {
-              method: 'POST',
-              headers: {
-                'x-api-key': apiKey,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                payload: {
-                  type: 'session:created',
-                  session,
-                },
-                channel: 'orchestration',
-              }),
-            });
-          } catch {
-            // Non-critical, continue
-          }
-          
-          result = {
-            success: true,
-            session,
-            message: `Session "${sessionName}" created. It will expire in ${ttlMinutes} minutes.`,
-            usage: 'Use session ID to coordinate with other agents. Call end_session when done.',
-          };
-          break;
-        }
-
-        case 'end_session': {
-          const sessionId = args.sessionId as string;
-          
-          // Broadcast session end to other agents
-          try {
-            await fetch(`${hubUrl}/v1/agents/${agentId}/messages/broadcast`, {
-              method: 'POST',
-              headers: {
-                'x-api-key': apiKey,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                payload: {
-                  type: 'session:ended',
-                  sessionId,
-                  endedBy: agentId,
-                  endedAt: new Date().toISOString(),
-                },
-                channel: 'orchestration',
-              }),
-            });
-          } catch {
-            // Non-critical
-          }
-          
-          result = {
-            success: true,
-            sessionId,
-            message: 'Session ended. All participating agents have been notified.',
-          };
-          break;
-        }
-
         default:
           throw new Error(`Unknown tool: ${name}`);
       }
@@ -1376,17 +1188,16 @@ export async function mcpSetupCommand(options: McpOptions) {
   // Usage examples
   console.log(chalk.white('  ─── What AI can do ───\n'));
   console.log(chalk.gray('  Once configured, AI assistants can:'));
-  console.log(chalk.gray('    • List available services'));
-  console.log(chalk.gray('    • Connect to databases and APIs'));
-  console.log(chalk.gray('    • Check service health'));
-  console.log(chalk.gray('    • Share environments with teammates'));
+  console.log(chalk.gray('    • List and check service status'));
+  console.log(chalk.gray('    • Get connection strings for databases and APIs'));
+  console.log(chalk.gray('    • Discover and message other agents'));
+  console.log(chalk.gray('    • Run policy-checked commands via the broker'));
   console.log();
   
   console.log(chalk.white('  Example prompts:\n'));
   console.log(chalk.cyan('    "List all my connected services"'));
-  console.log(chalk.cyan('    "Connect to the staging database"'));
-  console.log(chalk.cyan('    "Check if the user-service is healthy"'));
-  console.log(chalk.cyan('    "Share my current environment for 24 hours"'));
+  console.log(chalk.cyan('    "Get the connection string for staging-db"'));
+  console.log(chalk.cyan('    "Check if the user-service is online"'));
   console.log();
 }
 

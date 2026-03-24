@@ -71,6 +71,21 @@ interface PendingHttpRequest {
   timeout: NodeJS.Timeout;
 }
 
+interface SqlQueryResult {
+  success: boolean;
+  rows?: Record<string, unknown>[];
+  fields?: Array<{ name: string; dataTypeID?: number }>;
+  rowCount?: number;
+  error?: string;
+}
+
+interface PendingSqlQuery {
+  agentId: string;
+  resolve: (result: SqlQueryResult) => void;
+  reject: (error: Error) => void;
+  timeout: NodeJS.Timeout;
+}
+
 interface PendingChunkedResponse {
   agentId: string;
   status: number;
@@ -90,9 +105,9 @@ export class TunnelService {
   private agentBridges = new Map<string, AgentBridge>();
   private pendingHttpRequests = new Map<string, PendingHttpRequest>();
   private pendingChunkedResponses = new Map<string, PendingChunkedResponse>();
-  
-  // Track which connections have debug sessions
-  private connectionDebugSessions = new Map<string, string>(); // connectionId -> sessionId
+  private pendingSqlQueries = new Map<string, PendingSqlQuery>();
+
+  private connectionDebugSessions = new Map<string, string>();
 
   constructor(
     private prisma: PrismaService,
@@ -168,6 +183,13 @@ export class TunnelService {
           clearTimeout(pending.timeout);
           pending.reject(new Error('Agent reconnecting'));
           this.pendingHttpRequests.delete(requestId);
+        }
+      }
+      for (const [requestId, pending] of this.pendingSqlQueries.entries()) {
+        if (pending.agentId === agentId) {
+          clearTimeout(pending.timeout);
+          pending.reject(new Error('Agent reconnecting'));
+          this.pendingSqlQueries.delete(requestId);
         }
       }
       for (const [requestId, pending] of this.pendingChunkedResponses.entries()) {
@@ -885,6 +907,61 @@ export class TunnelService {
         body: bodyBuffer,
       });
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // SQL Query Forwarding
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  async forwardSqlQuery(
+    agentId: string,
+    serviceId: string,
+    query: { sql: string; params?: unknown[]; protocol?: string },
+  ): Promise<SqlQueryResult> {
+    const agent = this.agents.get(agentId);
+    if (!agent || !agent.socket?.connected) {
+      throw new Error('Agent not connected');
+    }
+
+    const requestId = uuidv4();
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.pendingSqlQueries.delete(requestId);
+        reject(new Error('Query timeout'));
+      }, 35000);
+
+      this.pendingSqlQueries.set(requestId, { agentId, resolve, reject, timeout });
+
+      agent.socket.timeout(5000).emit('sql_query', {
+        requestId,
+        serviceId,
+        sql: query.sql,
+        params: query.params,
+        protocol: query.protocol,
+      }, (err: Error | null) => {
+        if (err) {
+          const pending = this.pendingSqlQueries.get(requestId);
+          if (pending) {
+            clearTimeout(pending.timeout);
+            this.pendingSqlQueries.delete(requestId);
+            reject(new Error('Agent did not acknowledge query'));
+          }
+        }
+      });
+    });
+  }
+
+  handleSqlResponse(requestId: string, agentId: string, result: SqlQueryResult): void {
+    const pending = this.pendingSqlQueries.get(requestId);
+    if (!pending) return;
+    if (pending.agentId !== agentId) {
+      this.logger.warn(`Agent ${agentId} sent sql_response for query ${requestId} belonging to ${pending.agentId}`);
+      return;
+    }
+    clearTimeout(pending.timeout);
+    this.pendingSqlQueries.delete(requestId);
+    pending.resolve(result);
   }
 
   handleHttpResponseStart(

@@ -373,6 +373,117 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
     }
   });
 
+  // Handle SQL queries forwarded through WebSocket
+  const DB_PORTS: Record<number, string> = { 5432: 'postgres', 3306: 'mysql' };
+  const detectedDbProtocol = (['postgres', 'mysql'].includes(options.protocol) ? options.protocol : null) || DB_PORTS[port] || null;
+
+  if (detectedDbProtocol === 'postgres' || detectedDbProtocol === 'mysql') {
+    const SQL_MAX_ROWS = 1000;
+    const SQL_QUERY_TIMEOUT_MS = 30_000;
+
+    socket.on('sql_query', async (data: {
+      requestId: string;
+      serviceId: string;
+      sql: string;
+      params?: any[];
+      protocol?: string;
+    }, ack?: (resp: { received: boolean }) => void) => {
+      if (ack) ack({ received: true });
+
+      const dbProtocol = data.protocol || detectedDbProtocol;
+
+      try {
+        if (dbProtocol === 'postgres') {
+          let PgClient: any;
+          try {
+            const pg = await import('pg');
+            PgClient = pg.Client ?? (pg as any).default?.Client;
+          } catch {
+            socket.emit('sql_response', {
+              requestId: data.requestId,
+              success: false,
+              error: 'pg package is not installed. Run: npm install pg',
+            });
+            return;
+          }
+
+          const client = new PgClient({
+            host,
+            port,
+            statement_timeout: SQL_QUERY_TIMEOUT_MS,
+          });
+
+          try {
+            await client.connect();
+            const result = data.params
+              ? await client.query(data.sql, data.params)
+              : await client.query(data.sql);
+
+            const rows = Array.isArray(result.rows) ? result.rows.slice(0, SQL_MAX_ROWS) : [];
+            socket.emit('sql_response', {
+              requestId: data.requestId,
+              success: true,
+              rows,
+              fields: (result.fields || []).map((f: any) => ({ name: f.name, dataTypeID: f.dataTypeID })),
+              rowCount: result.rowCount,
+            });
+          } finally {
+            await client.end().catch(() => {});
+          }
+        } else if (dbProtocol === 'mysql') {
+          let mysql2: any;
+          try {
+            mysql2 = await import('mysql2/promise');
+          } catch {
+            socket.emit('sql_response', {
+              requestId: data.requestId,
+              success: false,
+              error: 'mysql2 package is not installed. Run: npm install mysql2',
+            });
+            return;
+          }
+
+          const createConn = mysql2.createConnection ?? mysql2.default?.createConnection;
+          const connection = await createConn({
+            host,
+            port,
+            connectTimeout: SQL_QUERY_TIMEOUT_MS,
+          });
+
+          try {
+            const [rows, fields] = data.params
+              ? await connection.execute({ sql: data.sql, timeout: SQL_QUERY_TIMEOUT_MS }, data.params)
+              : await connection.execute({ sql: data.sql, timeout: SQL_QUERY_TIMEOUT_MS });
+
+            const resultRows = Array.isArray(rows) ? rows.slice(0, SQL_MAX_ROWS) : [];
+            socket.emit('sql_response', {
+              requestId: data.requestId,
+              success: true,
+              rows: resultRows,
+              fields: (fields || []).map((f: any) => ({ name: f.name, dataTypeID: f.columnType })),
+              rowCount: Array.isArray(rows) ? rows.length : 0,
+            });
+          } finally {
+            await connection.end().catch(() => {});
+          }
+        } else {
+          socket.emit('sql_response', {
+            requestId: data.requestId,
+            success: false,
+            error: `Unsupported database protocol: ${dbProtocol}`,
+          });
+        }
+      } catch (err: unknown) {
+        const error = err as Error;
+        socket.emit('sql_response', {
+          requestId: data.requestId,
+          success: false,
+          error: error.message,
+        });
+      }
+    });
+  }
+
   // Handle dial requests
   const net = await import('net');
   interface ExposeConn {

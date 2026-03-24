@@ -274,6 +274,31 @@ export class TunnelGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
+  // SQL Query Events
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  @SubscribeMessage('sql_response')
+  handleSqlResponse(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: {
+      requestId: string;
+      success: boolean;
+      rows?: Record<string, unknown>[];
+      fields?: Array<{ name: string; dataTypeID?: number }>;
+      rowCount?: number;
+      error?: string;
+    },
+  ) {
+    const agentId = this.socketToAgent.get(client.id);
+    if (!agentId) {
+      this.logger.warn('SQL response from unregistered socket');
+      return;
+    }
+
+    this.tunnelService.handleSqlResponse(data.requestId, agentId, data);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
   // UDP Tunnel Events
   // ─────────────────────────────────────────────────────────────────────────────
 

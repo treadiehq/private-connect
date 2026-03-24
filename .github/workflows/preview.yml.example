@@ -1,0 +1,48 @@
+# Example: PR preview environment using Private Connect
+#
+# Copy this to .github/workflows/preview.yml in your project.
+# Set PRIVATE_CONNECT_KEY in your repository secrets.
+#
+# For every pull request, this will:
+#   1. Build and start your app
+#   2. Create a secure tunnel with a public URL
+#   3. Post the preview URL as a PR comment
+
+name: PR Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup and build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Start app in background
+        run: npm start &
+
+      - name: Wait for app to be ready
+        run: |
+          for i in $(seq 1 30); do
+            curl -s http://localhost:3000/health && break || sleep 1
+          done
+
+      - name: Create preview tunnel
+        uses: treadiehq/private-connect/.github/actions/tunnel@main
+        id: tunnel
+        with:
+          api-key: ${{ secrets.PRIVATE_CONNECT_KEY }}
+          port: 3000
+          name: pr-${{ github.event.pull_request.number }}
+          ttl: 2h
+          comment-on-pr: 'true'
+
+      - name: Use the preview URL
+        run: echo "Preview is live at ${{ steps.tunnel.outputs.url }}"
