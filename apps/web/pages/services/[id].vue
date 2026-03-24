@@ -478,6 +478,23 @@
         </div>
       </div>
 
+      <!-- Agent Grants -->
+      <GrantPanel
+        :grants="grants"
+        :loading="grantsLoading"
+        @create="showGrantModal = true"
+        @revoked="handleGrantRevoked"
+      />
+
+      <!-- Grant Modal -->
+      <GrantModal
+        :is-open="showGrantModal"
+        :service-id="service.id"
+        :service-name="service.name"
+        @close="showGrantModal = false"
+        @created="handleGrantCreated"
+      />
+
       <!-- Latest Diagnostic -->
       <div v-if="latestDiagnostic" class="bg-gray-500/5 border border-gray-500/10 rounded-xl p-6">
         <div class="flex items-center justify-between mb-6">
@@ -606,14 +623,14 @@
 </template>
 
 <script setup lang="ts">
-import type { Service, DiagnosticResult, Agent } from '~/types';
+import type { Service, DiagnosticResult, Agent, Grant } from '~/types';
 
 definePageMeta({
   middleware: 'auth',
 });
 
 const route = useRoute();
-const { fetchService, fetchServiceDiagnostics, fetchOnlineAgents, runCheck, runReachCheck, checkSubdomain: apiCheckSubdomain, setSubdomain: apiSetSubdomain, updateService: apiUpdateService } = useApi();
+const { fetchService, fetchServiceDiagnostics, fetchOnlineAgents, runCheck, runReachCheck, checkSubdomain: apiCheckSubdomain, setSubdomain: apiSetSubdomain, updateService: apiUpdateService, fetchServiceGrants } = useApi();
 const { connect } = useSocket();
 const { success, error: showError } = useToast();
 
@@ -624,6 +641,9 @@ const loading = ref(true);
 const checking = ref(false);
 const showAgentDropdown = ref(false);
 const showShareModal = ref(false);
+const showGrantModal = ref(false);
+const grants = ref<Grant[]>([]);
+const grantsLoading = ref(true);
 
 // Subdomain modal state
 const showSubdomainModal = ref(false);
@@ -724,6 +744,11 @@ onMounted(async () => {
     loading.value = false;
   }
 
+  fetchServiceGrants(route.params.id as string)
+    .then(data => { grants.value = data.grants; })
+    .catch(() => {})
+    .finally(() => { grantsLoading.value = false; });
+
   // Connect to realtime updates
   const socket = connect();
   
@@ -767,6 +792,16 @@ const handleCheck = async () => {
 
 const handleShareCreated = () => {
   success('Share link created!');
+};
+
+const handleGrantCreated = () => {
+  fetchServiceGrants(route.params.id as string)
+    .then(data => { grants.value = data.grants; })
+    .catch(() => {});
+};
+
+const handleGrantRevoked = (grantId: string) => {
+  grants.value = grants.value.filter(g => g.id !== grantId);
 };
 
 const handleReachCheck = async (agentId: string) => {

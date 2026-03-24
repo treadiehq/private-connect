@@ -140,6 +140,10 @@ export class ProxyController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
+    const startTime = Date.now();
+    const clientIp = req.ip || req.headers['x-forwarded-for']?.toString().split(',')[0] || 'unknown';
+    const userAgent = req.headers['user-agent'] || undefined;
+
     const authHeader = req.headers['authorization'];
     const tokenFromHeader = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
     const tokenFromQuery = req.query['token'] as string | undefined;
@@ -161,6 +165,7 @@ export class ProxyController {
     }
 
     if (grant.resourceName !== resource) {
+      this.grantsService.logAccess({ grantId: grant.id, requestType: 'db_query', requestSummary: `resource mismatch: ${resource}`, responseStatus: '403', allowed: false, ipAddress: clientIp, userAgent });
       return res.status(403).json({
         error: 'Resource mismatch',
         message: `This grant is for "${grant.resourceName}", not "${resource}".`,
@@ -168,6 +173,7 @@ export class ProxyController {
     }
 
     if (grant.resourceType !== 'db') {
+      this.grantsService.logAccess({ grantId: grant.id, requestType: 'db_query', requestSummary: `wrong resource type: ${grant.resourceType}`, responseStatus: '403', allowed: false, ipAddress: clientIp, userAgent });
       return res.status(403).json({
         error: 'Wrong resource type',
         message: `The /query endpoint is for database grants (resourceType: db). This grant is type "${grant.resourceType}".`,
@@ -182,13 +188,13 @@ export class ProxyController {
     }
 
     if (!grant.service.agentId || !this.tunnelService.isAgentConnected(grant.service.agentId)) {
+      this.grantsService.logAccess({ grantId: grant.id, requestType: 'db_query', responseStatus: '503', allowed: false, ipAddress: clientIp, userAgent });
       return res.status(503).json({
         error: 'Service unavailable',
         message: 'The agent exposing this service is currently offline.',
       });
     }
 
-    // Parse request body
     let body: { sql?: string; params?: unknown[] };
     try {
       const rawBody = await this.getRequestBody(req);
@@ -204,12 +210,12 @@ export class ProxyController {
       });
     }
 
-    // Enforce read-only scope: only allow read statements
     if (grant.scope === 'read-only') {
       const normalized = body.sql.trim().toUpperCase();
       const readOnlyPrefixes = ['SELECT', 'SHOW', 'DESCRIBE', 'DESC', 'EXPLAIN', 'WITH'];
       const isReadOnly = readOnlyPrefixes.some(p => normalized.startsWith(p));
       if (!isReadOnly) {
+        this.grantsService.logAccess({ grantId: grant.id, requestType: 'db_query', requestSummary: body.sql, responseStatus: '403', allowed: false, ipAddress: clientIp, userAgent, latencyMs: Date.now() - startTime });
         return res.status(403).json({
           error: 'Read-only grant',
           message: 'This grant only allows SELECT, SHOW, DESCRIBE, and EXPLAIN queries.',
@@ -228,16 +234,23 @@ export class ProxyController {
         },
       );
 
+      const latencyMs = Date.now() - startTime;
+
       if (!result.success) {
+        this.grantsService.logAccess({ grantId: grant.id, requestType: 'db_query', requestSummary: body.sql, responseStatus: 'query_error', allowed: true, ipAddress: clientIp, userAgent, latencyMs });
         return res.status(400).json({
           error: 'Query failed',
           message: result.error || 'Unknown database error',
         });
       }
 
+      this.grantsService.logAccess({ grantId: grant.id, requestType: 'db_query', requestSummary: body.sql, responseStatus: '200', allowed: true, ipAddress: clientIp, userAgent, latencyMs });
+
       res.setHeader('X-Grant-Agent', grant.agentLabel);
       res.setHeader('X-Grant-Scope', grant.scope);
-      res.setHeader('X-Grant-Expires', grant.expiresAt.toISOString());
+      if (grant.expiresAt) {
+        res.setHeader('X-Grant-Expires', grant.expiresAt.toISOString());
+      }
 
       return res.status(200).json({
         rows: result.rows,
@@ -246,7 +259,9 @@ export class ProxyController {
       });
     } catch (error) {
       const err = error as Error;
+      const latencyMs = Date.now() - startTime;
       this.logger.error(`Grant SQL query error for ${resource}: ${err.message}`);
+      this.grantsService.logAccess({ grantId: grant.id, requestType: 'db_query', requestSummary: body.sql, responseStatus: 'error', allowed: true, ipAddress: clientIp, userAgent, latencyMs });
 
       if (err.message === 'Agent not connected' || err.message === 'Agent did not acknowledge query') {
         return res.status(503).json({ error: 'Service unavailable', message: 'Agent is offline.' });
@@ -311,7 +326,10 @@ export class ProxyController {
     req: Request,
     res: Response,
   ) {
-    // Extract grant token from Authorization header or query param
+    const startTime = Date.now();
+    const clientIp = req.ip || req.headers['x-forwarded-for']?.toString().split(',')[0] || 'unknown';
+    const userAgent = req.headers['user-agent'] || undefined;
+
     const authHeader = req.headers['authorization'];
     const tokenFromHeader = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
     const tokenFromQuery = req.query['token'] as string | undefined;
@@ -333,7 +351,10 @@ export class ProxyController {
       });
     }
 
+    const requestSummary = `${req.method} ${targetPath || '/'}`;
+
     if (grant.resourceName !== resource) {
+      this.grantsService.logAccess({ grantId: grant.id, requestType: 'api_call', requestSummary, responseStatus: '403', allowed: false, ipAddress: clientIp, userAgent });
       return res.status(403).json({
         error: 'Resource mismatch',
         message: `This grant is for "${grant.resourceName}", not "${resource}".`,
@@ -348,16 +369,17 @@ export class ProxyController {
     }
 
     if (!grant.service.agentId || !this.tunnelService.isAgentConnected(grant.service.agentId)) {
+      this.grantsService.logAccess({ grantId: grant.id, requestType: 'api_call', requestSummary, responseStatus: '503', allowed: false, ipAddress: clientIp, userAgent });
       return res.status(503).json({
         error: 'Service unavailable',
         message: 'The agent exposing this service is currently offline.',
       });
     }
 
-    // Enforce read-only scope for HTTP (block mutating methods)
     if (grant.scope === 'read-only') {
       const readOnlyMethods = ['GET', 'HEAD', 'OPTIONS'];
       if (!readOnlyMethods.includes(req.method.toUpperCase())) {
+        this.grantsService.logAccess({ grantId: grant.id, requestType: 'api_call', requestSummary, responseStatus: '403', allowed: false, ipAddress: clientIp, userAgent, latencyMs: Date.now() - startTime });
         return res.status(403).json({
           error: 'Read-only grant',
           message: `This grant is read-only. ${req.method} is not allowed.`,
@@ -365,7 +387,6 @@ export class ProxyController {
       }
     }
 
-    // Proxy to the service (same as public proxy path)
     try {
       const requestBody = await this.getRequestBody(req);
       const queryString = req.url.includes('?') ? '?' + req.url.split('?').slice(1).join('?').replace(/[&?]token=[^&]*/, '') : '';
@@ -383,6 +404,9 @@ export class ProxyController {
         },
       );
 
+      const latencyMs = Date.now() - startTime;
+      this.grantsService.logAccess({ grantId: grant.id, requestType: 'api_call', requestSummary, responseStatus: String(response.status), allowed: true, ipAddress: clientIp, userAgent, latencyMs });
+
       for (const [key, value] of Object.entries(response.headers)) {
         if (value && !['transfer-encoding', 'connection', 'content-length'].includes(key.toLowerCase())) {
           res.setHeader(key, value);
@@ -391,7 +415,9 @@ export class ProxyController {
 
       res.setHeader('X-Grant-Agent', grant.agentLabel);
       res.setHeader('X-Grant-Scope', grant.scope);
-      res.setHeader('X-Grant-Expires', grant.expiresAt.toISOString());
+      if (grant.expiresAt) {
+        res.setHeader('X-Grant-Expires', grant.expiresAt.toISOString());
+      }
 
       const contentType = response.headers['content-type'] || '';
       if (contentType.includes('text/html')) {
@@ -401,7 +427,9 @@ export class ProxyController {
       }
     } catch (error) {
       const err = error as Error;
+      const latencyMs = Date.now() - startTime;
       this.logger.error(`Grant proxy error for ${resource}: ${err.message}`);
+      this.grantsService.logAccess({ grantId: grant.id, requestType: 'api_call', requestSummary, responseStatus: 'error', allowed: true, ipAddress: clientIp, userAgent, latencyMs });
 
       if (err.message === 'Agent not connected') {
         return res.status(503).json({ error: 'Service unavailable', message: 'Agent is offline.' });

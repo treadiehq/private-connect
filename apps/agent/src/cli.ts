@@ -629,15 +629,16 @@ program
     await brokerCommand(action, args, options);
   });
 
-// Grant Commands - Temporary AI agent access
+// Grant Commands - AI agent access (time-limited or persistent)
 program
   .command('grant [agent]')
-  .description('Grant an AI agent temporary access to a private resource')
+  .description('Grant an AI agent scoped access to a private resource')
   .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('--db <name>', 'Database resource name (e.g., postgres)')
   .option('--api <name>', 'API resource name (e.g., staging)')
   .option('--path <path>', 'File path resource')
-  .option('--ttl <duration>', 'Time to live: 60s, 5m, 1h, 1d (default: 5m)', '5m')
+  .option('--ttl <duration>', 'Time to live: 60s, 5m, 1h, 1d (default: 5m)')
+  .option('--persistent', 'Grant never expires (revoke manually)')
   .option('--scope <scope>', 'Access scope: read-only, full (default: read-only)', 'read-only')
   .option('-l, --list', 'List active grants')
   .option('-r, --revoke <id>', 'Revoke a grant by ID')

@@ -95,8 +95,10 @@ export interface Grant {
   resourceType: string;
   resourceName: string;
   scope: string;
-  expiresAt: string;
-  expiresInMinutes?: number;
+  tokenPrefix?: string;
+  persistent: boolean;
+  expiresAt: string | null;
+  expiresInMinutes?: number | null;
   token?: string;
   endpoint?: string;
 }
@@ -106,8 +108,8 @@ export interface GrantCreateOptions {
   resourceType: 'db' | 'api' | 'path';
   resourceName: string;
   scope?: 'read-only' | 'full';
-  /** Duration string: 60s, 5m, 1h, 1d */
-  ttl: string;
+  /** Duration string: 60s, 5m, 1h, 1d. Omit for persistent grant. */
+  ttl?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -397,7 +399,7 @@ export class PrivateConnect {
   /** Services API for connecting to services */
   public services: ServicesAPI;
 
-  /** Grants API for managing time-limited access tokens */
+  /** Grants API for managing scoped access tokens (time-limited or persistent) */
   public grants: GrantsAPI;
 
   constructor(config: PrivateConnectConfig) {

@@ -66,6 +66,33 @@ export interface HttpDetails {
   error?: string;
 }
 
+export interface Grant {
+  id: string;
+  agentLabel: string;
+  resourceType: string;
+  resourceName: string;
+  scope: string;
+  tokenPrefix: string;
+  persistent: boolean;
+  expiresAt: string | null;
+  expired: boolean;
+  endpoint: string;
+  service: { id: string; name: string } | null;
+  accessLogCount: number;
+  createdAt: string;
+}
+
+export interface GrantAccessLog {
+  id: string;
+  requestType: string;
+  requestSummary: string | null;
+  responseStatus: string | null;
+  allowed: boolean;
+  ipAddress: string | null;
+  latencyMs: number | null;
+  createdAt: string;
+}
+
 export interface DiagnosticResult {
   id: string;
   serviceId: string;

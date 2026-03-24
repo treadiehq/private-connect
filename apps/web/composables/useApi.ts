@@ -190,6 +190,48 @@ export function useApi() {
     return response.json();
   };
 
+  // Grants API
+  const fetchServiceGrants = async (serviceId: string) => {
+    const response = await fetch(`${baseUrl}/v1/grants?serviceId=${serviceId}`, fetchOptions());
+    if (!response.ok) throw new Error('Failed to fetch grants');
+    return response.json();
+  };
+
+  const createGrant = async (data: {
+    agentLabel: string;
+    resourceType: string;
+    resourceName: string;
+    scope?: string;
+    ttl?: string;
+  }) => {
+    const response = await fetch(`${baseUrl}/v1/grants`, {
+      method: 'POST',
+      ...fetchOptions(),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to create grant');
+    }
+    return response.json();
+  };
+
+  const revokeGrant = async (grantId: string) => {
+    const response = await fetch(`${baseUrl}/v1/grants/${grantId}`, {
+      method: 'DELETE',
+      ...fetchOptions(),
+    });
+    if (!response.ok) throw new Error('Failed to revoke grant');
+    return response.json();
+  };
+
+  const fetchGrantAccessLogs = async (grantId: string) => {
+    const response = await fetch(`${baseUrl}/v1/grants/${grantId}/logs`, fetchOptions());
+    if (!response.ok) throw new Error('Failed to fetch access logs');
+    return response.json();
+  };
+
   const deleteService = async (serviceId: string) => {
     const response = await fetch(`${baseUrl}/v1/services/${serviceId}`, {
       method: 'DELETE',
@@ -368,6 +410,11 @@ export function useApi() {
     fetchServiceShares,
     revokeShare,
     fetchShareAccessLogs,
+    // Grants
+    fetchServiceGrants,
+    createGrant,
+    revokeGrant,
+    fetchGrantAccessLogs,
     // Service management
     deleteService,
     checkSubdomain,

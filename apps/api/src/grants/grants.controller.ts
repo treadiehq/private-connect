@@ -27,7 +27,7 @@ const CreateGrantSchema = z.object({
   resourceType: z.enum(['db', 'api', 'path']),
   resourceName: z.string().min(1).max(200),
   scope: z.enum(['read-only', 'full']).optional(),
-  ttl: z.string().min(1).max(10),
+  ttl: z.string().min(1).max(10).optional(),
 });
 
 @ApiTags('Grants')
@@ -40,18 +40,18 @@ export class GrantsController {
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Create grant',
-    description: 'Create a time-limited, scoped access grant for an AI agent to a private resource.',
+    description: 'Create a scoped access grant for an AI agent. Omit ttl for a persistent grant that never expires.',
   })
   @ApiBody({
     schema: {
       type: 'object',
-      required: ['agentLabel', 'resourceType', 'resourceName', 'ttl'],
+      required: ['agentLabel', 'resourceType', 'resourceName'],
       properties: {
         agentLabel: { type: 'string', example: 'claude' },
         resourceType: { type: 'string', enum: ['db', 'api', 'path'], example: 'db' },
         resourceName: { type: 'string', example: 'postgres' },
         scope: { type: 'string', enum: ['read-only', 'full'], default: 'read-only' },
-        ttl: { type: 'string', example: '5m', description: 'Duration: 60s, 5m, 1h, 1d' },
+        ttl: { type: 'string', example: '5m', description: 'Duration: 60s, 5m, 1h, 1d. Omit for persistent.' },
       },
     },
   })
@@ -66,11 +66,13 @@ export class GrantsController {
 
     const { agentLabel, resourceType, resourceName, scope, ttl } = parsed.data;
 
-    let ttlSeconds: number;
-    try {
-      ttlSeconds = parseTtl(ttl);
-    } catch (err: any) {
-      throw new HttpException(err.message, HttpStatus.BAD_REQUEST);
+    let ttlSeconds: number | undefined;
+    if (ttl) {
+      try {
+        ttlSeconds = parseTtl(ttl);
+      } catch (err: any) {
+        throw new HttpException(err.message, HttpStatus.BAD_REQUEST);
+      }
     }
 
     const grant = await this.grantsService.createGrant({
@@ -83,7 +85,10 @@ export class GrantsController {
     });
 
     const endpoint = `${grant.resourceName}.${GRANT_ENDPOINT_BASE}`;
-    const expiresInMinutes = Math.round((grant.expiresAt.getTime() - Date.now()) / 60000);
+    const persistent = grant.expiresAt === null;
+    const expiresInMinutes = persistent
+      ? null
+      : Math.round((grant.expiresAt!.getTime() - Date.now()) / 60000);
 
     return {
       success: true,
@@ -93,9 +98,11 @@ export class GrantsController {
         resourceType: grant.resourceType,
         resourceName: grant.resourceName,
         scope: grant.scope,
-        expiresAt: grant.expiresAt.toISOString(),
+        persistent,
+        expiresAt: grant.expiresAt?.toISOString() ?? null,
         expiresInMinutes,
-        token: grant.token,
+        token: grant.rawToken,
+        tokenPrefix: grant.tokenPrefix,
         endpoint,
       },
     };
@@ -109,24 +116,27 @@ export class GrantsController {
   async listGrants(
     @Req() req: any,
     @Query('includeExpired') includeExpired?: string,
+    @Query('serviceId') serviceId?: string,
   ) {
-    const grants = await this.grantsService.listGrants(
-      req.workspace.id,
-      includeExpired === 'true',
-    );
+    const grants = serviceId
+      ? await this.grantsService.listGrantsForService(serviceId, includeExpired === 'true')
+      : await this.grantsService.listGrants(req.workspace.id, includeExpired === 'true');
 
     return {
       success: true,
-      grants: grants.map(g => ({
+      grants: grants.map((g: any) => ({
         id: g.id,
         agentLabel: g.agentLabel,
         resourceType: g.resourceType,
         resourceName: g.resourceName,
         scope: g.scope,
-        expiresAt: g.expiresAt.toISOString(),
-        expired: g.expiresAt < new Date(),
+        tokenPrefix: g.tokenPrefix,
+        persistent: g.expiresAt === null,
+        expiresAt: g.expiresAt?.toISOString() ?? null,
+        expired: g.expiresAt ? g.expiresAt < new Date() : false,
         endpoint: `${g.resourceName}.${GRANT_ENDPOINT_BASE}`,
         service: g.service ? { id: g.service.id, name: g.service.name } : null,
+        accessLogCount: g._count?.accessLogs ?? 0,
         createdAt: g.createdAt.toISOString(),
       })),
     };
@@ -177,9 +187,36 @@ export class GrantsController {
         resourceType: grant.resourceType,
         resourceName: grant.resourceName,
         scope: grant.scope,
-        expiresAt: grant.expiresAt.toISOString(),
+        persistent: grant.expiresAt === null,
+        expiresAt: grant.expiresAt?.toISOString() ?? null,
         service: grant.service,
       },
+    };
+  }
+
+  @Get(':id/logs')
+  @UseGuards(CombinedAuthGuard)
+  @ApiSecurity('api-key')
+  @ApiOperation({ summary: 'Get access logs', description: 'Get access logs for a specific grant.' })
+  @ApiResponse({ status: 200, description: 'Access logs' })
+  async getAccessLogs(
+    @Param('id') id: string,
+    @Query('limit') limit?: string,
+  ) {
+    const logs = await this.grantsService.getAccessLogs(id, limit ? parseInt(limit, 10) : 50);
+
+    return {
+      success: true,
+      logs: logs.map(l => ({
+        id: l.id,
+        requestType: l.requestType,
+        requestSummary: l.requestSummary,
+        responseStatus: l.responseStatus,
+        allowed: l.allowed,
+        ipAddress: l.ipAddress,
+        latencyMs: l.latencyMs,
+        createdAt: l.createdAt.toISOString(),
+      })),
     };
   }
 }

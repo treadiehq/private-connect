@@ -1,6 +1,6 @@
 {
   "name": "private-connect",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "Access private services by name from anywhere. No VPN setup, no firewall rules. Open source alternative to ngrok and Tailscale for service-level connectivity.",
   "bin": {
     "private-connect": "dist/index.js"

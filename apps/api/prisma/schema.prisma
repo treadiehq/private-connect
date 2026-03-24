@@ -473,7 +473,7 @@ model DebugAIMessage {
   @@index([sessionId, createdAt])
 }
 
-// Grant: time-limited, scoped access for AI agents to private resources
+// Grant: scoped access for AI agents to private resources (time-limited or persistent)
 model Grant {
   id            String    @id @default(uuid())
   workspaceId   String
@@ -482,17 +482,36 @@ model Grant {
   resourceName  String              // Logical name (e.g., "postgres", "staging")
   serviceId     String?             // Resolved Service FK (null if resource not yet mapped)
   scope         String    @default("read-only") // read-only | full
-  token         String    @unique   // Grant token (secret, given to the AI)
-  expiresAt     DateTime
+  tokenHash     String    @unique   // SHA-256 hash of the grant token (never store plaintext)
+  tokenPrefix   String              // First 12 chars for display (gnt_xxxxxxxx...)
+  expiresAt     DateTime?           // null = persistent (never expires, revoke to remove)
   revokedAt     DateTime?
   createdAt     DateTime  @default(now())
 
   service       Service?  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  accessLogs    GrantAccessLog[]
 
   @@index([workspaceId])
-  @@index([token])
   @@index([expiresAt])
   @@index([serviceId])
+}
+
+// GrantAccessLog: audit trail for grant-based access (DB queries and API calls)
+model GrantAccessLog {
+  id              String   @id @default(uuid())
+  grantId         String
+  requestType     String              // db_query | api_call
+  requestSummary  String?             // Truncated SQL or method+path
+  responseStatus  String?             // e.g., "200", "403", "query_error"
+  allowed         Boolean
+  ipAddress       String?
+  userAgent       String?
+  latencyMs       Int?
+  createdAt       DateTime @default(now())
+
+  grant           Grant    @relation(fields: [grantId], references: [id], onDelete: Cascade)
+
+  @@index([grantId, createdAt(sort: Desc)])
 }
 
 // InstallEvent: track CLI installations for analytics

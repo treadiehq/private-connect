@@ -6,7 +6,8 @@ interface GrantOptions {
   db?: string;
   api?: string;
   path?: string;
-  ttl: string;
+  ttl?: string;
+  persistent?: boolean;
   scope: string;
   config?: string;
   list?: boolean;
@@ -21,9 +22,11 @@ interface GrantResponse {
     resourceType: string;
     resourceName: string;
     scope: string;
-    expiresAt: string;
-    expiresInMinutes: number;
+    persistent: boolean;
+    expiresAt: string | null;
+    expiresInMinutes: number | null;
     token: string;
+    tokenPrefix: string;
     endpoint: string;
   };
   error?: string;
@@ -38,9 +41,12 @@ interface ListGrantsResponse {
     resourceType: string;
     resourceName: string;
     scope: string;
-    expiresAt: string;
+    tokenPrefix: string;
+    persistent: boolean;
+    expiresAt: string | null;
     expired: boolean;
     endpoint: string;
+    accessLogCount: number;
     createdAt: string;
   }>;
 }
@@ -56,11 +62,11 @@ export async function grantCommand(agentLabel: string | undefined, options: Gran
 
   if (!agentLabel) {
     console.error(chalk.red('\n[x] Agent label is required'));
-    console.log(chalk.gray(`  Example: ${chalk.cyan('connect grant claude --db postgres --ttl 5m')}\n`));
+    console.log(chalk.gray(`  Example: ${chalk.cyan('connect grant claude --db postgres --ttl 5m')}`));
+    console.log(chalk.gray(`          ${chalk.cyan('connect grant cursor --db postgres --persistent')}\n`));
     process.exit(1);
   }
 
-  // Determine resource type and name
   let resourceType: string;
   let resourceName: string;
 
@@ -80,6 +86,16 @@ export async function grantCommand(agentLabel: string | undefined, options: Gran
     process.exit(1);
   }
 
+  if (!options.persistent && !options.ttl) {
+    options.ttl = '5m';
+  }
+
+  if (options.persistent && options.ttl) {
+    console.error(chalk.red('\n[x] Cannot use both --ttl and --persistent'));
+    console.log(chalk.gray('  Use --ttl for time-limited or --persistent for never-expiring grants.\n'));
+    process.exit(1);
+  }
+
   const config = loadConfig();
 
   if (!config) {
@@ -91,19 +107,23 @@ export async function grantCommand(agentLabel: string | undefined, options: Gran
   const hubUrl = config.hubUrl || options.hub;
 
   try {
+    const body: Record<string, string> = {
+      agentLabel,
+      resourceType,
+      resourceName,
+      scope: options.scope,
+    };
+    if (options.ttl) {
+      body.ttl = options.ttl;
+    }
+
     const response = await fetch(`${hubUrl}/v1/grants`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': config.apiKey,
       },
-      body: JSON.stringify({
-        agentLabel,
-        resourceType,
-        resourceName,
-        scope: options.scope,
-        ttl: options.ttl,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -125,13 +145,23 @@ export async function grantCommand(agentLabel: string | undefined, options: Gran
     console.log(`  ${chalk.gray('Agent:')}     ${chalk.white(g.agentLabel)}`);
     console.log(`  ${chalk.gray('Resource:')}  ${chalk.white(g.resourceName)} ${chalk.dim(`(${g.resourceType})`)}`);
     console.log(`  ${chalk.gray('Scope:')}     ${chalk.white(g.scope)}`);
-    console.log(`  ${chalk.gray('Expires:')}   ${chalk.white(g.expiresInMinutes + ' minutes')}`);
+
+    if (g.persistent) {
+      console.log(`  ${chalk.gray('Expires:')}   ${chalk.yellow('persistent')} ${chalk.dim('(revoke manually)')}`);
+    } else {
+      console.log(`  ${chalk.gray('Expires:')}   ${chalk.white(g.expiresInMinutes + ' minutes')}`);
+    }
+
     console.log('');
     console.log(`  ${chalk.gray('Endpoint:')}  ${chalk.cyan(g.endpoint)}`);
     console.log(`  ${chalk.gray('Token:')}     ${chalk.yellow(g.token)}`);
     console.log('');
     console.log(chalk.dim('  Give the endpoint and token to the AI agent.'));
-    console.log(chalk.dim(`  Access expires in ${g.expiresInMinutes} minutes.\n`));
+    if (g.persistent) {
+      console.log(chalk.dim(`  This grant never expires. Revoke with: connect grant --revoke ${g.id}\n`));
+    } else {
+      console.log(chalk.dim(`  Access expires in ${g.expiresInMinutes} minutes.\n`));
+    }
   } catch (err: any) {
     if (err.cause?.code === 'ECONNREFUSED') {
       console.error(chalk.red(`\n[x] Cannot connect to hub at ${hubUrl}`));
@@ -175,8 +205,13 @@ async function listGrantsCommand(options: GrantOptions) {
     console.log(chalk.white('\n  Active grants:\n'));
 
     for (const g of data.grants) {
-      const expiresIn = Math.max(0, Math.round((new Date(g.expiresAt).getTime() - Date.now()) / 60000));
-      console.log(`  ${chalk.cyan(g.agentLabel)} → ${chalk.white(g.resourceName)} ${chalk.dim(`(${g.resourceType})`)}  ${chalk.gray(g.scope)}  ${chalk.dim(`expires in ${expiresIn}m`)}  ${chalk.dim(g.id.slice(0, 8))}`);
+      const expiryLabel = g.persistent
+        ? chalk.yellow('persistent')
+        : `${chalk.dim(`expires in ${Math.max(0, Math.round((new Date(g.expiresAt!).getTime() - Date.now()) / 60000))}m`)}`;
+
+      const logCount = g.accessLogCount > 0 ? chalk.dim(` ${g.accessLogCount} requests`) : '';
+
+      console.log(`  ${chalk.cyan(g.agentLabel)} → ${chalk.white(g.resourceName)} ${chalk.dim(`(${g.resourceType})`)}  ${chalk.gray(g.scope)}  ${expiryLabel}${logCount}  ${chalk.dim(g.tokenPrefix + '...')}  ${chalk.dim(g.id.slice(0, 8))}`);
     }
     console.log('');
   } catch (err: any) {

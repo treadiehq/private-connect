@@ -1,7 +1,7 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
-import * as crypto from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 
 const VALID_RESOURCE_TYPES = ['db', 'api', 'path'] as const;
 const VALID_SCOPES = ['read-only', 'full'] as const;
@@ -12,13 +12,17 @@ export type GrantScope = typeof VALID_SCOPES[number];
 const MAX_TTL_SECONDS = 24 * 60 * 60; // 24 hours
 const MIN_TTL_SECONDS = 60; // 1 minute
 
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
 interface CreateGrantOptions {
   workspaceId: string;
   agentLabel: string;
   resourceType: ResourceType;
   resourceName: string;
   scope?: GrantScope;
-  ttlSeconds: number;
+  ttlSeconds?: number; // undefined = persistent
 }
 
 @Injectable()
@@ -29,15 +33,21 @@ export class GrantsService {
   ) {}
 
   private generateToken(): string {
-    return `gnt_${crypto.randomBytes(24).toString('base64url')}`;
+    return `gnt_${randomBytes(24).toString('base64url')}`;
   }
 
   async createGrant(options: CreateGrantOptions) {
-    const ttl = Math.min(Math.max(options.ttlSeconds, MIN_TTL_SECONDS), MAX_TTL_SECONDS);
-    const expiresAt = new Date(Date.now() + ttl * 1000);
-    const token = this.generateToken();
+    let expiresAt: Date | null = null;
 
-    // Resolve resource name to a Service in this workspace
+    if (options.ttlSeconds != null) {
+      const ttl = Math.min(Math.max(options.ttlSeconds, MIN_TTL_SECONDS), MAX_TTL_SECONDS);
+      expiresAt = new Date(Date.now() + ttl * 1000);
+    }
+
+    const rawToken = this.generateToken();
+    const tokenHash = hashToken(rawToken);
+    const tokenPrefix = rawToken.slice(0, 12);
+
     const service = await this.prisma.service.findFirst({
       where: {
         workspaceId: options.workspaceId,
@@ -53,7 +63,8 @@ export class GrantsService {
         resourceName: options.resourceName,
         serviceId: service?.id ?? null,
         scope: options.scope ?? 'read-only',
-        token,
+        tokenHash,
+        tokenPrefix,
         expiresAt,
       },
       include: {
@@ -77,35 +88,40 @@ export class GrantsService {
       resourceType: grant.resourceType,
       resourceName: grant.resourceName,
       scope: grant.scope,
-      expiresAt: grant.expiresAt.toISOString(),
+      persistent: expiresAt === null,
+      expiresAt: grant.expiresAt?.toISOString() ?? null,
     }).catch(() => {});
 
-    return grant;
+    return { ...grant, rawToken };
   }
 
-  async validateGrantToken(token: string) {
-    const grant = await this.prisma.grant.findUnique({
-      where: { token },
-      include: {
-        service: {
-          select: {
-            id: true,
-            name: true,
-            targetHost: true,
-            targetPort: true,
-            tunnelPort: true,
-            agentId: true,
-            protocol: true,
-            isPublic: true,
-            publicSubdomain: true,
+  async validateGrantToken(rawToken: string) {
+    const tokenH = hashToken(rawToken);
+
+    const grant = await this.prisma.withoutRls(() =>
+      this.prisma.grant.findUnique({
+        where: { tokenHash: tokenH },
+        include: {
+          service: {
+            select: {
+              id: true,
+              name: true,
+              targetHost: true,
+              targetPort: true,
+              tunnelPort: true,
+              agentId: true,
+              protocol: true,
+              isPublic: true,
+              publicSubdomain: true,
+            },
           },
         },
-      },
-    });
+      })
+    );
 
     if (!grant) return null;
     if (grant.revokedAt) return null;
-    if (grant.expiresAt < new Date()) return null;
+    if (grant.expiresAt && grant.expiresAt < new Date()) return null;
 
     return grant;
   }
@@ -113,7 +129,10 @@ export class GrantsService {
   async listGrants(workspaceId: string, includeExpired = false) {
     const where: any = { workspaceId, revokedAt: null };
     if (!includeExpired) {
-      where.expiresAt = { gt: new Date() };
+      where.OR = [
+        { expiresAt: null },
+        { expiresAt: { gt: new Date() } },
+      ];
     }
 
     return this.prisma.grant.findMany({
@@ -122,6 +141,25 @@ export class GrantsService {
         service: {
           select: { id: true, name: true, targetHost: true, targetPort: true },
         },
+        _count: { select: { accessLogs: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async listGrantsForService(serviceId: string, includeExpired = false) {
+    const where: any = { serviceId, revokedAt: null };
+    if (!includeExpired) {
+      where.OR = [
+        { expiresAt: null },
+        { expiresAt: { gt: new Date() } },
+      ];
+    }
+
+    return this.prisma.grant.findMany({
+      where,
+      include: {
+        _count: { select: { accessLogs: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -142,10 +180,57 @@ export class GrantsService {
     });
   }
 
+  async logAccess(options: {
+    grantId: string;
+    requestType: 'db_query' | 'api_call';
+    requestSummary?: string;
+    responseStatus?: string;
+    allowed: boolean;
+    ipAddress?: string;
+    userAgent?: string;
+    latencyMs?: number;
+  }) {
+    return this.prisma.grantAccessLog.create({
+      data: {
+        grantId: options.grantId,
+        requestType: options.requestType,
+        requestSummary: options.requestSummary?.slice(0, 500),
+        responseStatus: options.responseStatus,
+        allowed: options.allowed,
+        ipAddress: options.ipAddress,
+        userAgent: options.userAgent,
+        latencyMs: options.latencyMs,
+      },
+    }).catch(() => {});
+  }
+
+  async getAccessLogs(grantId: string, limit = 50) {
+    return this.prisma.grantAccessLog.findMany({
+      where: { grantId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  }
+
+  async getAccessLogsForService(serviceId: string, limit = 100) {
+    return this.prisma.grantAccessLog.findMany({
+      where: { grant: { serviceId } },
+      include: {
+        grant: {
+          select: { id: true, agentLabel: true, tokenPrefix: true, scope: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  }
+
   async cleanupExpiredGrants() {
-    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 days past expiry
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     return this.prisma.grant.deleteMany({
-      where: { expiresAt: { lt: cutoff } },
+      where: {
+        expiresAt: { lt: cutoff },
+      },
     });
   }
 }
