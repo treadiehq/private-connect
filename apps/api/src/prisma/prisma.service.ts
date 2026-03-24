@@ -71,33 +71,36 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   /**
    * Override $transaction to inject RLS context on the correct connection.
    *
-   * - Batch transactions: prepends a SET inside the same batch so all
-   *   operations share a single connection with the correct session var.
-   * - Interactive transactions: issues SET on the tx connection before
-   *   handing it to the caller.
+   * Batch transactions (array form) are blocked at runtime because the
+   * RLS $extends hook converts PrismaPromise (lazy) into regular Promise
+   * (eager), breaking atomicity. Use interactive transactions instead.
    */
-  $transaction<P extends Prisma.PrismaPromise<any>[]>(
-    arg: [...P],
-    options?: { isolationLevel?: Prisma.TransactionIsolationLevel },
-  ): Promise<any[]>;
-  $transaction<R>(
-    fn: (prisma: Omit<PrismaClient, '$transaction' | '$connect' | '$disconnect' | '$on' | '$use' | '$extends'>) => Promise<R>,
+  override $transaction<R>(
+    fn: (prisma: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>) => Promise<R>,
     options?: { maxWait?: number; timeout?: number; isolationLevel?: Prisma.TransactionIsolationLevel },
   ): Promise<R>;
-  async $transaction(argsOrFn: any, options?: any): Promise<any> {
+  /** @deprecated Batch transactions are blocked at runtime — use interactive form */
+  override $transaction<P extends Prisma.PrismaPromise<any>[]>(
+    arg: [...P],
+    options?: { isolationLevel?: Prisma.TransactionIsolationLevel },
+  ): Promise<{ [K in keyof P]: Awaited<P[K]> }>;
+  override async $transaction(argsOrFn: any, options?: any): Promise<any> {
+    if (Array.isArray(argsOrFn)) {
+      // Batch $transaction is incompatible with the RLS $extends hook.
+      // The async $allOperations wrapper converts PrismaPromise (lazy) into
+      // regular Promise (eager), so array elements execute and commit
+      // independently before $transaction even receives them.
+      // Use interactive transactions instead:
+      //   prisma.$transaction(async (tx) => { await tx.model.op(); ... })
+      throw new Error(
+        'Batch $transaction([...]) is not supported with RLS. ' +
+        'Use interactive $transaction(async (tx) => { ... }) instead.',
+      );
+    }
+
     const workspaceId = this.resolveRlsWorkspaceId();
 
     return this.rlsContext.run({ active: true }, async () => {
-      if (Array.isArray(argsOrFn)) {
-        const setOp = (this as PrismaClient)
-          .$executeRaw`SELECT set_config('app.current_workspace_id', ${workspaceId}, TRUE)`;
-        const results = (await this._originalTransaction(
-          [setOp, ...argsOrFn],
-          options,
-        )) as any[];
-        return results.slice(1);
-      }
-
       if (typeof argsOrFn === 'function') {
         return this._originalTransaction(async (tx: any) => {
           await tx.$executeRaw`SELECT set_config('app.current_workspace_id', ${workspaceId}, TRUE)`;

@@ -22,7 +22,8 @@ export const NETWORK_CONFIG = {
   RETRY_BACKOFF_MULTIPLIER: 2,
   
   // Buffer limits
-  MAX_BUFFER_SIZE: 1024 * 1024, // 1MB max buffer for pending data
+  MAX_BUFFER_SIZE: 1024 * 1024,           // 1MB max buffer for pending data (responses)
+  MAX_REQUEST_BODY_SIZE: 10 * 1024 * 1024, // 10MB max request body for proxy uploads
   
   // Keep-alive
   SOCKET_KEEP_ALIVE_MS: 30000,
@@ -45,19 +46,19 @@ export function classifyNetworkError(error: Error & { code?: string }): NetworkE
   const code = error.code || '';
   const message = error.message || '';
   
+  // Proxy/firewall blocked (check before transient so ECONNREFUSED isn't swallowed)
+  if (code === 'ECONNREFUSED' || message.includes('proxy') || message.includes('blocked')) {
+    return NetworkErrorType.BLOCKED;
+  }
+  
   // Transient errors - worth retrying
   const transientCodes = [
-    'ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND',
+    'ETIMEDOUT', 'ECONNRESET', 'ENOTFOUND',
     'ENETUNREACH', 'EHOSTUNREACH', 'EAI_AGAIN', 'EPIPE',
   ];
   
   if (transientCodes.includes(code)) {
     return NetworkErrorType.TRANSIENT;
-  }
-  
-  // Proxy/firewall blocked
-  if (code === 'ECONNREFUSED' || message.includes('proxy') || message.includes('blocked')) {
-    return NetworkErrorType.BLOCKED;
   }
   
   // TLS errors
@@ -192,6 +193,7 @@ export function createTlsConnection(options: {
     
     socket.on('secureConnect', () => {
       clearTimeout(timeout);
+      socket.setKeepAlive(true, NETWORK_CONFIG.SOCKET_KEEP_ALIVE_MS);
       resolve(socket);
     });
     
@@ -289,17 +291,32 @@ function makeRequest(options: {
       },
       (res) => {
         const chunks: Buffer[] = [];
+        let totalSize = 0;
         
-        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('data', (chunk: Buffer) => {
+          totalSize += chunk.length;
+          if (totalSize > NETWORK_CONFIG.MAX_BUFFER_SIZE) {
+            req.destroy();
+            reject(new Error(
+              `Response exceeds MAX_BUFFER_SIZE (${NETWORK_CONFIG.MAX_BUFFER_SIZE} bytes)`,
+            ));
+            return;
+          }
+          chunks.push(chunk);
+        });
         
         res.on('end', () => {
-          resolve({
-            statusCode: res.statusCode || 0,
-            statusMessage: res.statusMessage || '',
-            headers: res.headers,
-            body: Buffer.concat(chunks),
-            latencyMs: Date.now() - startTime,
-          });
+          try {
+            resolve({
+              statusCode: res.statusCode || 0,
+              statusMessage: res.statusMessage || '',
+              headers: res.headers,
+              body: Buffer.concat(chunks),
+              latencyMs: Date.now() - startTime,
+            });
+          } catch (err) {
+            reject(err);
+          }
         });
         
         res.on('error', reject);

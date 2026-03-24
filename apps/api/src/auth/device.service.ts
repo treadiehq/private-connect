@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { randomBytes, createHash } from 'crypto';
+import { randomBytes, randomInt, createHash } from 'crypto';
 
 function hashApiKey(key: string): string {
   return createHash('sha256').update(key).digest('hex');
@@ -8,11 +8,11 @@ function hashApiKey(key: string): string {
 
 // User code format: XXXX-XXXX (easy to type)
 function generateUserCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No I, O, 0, 1 for clarity
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
   for (let i = 0; i < 8; i++) {
     if (i === 4) code += '-';
-    code += chars[Math.floor(Math.random() * chars.length)];
+    code += chars[randomInt(chars.length)];
   }
   return code;
 }
@@ -114,82 +114,81 @@ export class DeviceService {
     userId: string,
     workspaceId: string,
   ): Promise<{ success: boolean; error?: string }> {
-    // Normalize user code: remove dashes, uppercase, then re-add dash in correct position
     const normalizedCode = userCode.replace(/-/g, '').toUpperCase();
     
-    // Validate length (should be exactly 8 alphanumeric characters after removing dash)
     if (normalizedCode.length !== 8) {
       return { success: false, error: 'Invalid code format' };
     }
 
-    // Format code with dash in correct position to match stored format (XXXX-XXXX)
     const formattedCode = `${normalizedCode.slice(0, 4)}-${normalizedCode.slice(4)}`;
 
-    // Use exact match with properly formatted code - no fuzzy search to avoid collisions
-    const targetDevice = await this.prisma.deviceCode.findUnique({
-      where: { userCode: formattedCode },
-    });
+    // Wrap in a serializable transaction to prevent race conditions where
+    // concurrent requests both pass the verifiedAt check and create
+    // duplicate API keys for the same device code.
+    return this.prisma.withWorkspace(workspaceId, () =>
+      this.prisma.$transaction(async (tx) => {
+        const targetDevice = await tx.deviceCode.findUnique({
+          where: { userCode: formattedCode },
+        });
 
-    if (!targetDevice) {
-      return { success: false, error: 'Invalid code' };
-    }
+        if (!targetDevice) {
+          return { success: false, error: 'Invalid code' };
+        }
 
-    if (targetDevice.expiresAt < new Date()) {
-      return { success: false, error: 'Code expired' };
-    }
+        if (targetDevice.expiresAt < new Date()) {
+          return { success: false, error: 'Code expired' };
+        }
 
-    if (targetDevice.verifiedAt) {
-      return { success: false, error: 'Code already used' };
-    }
+        if (targetDevice.verifiedAt) {
+          return { success: false, error: 'Code already used' };
+        }
 
-    // Get workspace and create API key for the agent
-    const workspace = await this.prisma.workspace.findUnique({
-      where: { id: workspaceId },
-    });
+        const workspace = await tx.workspace.findUnique({
+          where: { id: workspaceId },
+        });
 
-    if (!workspace) {
-      return { success: false, error: 'Workspace not found' };
-    }
+        if (!workspace) {
+          return { success: false, error: 'Workspace not found' };
+        }
 
-    // Generate API key for this agent
-    const apiKey = `pc_${randomBytes(24).toString('hex')}`;
-    const keyPrefix = apiKey.substring(0, 11);
-    const keyName = targetDevice.agentName || targetDevice.label || 'CLI Agent';
-    const uniqueSuffix = randomBytes(3).toString('hex'); // Ensure unique name
+        const apiKey = `pc_${randomBytes(24).toString('hex')}`;
+        const keyPrefix = apiKey.substring(0, 11);
+        const keyName = targetDevice.agentName || targetDevice.label || 'CLI Agent';
+        const uniqueSuffix = randomBytes(3).toString('hex');
 
-    // Create API key record — store hash only, pass raw key back via DeviceCode
-    await this.prisma.withWorkspace(workspaceId, () =>
-      this.prisma.apiKey.create({
-        data: {
-          workspaceId,
-          name: `${keyName} (${uniqueSuffix})`,
-          keyHash: hashApiKey(apiKey),
-          keyPrefix,
-        },
+        await tx.apiKey.create({
+          data: {
+            workspaceId,
+            name: `${keyName} (${uniqueSuffix})`,
+            keyHash: hashApiKey(apiKey),
+            keyPrefix,
+          },
+        });
+
+        await tx.deviceCode.update({
+          where: { id: targetDevice.id },
+          data: {
+            verifiedAt: new Date(),
+            userId,
+            workspaceId,
+            apiKey,
+          },
+        });
+
+        return { success: true } as { success: boolean; error?: string };
       })
     );
-
-    // Store the raw key temporarily in DeviceCode so the CLI can retrieve it once.
-    // The DeviceCode record is deleted immediately after the CLI polls it (see checkDeviceCode).
-    await this.prisma.deviceCode.update({
-      where: { id: targetDevice.id },
-      data: {
-        verifiedAt: new Date(),
-        userId,
-        workspaceId,
-        apiKey,
-      },
-    });
-
-    return { success: true };
   }
 
   /**
    * Find pending device code by user code (for display in UI)
    */
   async findByUserCode(userCode: string) {
+    const normalized = userCode.replace(/-/g, '').toUpperCase();
+    if (normalized.length !== 8) return null;
+    const formatted = `${normalized.slice(0, 4)}-${normalized.slice(4)}`;
     return this.prisma.deviceCode.findUnique({
-      where: { userCode: userCode.toUpperCase() },
+      where: { userCode: formatted },
     });
   }
 

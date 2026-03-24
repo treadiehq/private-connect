@@ -361,45 +361,124 @@ function isIPv4InBlockedRange(ip: string): boolean {
   if (parts.length !== 4) return true; // treat invalid as blocked
   const octets = parts.map((p) => parseInt(p, 10));
   if (octets.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return true;
-  const num = ipv4ToNum(octets);
-  // 0.0.0.0/8
-  if (num >= 0 && num <= 0x00ffffff) return true;
-  // 127.0.0.0/8
-  if (num >= 0x7f000000 && num <= 0x7fffffff) return true;
-  // 10.0.0.0/8
-  if (num >= 0x0a000000 && num <= 0x0affffff) return true;
-  // 172.16.0.0/12
-  if (num >= 0xac100000 && num <= 0xac1fffff) return true;
-  // 192.168.0.0/16
-  if (num >= 0xc0a80000 && num <= 0xc0a8ffff) return true;
-  // 169.254.0.0/16 (link-local / cloud metadata)
-  if (num >= 0xa9fe0000 && num <= 0xa9feffff) return true;
+  return isIPv4NumBlocked(ipv4ToNum(octets));
+}
+
+/**
+ * Expand an IPv6 address to its full 8-group hex representation
+ * so that all forms of the same address compare identically.
+ */
+function expandIPv6(ip: string): string {
+  let addr = ip.toLowerCase().replace(/^\[|\]$/g, '');
+
+  // Split on :: to handle zero-compression
+  const sides = addr.split('::');
+  let groups: string[];
+
+  if (sides.length === 2) {
+    const left = sides[0] ? sides[0].split(':') : [];
+    const right = sides[1] ? sides[1].split(':') : [];
+    const fill = 8 - left.length - right.length;
+    groups = [...left, ...Array(Math.max(fill, 0)).fill('0000'), ...right];
+  } else {
+    groups = addr.split(':');
+  }
+
+  return groups.map((g) => g.padStart(4, '0')).slice(0, 8).join(':');
+}
+
+/**
+ * Convert an IPv4-mapped IPv6 suffix to a numeric IPv4 value.
+ * Handles both dotted (::ffff:127.0.0.1) and hex (::ffff:7f00:0001) forms.
+ * Returns null if the suffix is not a valid mapped address.
+ */
+function ipv4MappedToNum(suffix: string): number | null {
+  if (suffix.includes('.')) {
+    const parts = suffix.split('.');
+    if (parts.length !== 4) return null;
+    const octets = parts.map((p) => parseInt(p, 10));
+    if (octets.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return null;
+    return ipv4ToNum(octets);
+  }
+  // Hex form: two 16-bit groups, e.g. "7f00:0001"
+  const hexParts = suffix.split(':');
+  if (hexParts.length === 2) {
+    const hi = parseInt(hexParts[0], 16);
+    const lo = parseInt(hexParts[1], 16);
+    if (Number.isNaN(hi) || Number.isNaN(lo)) return null;
+    return ((hi << 16) | lo) >>> 0;
+  }
+  return null;
+}
+
+/** IPv6: block loopback, link-local, unique local, and IPv4-mapped private ranges. */
+function isIPv6Blocked(ip: string): boolean {
+  const expanded = expandIPv6(ip);
+
+  // Loopback ::1 in all representations
+  if (expanded === '0000:0000:0000:0000:0000:0000:0000:0001') return true;
+
+  // Link-local fe80::/10
+  if (expanded.startsWith('fe80:')) return true;
+  const first16 = parseInt(expanded.slice(0, 4), 16);
+  if (first16 >= 0xfe80 && first16 <= 0xfebf) return true;
+
+  // Unique local fc00::/7
+  if (first16 >= 0xfc00 && first16 <= 0xfdff) return true;
+
+  // IPv4-mapped ::ffff:x.x.x.x / ::ffff:HHHH:HHHH
+  // Expanded form: 0000:0000:0000:0000:0000:ffff:HHHH:HHHH
+  if (expanded.startsWith('0000:0000:0000:0000:0000:ffff:')) {
+    const suffix = expanded.slice(30); // after "0000:0000:0000:0000:0000:ffff:"
+    const num = ipv4MappedToNum(suffix);
+    if (num !== null) return isIPv4NumBlocked(num);
+  }
+
+  // Also check the original string for dotted IPv4-mapped form that
+  // expandIPv6 may not perfectly handle (defensive)
+  const lower = ip.toLowerCase();
+  if (lower.startsWith('::ffff:')) {
+    const v4part = lower.slice(7);
+    const num = ipv4MappedToNum(v4part);
+    if (num !== null) return isIPv4NumBlocked(num);
+  }
+
   return false;
 }
 
-/** IPv6: block loopback, link-local, unique local. */
-function isIPv6Blocked(ip: string): boolean {
-  const normalized = ip.toLowerCase();
-  if (normalized === '::1') return true;
-  // Link-local fe80::/10
-  if (normalized.startsWith('fe80:')) return true;
-  // Unique local fc00::/7
-  if (normalized.startsWith('fc') || normalized.startsWith('fd')) return true;
-  // IPv4-mapped ::ffff:x.x.x.x - extract and check IPv4
-  if (normalized.startsWith('::ffff:')) {
-    const v4 = normalized.slice(7);
-    if (v4.includes('.')) return isIPv4InBlockedRange(v4);
-  }
+/** Shared numeric check used by both isIPv4InBlockedRange and isIPv6Blocked. */
+function isIPv4NumBlocked(num: number): boolean {
+  if (num >= 0 && num <= 0x00ffffff) return true;           // 0.0.0.0/8
+  if (num >= 0x7f000000 && num <= 0x7fffffff) return true;  // 127.0.0.0/8
+  if (num >= 0x0a000000 && num <= 0x0affffff) return true;  // 10.0.0.0/8
+  if (num >= 0xac100000 && num <= 0xac1fffff) return true;  // 172.16.0.0/12
+  if (num >= 0xc0a80000 && num <= 0xc0a8ffff) return true;  // 192.168.0.0/16
+  if (num >= 0xa9fe0000 && num <= 0xa9feffff) return true;  // 169.254.0.0/16
   return false;
+}
+
+export interface ValidatedUrl {
+  /** The original URL string, validated as safe. */
+  url: string;
+  /**
+   * A fetch-safe URL that uses the resolved IP instead of the hostname,
+   * eliminating the DNS rebinding TOCTOU window. Callers should fetch
+   * this URL and set a `Host` header from the original hostname.
+   * For direct-IP URLs this equals the original URL.
+   */
+  fetchUrl: string;
+  /** Original hostname from the URL (for the Host header). */
+  hostname: string;
 }
 
 /**
  * Validates that a URL is safe for server-side fetch (replay, webhooks, etc.).
  * Rejects private IPs, loopback, link-local, cloud metadata, and non-http(s) schemes.
- * Resolves hostnames and checks resolved IP to mitigate DNS rebinding.
+ * Resolves hostnames and checks resolved IPs. Returns a fetch-safe URL that
+ * uses the resolved IP to prevent DNS rebinding (TOCTOU) attacks.
  * @throws BadRequestException if the URL is not safe
  */
-export async function validateUrlSafeForFetch(urlString: string): Promise<void> {
+export async function validateUrlSafeForFetch(urlString: string): Promise<ValidatedUrl> {
   let url: URL;
   try {
     url = new URL(urlString);
@@ -420,25 +499,26 @@ export async function validateUrlSafeForFetch(urlString: string): Promise<void> 
     throw new BadRequestException('Target URL host is not allowed');
   }
 
-  const isIPv4 = net.isIP(hostname) === 4;
-  const isIPv6 = net.isIP(hostname) === 6;
+  const isIPv4Addr = net.isIP(hostname) === 4;
+  const isIPv6Addr = net.isIP(hostname) === 6;
 
-  if (isIPv4) {
+  if (isIPv4Addr) {
     if (isIPv4InBlockedRange(hostname)) {
       throw new BadRequestException('Target URL host is not allowed');
     }
-    return;
+    return { url: urlString, fetchUrl: urlString, hostname };
   }
 
-  if (isIPv6) {
+  if (isIPv6Addr) {
     if (isIPv6Blocked(hostname)) {
       throw new BadRequestException('Target URL host is not allowed');
     }
-    return;
+    return { url: urlString, fetchUrl: urlString, hostname };
   }
 
-  // Hostname: resolve and check all resolved IPs (defense against DNS rebinding)
+  // Hostname: resolve and check all resolved IPs
   const lookup = promisify(dns.lookup);
+  let resolvedIp: string;
   try {
     const addresses = await lookup(hostname, { all: true }) as { address: string; family: number }[];
     for (const a of addresses) {
@@ -450,11 +530,23 @@ export async function validateUrlSafeForFetch(urlString: string): Promise<void> 
         throw new BadRequestException('Target URL host is not allowed');
       }
     }
+    if (addresses.length === 0) {
+      throw new BadRequestException('Target URL host could not be resolved');
+    }
+    resolvedIp = addresses[0].address;
   } catch (err) {
-    const message = err instanceof BadRequestException ? err.message : (err as Error).message;
     if (err instanceof BadRequestException) throw err;
+    const message = (err as Error).message;
     throw new BadRequestException(`Target URL host could not be validated: ${message}`);
   }
+
+  // Build a fetch URL using the resolved IP to prevent DNS rebinding.
+  // The caller must set a Host header from `hostname` for virtual-host routing.
+  const ipHost = net.isIP(resolvedIp) === 6 ? `[${resolvedIp}]` : resolvedIp;
+  const fetchUrl = new URL(urlString);
+  fetchUrl.hostname = ipHost;
+
+  return { url: urlString, fetchUrl: fetchUrl.toString(), hostname };
 }
 
 /**

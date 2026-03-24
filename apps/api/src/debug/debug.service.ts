@@ -108,15 +108,20 @@ export class DebugService {
    * Get session by token (for public access)
    */
   async getSessionByToken(token: string): Promise<DebugSessionInfo | null> {
-    const session = await this.prisma.debugSession.findUnique({
-      where: { token },
-    });
+    // Token-based access is the authorization mechanism for public endpoints,
+    // so we bypass RLS here. The short-lived token acts as a capability token.
+    const session = await this.prisma.withoutRls(() =>
+      this.prisma.debugSession.findUnique({
+        where: { token },
+      })
+    );
 
     if (!session) return null;
 
-    // Check if expired
     if (session.expiresAt && session.expiresAt < new Date()) {
-      await this.endSession(session.id);
+      await this.prisma.withWorkspace(session.workspaceId, () =>
+        this.endSession(session.id)
+      );
       return null;
     }
 
@@ -273,28 +278,34 @@ export class DebugService {
     // Parse if possible
     const parsed = this.parsePacket(packet.payload, protocol);
 
-    // Store packet
-    const dbPacket = await this.prisma.debugPacket.create({
-      data: {
-        sessionId,
-        sequence,
-        direction: packet.direction,
-        protocol,
-        payload: packet.payload.toString('base64'),
-        payloadSize: packet.payload.length,
-        parsed: parsed ? JSON.stringify(parsed) : null,
-        connectionId: packet.connectionId,
-      },
-    });
+    // Bypass RLS for packet capture -- callers are internal (tunnel/proxy
+    // infrastructure) and already hold a valid sessionId. Without bypass the
+    // write would fail because the tunnel code runs without HTTP-request
+    // workspace context.
+    const dbPacket = await this.prisma.withoutRls(() =>
+      this.prisma.debugPacket.create({
+        data: {
+          sessionId,
+          sequence,
+          direction: packet.direction,
+          protocol,
+          payload: packet.payload.toString('base64'),
+          payloadSize: packet.payload.length,
+          parsed: parsed ? JSON.stringify(parsed) : null,
+          connectionId: packet.connectionId,
+        },
+      })
+    );
 
-    // Update session stats
-    await this.prisma.debugSession.update({
-      where: { id: sessionId },
-      data: {
-        packetCount: { increment: 1 },
-        byteCount: { increment: packet.payload.length },
-      },
-    });
+    await this.prisma.withoutRls(() =>
+      this.prisma.debugSession.update({
+        where: { id: sessionId },
+        data: {
+          packetCount: { increment: 1 },
+          byteCount: { increment: packet.payload.length },
+        },
+      })
+    );
 
     // Emit for real-time streaming
     this.packetEmitter.emit(`packet:${sessionId}`, {
@@ -323,34 +334,57 @@ export class DebugService {
   }
 
   /**
-   * Get recent packets for a session
+   * Get recent packets for a session.
+   * When bypassRls is true, skips RLS checks (use only when caller has
+   * already verified session access, e.g., via token-based auth).
    */
-  async getPackets(sessionId: string, limit = 100, before?: string) {
-    const where: any = { sessionId };
-    if (before) {
-      const beforePacket = await this.prisma.debugPacket.findUnique({
-        where: { id: before },
-        select: { sequence: true },
-      });
-      if (beforePacket) {
-        where.sequence = { lt: beforePacket.sequence };
+  async getPackets(sessionId: string, limit = 100, before?: string, bypassRls = false) {
+    const query = async () => {
+      const where: any = { sessionId };
+      if (before) {
+        const beforePacket = await this.prisma.debugPacket.findUnique({
+          where: { id: before },
+          select: { sequence: true },
+        });
+        if (beforePacket) {
+          where.sequence = { lt: beforePacket.sequence };
+        }
       }
-    }
 
-    return this.prisma.debugPacket.findMany({
-      where,
-      orderBy: { sequence: 'desc' },
-      take: limit,
-    });
+      return this.prisma.debugPacket.findMany({
+        where,
+        orderBy: { sequence: 'desc' },
+        take: limit,
+      });
+    };
+
+    return bypassRls ? this.prisma.withoutRls(query) : query();
   }
 
   /**
-   * Get a single packet with full payload
+   * Get a single packet with full payload.
+   * Relies on RLS (requires workspace context) for tenant isolation.
    */
   async getPacket(packetId: string) {
     return this.prisma.debugPacket.findUnique({
       where: { id: packetId },
     });
+  }
+
+  /**
+   * Get a single packet that belongs to a specific session.
+   * Bypasses RLS because the caller has already verified session access
+   * (e.g., via token-based auth). Returns null if the packet doesn't
+   * belong to the given session.
+   */
+  async getPacketForSession(packetId: string, sessionId: string) {
+    const packet = await this.prisma.withoutRls(() =>
+      this.prisma.debugPacket.findUnique({
+        where: { id: packetId },
+      })
+    );
+    if (!packet || packet.sessionId !== sessionId) return null;
+    return packet;
   }
 
   /**

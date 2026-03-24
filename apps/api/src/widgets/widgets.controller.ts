@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { WidgetsService } from './widgets.service';
+import { escapeHtml } from '../common/security';
 
 @ApiTags('Widgets')
 @UseGuards(ThrottlerGuard)
@@ -141,18 +142,29 @@ export class WidgetsController {
     
     const color = isActive ? '#10b981' : '#6b7280';
     const text = isActive ? 'active' : 'inactive';
-    const label = config?.serviceName || 'Private Connect';
+    const rawLabel = config?.serviceName || 'Private Connect';
+    const label = escapeHtml(rawLabel);
     
-    const labelWidth = label.length * 7 + 10;
+    const labelWidth = rawLabel.length * 7 + 10;
     const textWidth = text.length * 7 + 10;
     const totalWidth = labelWidth + textWidth;
 
-    const svg = `
-<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="20">
-  <linearGradient id="b" x2="0" y2="100%">
+    const isPlastic = style === 'plastic';
+    const gradient = isPlastic
+      ? `<linearGradient id="b" x2="0" y2="100%">
+    <stop offset="0" stop-color="#fff" stop-opacity=".7"/>
+    <stop offset=".1" stop-color="#aaa" stop-opacity=".1"/>
+    <stop offset=".9" stop-opacity=".3"/>
+    <stop offset="1" stop-opacity=".5"/>
+  </linearGradient>`
+      : `<linearGradient id="b" x2="0" y2="100%">
     <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
     <stop offset="1" stop-opacity=".1"/>
-  </linearGradient>
+  </linearGradient>`;
+
+    const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="20">
+  ${gradient}
   <mask id="a">
     <rect width="${totalWidth}" height="20" rx="3" fill="#fff"/>
   </mask>

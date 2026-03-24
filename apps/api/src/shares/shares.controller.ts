@@ -31,6 +31,7 @@ import * as net from 'net';
 import { z } from 'zod';
 import { SecureLogger } from '../common/security';
 import { classifyNetworkError, NetworkErrorType, NETWORK_CONFIG } from '../common/network';
+import type { Readable } from 'stream';
 
 const QuerySchema = z.object({
   query: z.string().min(1).max(10000),
@@ -61,6 +62,51 @@ export class SharesController {
     @Inject(forwardRef(() => DebugService))
     private debugService: DebugService,
   ) {}
+
+  /**
+   * Collect the full request body into a Buffer with a size limit.
+   * Rejects with 413 if the body exceeds MAX_REQUEST_BODY_SIZE.
+   */
+  private async collectRequestBody(stream: Readable): Promise<Buffer> {
+    const chunks: Buffer[] = [];
+    let totalSize = 0;
+
+    for await (const chunk of stream) {
+      totalSize += chunk.length;
+      if (totalSize > NETWORK_CONFIG.MAX_REQUEST_BODY_SIZE) {
+        throw new HttpException(
+          `Request body exceeds maximum size (${NETWORK_CONFIG.MAX_REQUEST_BODY_SIZE} bytes)`,
+          HttpStatus.PAYLOAD_TOO_LARGE,
+        );
+      }
+      chunks.push(chunk);
+    }
+
+    return Buffer.concat(chunks);
+  }
+
+  /**
+   * Filter incoming request headers for proxying.
+   * Preserves multi-value headers by joining them.
+   */
+  private filterRequestHeaders(
+    headers: Record<string, string | string[] | undefined>,
+    extraHeaders?: Record<string, string>,
+  ): Record<string, string> {
+    const filtered: Record<string, string> = {};
+    const skip = new Set(['host', 'connection', 'keep-alive']);
+
+    for (const [key, value] of Object.entries(headers)) {
+      if (skip.has(key.toLowerCase()) || value === undefined) continue;
+      filtered[key] = Array.isArray(value) ? value.join(', ') : value;
+    }
+
+    if (extraHeaders) {
+      Object.assign(filtered, extraHeaders);
+    }
+
+    return filtered;
+  }
 
   @Post('v1/services/:serviceId/shares')
   @UseGuards(CombinedAuthGuard)
@@ -735,35 +781,26 @@ export class SharesController {
       : '';
 
     try {
-      // Collect request body
-      const chunks: Buffer[] = [];
-      for await (const chunk of req) {
-        chunks.push(chunk);
-      }
-      const requestBody = Buffer.concat(chunks).toString('utf-8');
+      const requestBody = await this.collectRequestBody(req);
 
-      // Filter headers
-      const requestHeaders: Record<string, string> = {};
-      for (const [key, value] of Object.entries(req.headers)) {
-        if (typeof value === 'string' && !['host', 'connection', 'keep-alive'].includes(key.toLowerCase())) {
-          requestHeaders[key] = value;
-        }
-      }
-      requestHeaders['x-forwarded-for'] = req.ip || '';
-      requestHeaders['x-shared-access'] = 'true';
-      requestHeaders['x-share-name'] = share.name;
+      const requestHeaders = this.filterRequestHeaders(req.headers, {
+        'x-forwarded-for': req.ip || '',
+        'x-shared-access': 'true',
+        'x-share-name': share.name,
+      });
 
       const queryString = req.url.includes('?') ? '?' + req.url.split('?')[1] : '';
       const requestPath = (path || '/') + queryString;
 
-      // Capture inbound request for debug inspector
       if (debugSessionId) {
-        const reqPayload = `${req.method} ${requestPath} HTTP/1.1\r\n${Object.entries(requestHeaders).map(([k, v]) => `${k}: ${v}`).join('\r\n')}\r\n\r\n${requestBody}`;
+        const headerStr = Object.entries(requestHeaders).map(([k, v]) => `${k}: ${v}`).join('\r\n');
+        const reqPayload = `${req.method} ${requestPath} HTTP/1.1\r\n${headerStr}\r\n\r\n`;
+        const debugBuf = Buffer.concat([Buffer.from(reqPayload), requestBody.slice(0, 10000)]);
         this.debugService.capturePacket({
           sessionId: debugSessionId,
           connectionId,
           direction: 'inbound',
-          payload: Buffer.from(reqPayload),
+          payload: debugBuf,
           timestamp: new Date(),
         }).catch(err => this.logger.warn(`Failed to capture request: ${err.message}`));
       }
@@ -779,14 +816,14 @@ export class SharesController {
         },
       );
 
-      // Capture outbound response for debug inspector
       if (debugSessionId) {
-        const resPayload = `HTTP/1.1 ${response.status}\r\n${Object.entries(response.headers).map(([k, v]) => `${k}: ${v}`).join('\r\n')}\r\n\r\n${response.body.toString('utf-8').slice(0, 10000)}`;
+        const resHeader = `HTTP/1.1 ${response.status}\r\n${Object.entries(response.headers).map(([k, v]) => `${k}: ${v}`).join('\r\n')}\r\n\r\n`;
+        const debugBuf = Buffer.concat([Buffer.from(resHeader), response.body.slice(0, 10000)]);
         this.debugService.capturePacket({
           sessionId: debugSessionId,
           connectionId,
           direction: 'outbound',
-          payload: Buffer.from(resPayload),
+          payload: debugBuf,
           timestamp: new Date(),
         }).catch(err => this.logger.warn(`Failed to capture response: ${err.message}`));
       }
@@ -890,30 +927,24 @@ export class SharesController {
       : '';
 
     try {
-      const chunks: Buffer[] = [];
-      for await (const chunk of req) {
-        chunks.push(chunk);
-      }
-      const requestBody = Buffer.concat(chunks).toString('utf-8');
+      const requestBody = await this.collectRequestBody(req);
 
-      const requestHeaders: Record<string, string> = {};
-      for (const [key, value] of Object.entries(req.headers)) {
-        if (typeof value === 'string' && !['host', 'connection', 'keep-alive'].includes(key.toLowerCase())) {
-          requestHeaders[key] = value;
-        }
-      }
-      requestHeaders['x-forwarded-for'] = req.ip || '';
+      const requestHeaders = this.filterRequestHeaders(req.headers, {
+        'x-forwarded-for': req.ip || '',
+      });
 
       const queryString = req.url.includes('?') ? '?' + req.url.split('?')[1] : '';
       const requestPath = (path || '/') + queryString;
 
       if (debugSessionId) {
-        const reqPayload = `${req.method} ${requestPath} HTTP/1.1\r\n${Object.entries(requestHeaders).map(([k, v]) => `${k}: ${v}`).join('\r\n')}\r\n\r\n${requestBody}`;
+        const headerStr = Object.entries(requestHeaders).map(([k, v]) => `${k}: ${v}`).join('\r\n');
+        const reqPayload = `${req.method} ${requestPath} HTTP/1.1\r\n${headerStr}\r\n\r\n`;
+        const debugBuf = Buffer.concat([Buffer.from(reqPayload), requestBody.slice(0, 10000)]);
         this.debugService.capturePacket({
           sessionId: debugSessionId,
           connectionId,
           direction: 'inbound',
-          payload: Buffer.from(reqPayload),
+          payload: debugBuf,
           timestamp: new Date(),
         }).catch(err => this.logger.warn(`Failed to capture request: ${err.message}`));
       }
@@ -930,12 +961,13 @@ export class SharesController {
       );
 
       if (debugSessionId) {
-        const resPayload = `HTTP/1.1 ${response.status}\r\n${Object.entries(response.headers).map(([k, v]) => `${k}: ${v}`).join('\r\n')}\r\n\r\n${response.body.toString('utf-8').slice(0, 10000)}`;
+        const resHeader = `HTTP/1.1 ${response.status}\r\n${Object.entries(response.headers).map(([k, v]) => `${k}: ${v}`).join('\r\n')}\r\n\r\n`;
+        const debugBuf = Buffer.concat([Buffer.from(resHeader), response.body.slice(0, 10000)]);
         this.debugService.capturePacket({
           sessionId: debugSessionId,
           connectionId,
           direction: 'outbound',
-          payload: Buffer.from(resPayload),
+          payload: debugBuf,
           timestamp: new Date(),
         }).catch(err => this.logger.warn(`Failed to capture response: ${err.message}`));
       }
@@ -981,21 +1013,8 @@ export class SharesController {
     }
 
     try {
-      // Get request body
-      const chunks: Buffer[] = [];
-      for await (const chunk of req) {
-        chunks.push(chunk);
-      }
-      const requestBody = Buffer.concat(chunks).toString('utf-8');
-
-      // Filter headers
-      const requestHeaders: Record<string, string> = {};
-      for (const [key, value] of Object.entries(req.headers)) {
-        if (typeof value === 'string' && !['host', 'connection', 'keep-alive'].includes(key.toLowerCase())) {
-          requestHeaders[key] = value;
-        }
-      }
-
+      const requestBody = await this.collectRequestBody(req);
+      const requestHeaders = this.filterRequestHeaders(req.headers);
       const requestPath = path + (req.url.includes('?') ? '?' + req.url.split('?')[1] : '');
 
       const response = await this.tempTunnelService.forwardRequest(tunnel.tunnelId, {

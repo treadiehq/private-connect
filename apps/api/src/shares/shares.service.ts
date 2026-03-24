@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import * as crypto from 'crypto';
+import * as path from 'path';
 
 interface CreateShareOptions {
   serviceId: string;
@@ -124,7 +125,7 @@ export class SharesService {
    */
   async validateShare(
     token: string,
-    path?: string,
+    reqPath?: string,
     method?: string
   ) {
     const share = await this.getShareByToken(token);
@@ -141,16 +142,26 @@ export class SharesService {
       return { valid: false, reason: 'Share has expired' };
     }
 
-    // Check allowed paths
-    if (share.allowedPaths && path) {
+    // Check allowed paths — normalize to prevent traversal via encoded segments
+    if (share.allowedPaths && reqPath) {
       const allowedPaths = JSON.parse(share.allowedPaths) as string[];
+
+      let decodedPath: string;
+      try {
+        decodedPath = decodeURIComponent(reqPath);
+      } catch {
+        return { valid: false, reason: 'Invalid path encoding' };
+      }
+      const normalizedPath = path.posix.normalize(decodedPath);
+
+      if (normalizedPath.startsWith('..') || normalizedPath.includes('/../')) {
+        return { valid: false, reason: 'Path not allowed' };
+      }
+
       const isPathAllowed = allowedPaths.some((allowed) => {
-        // Exact match
-        if (path === allowed) return true;
-        // Prefix match with path separator (subdirectory)
-        if (path.startsWith(allowed + '/')) return true;
-        // Handle trailing slash in allowed path
-        if (allowed.endsWith('/') && path.startsWith(allowed)) return true;
+        if (normalizedPath === allowed) return true;
+        if (normalizedPath.startsWith(allowed + '/')) return true;
+        if (allowed.endsWith('/') && normalizedPath.startsWith(allowed)) return true;
         return false;
       });
       if (!isPathAllowed) {
@@ -183,21 +194,21 @@ export class SharesService {
       latencyMs?: number;
     }
   ) {
-    await this.prisma.$transaction([
-      this.prisma.shareAccessLog.create({
+    await this.prisma.$transaction(async (tx) => {
+      await tx.shareAccessLog.create({
         data: {
           shareId,
           ...data,
         },
-      }),
-      this.prisma.serviceShare.update({
+      });
+      await tx.serviceShare.update({
         where: { id: shareId },
         data: {
           lastAccessedAt: new Date(),
           accessCount: { increment: 1 },
         },
-      }),
-    ]);
+      });
+    });
 
     // Emit webhook for share access (get workspace from share)
     const share = await this.prisma.serviceShare.findUnique({

@@ -194,22 +194,20 @@ export function matchPattern(pattern: string, target: string): boolean {
     const next = normalizedPattern[i + 1];
 
     if (char === '*' && next === '*') {
-      // ** - match anything including /
-      // Check if surrounded by / or at start/end
       const prev = i > 0 ? normalizedPattern[i - 1] : '/';
       const afterNext = normalizedPattern[i + 2];
 
       if ((prev === '/' || i === 0) && (afterNext === '/' || afterNext === undefined)) {
-        // **/ or /** or standalone **
-        regex += '.*';
         i += 2;
-        // Skip trailing / after **
         if (normalizedPattern[i] === '/') {
-          regex += '/?';  // Make slash optional to match zero or more directories
+          // **/ — zero or more complete directory segments (e.g., **/secret.txt)
+          regex += '(.+/)?';
           i++;
+        } else {
+          // ** at end of pattern — match any remaining path (e.g., src/**)
+          regex += '.*';
         }
       } else {
-        // ** not at path boundary, treat as two *
         regex += '[^/]*[^/]*';
         i += 2;
       }
@@ -381,11 +379,14 @@ export function matchCommand(pattern: string, command: string): boolean {
     const commandToken = commandTokens[commandIdx];
 
     if (patternToken === '*') {
-      // * in pattern matches any single token
+      if (patternIdx === patternTokens.length - 1) {
+        // Trailing * matches zero or more remaining tokens
+        return true;
+      }
+      // Non-trailing * matches exactly one token
       patternIdx++;
       commandIdx++;
     } else if (patternToken.includes('*')) {
-      // Token with wildcards
       const regex = new RegExp(
         '^' + patternToken.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$',
         'i'
@@ -396,7 +397,6 @@ export function matchCommand(pattern: string, command: string): boolean {
       patternIdx++;
       commandIdx++;
     } else {
-      // Exact match required
       if (patternToken.toLowerCase() !== commandToken.toLowerCase()) {
         return false;
       }
@@ -405,7 +405,12 @@ export function matchCommand(pattern: string, command: string): boolean {
     }
   }
 
-  // All pattern tokens must be matched
+  // If the only remaining pattern token is a trailing *, it matches
+  // zero additional command tokens (e.g., "git push -f *" matches "git push -f")
+  if (patternIdx === patternTokens.length - 1 && patternTokens[patternIdx] === '*') {
+    return true;
+  }
+
   return patternIdx === patternTokens.length;
 }
 
@@ -702,12 +707,16 @@ const DEFAULT_POLICY: Policy = {
     { path: '.connect/**', action: 'block', reason: 'Broker configuration is protected' },
     { path: '**/.connect/**', action: 'block', reason: 'Broker configuration is protected' },
 
-    // Command rules
+    // Command rules — specific block rules first, then broader allow/review.
+    // First-match-wins: put narrow patterns before wide ones.
     { command: 'rm -rf *', action: 'block', reason: 'Destructive command' },
     { command: 'rm -rf /', action: 'block', reason: 'Destructive command' },
     { command: 'rm -rf ~', action: 'block', reason: 'Destructive command' },
     { command: 'chmod 777 *', action: 'block', reason: 'Insecure permissions' },
+    { command: 'git push -f *', action: 'block', reason: 'Force push can overwrite history' },
+    { command: 'git push --force *', action: 'block', reason: 'Force push can overwrite history' },
     { command: 'sudo *', action: 'review', reason: 'Elevated privileges' },
+    { command: 'git push *', action: 'review', reason: 'Pushing code to remote' },
     { command: 'npm install *', action: 'allow' },
     { command: 'npm run *', action: 'allow' },
     { command: 'pnpm *', action: 'allow' },
@@ -719,9 +728,6 @@ const DEFAULT_POLICY: Policy = {
     { command: 'git status', action: 'allow' },
     { command: 'git diff *', action: 'allow' },
     { command: 'git log *', action: 'allow' },
-    { command: 'git push *', action: 'review', reason: 'Pushing code to remote' },
-    { command: 'git push -f *', action: 'block', reason: 'Force push can overwrite history' },
-    { command: 'git push --force *', action: 'block', reason: 'Force push can overwrite history' },
 
     // Git operation rules
     { git: 'force-push', action: 'block', reason: 'Force push can destroy history' },
@@ -1034,9 +1040,10 @@ export function initPolicy(workingDir: string, options: { force?: boolean } = {}
       // Protect broker config
       { path: '.connect/**', action: 'block', reason: 'Broker configuration is protected' },
 
-      // Command rules
+      // Command rules — block rules first, then broad allows
       { command: 'rm -rf *', action: 'block', reason: 'Destructive command' },
       { command: 'git push -f *', action: 'block', reason: 'Force push can overwrite history' },
+      { command: 'git push --force *', action: 'block', reason: 'Force push can overwrite history' },
       { command: 'npm install *', action: 'allow' },
       { command: 'git *', action: 'allow' },
     ],

@@ -293,8 +293,8 @@ export class WebhooksService {
       const responseBody = await response.text().catch(() => '');
 
       if (response.ok) {
-        await this.prisma.$transaction([
-          this.prisma.webhookDelivery.update({
+        await this.prisma.$transaction(async (tx) => {
+          await tx.webhookDelivery.update({
             where: { id: deliveryId },
             data: {
               status: 'success',
@@ -303,16 +303,16 @@ export class WebhooksService {
               attemptedAt: new Date(),
               deliveredAt: new Date(),
             },
-          }),
-          this.prisma.webhook.update({
+          });
+          await tx.webhook.update({
             where: { id: webhook.id },
             data: {
               lastCalledAt: new Date(),
               lastStatusCode: statusCode,
               consecutiveFailures: 0,
             },
-          }),
-        ]);
+          });
+        });
       } else {
         await this.handleFailure(webhook.id, deliveryId, statusCode, responseBody);
       }
@@ -345,8 +345,8 @@ export class WebhooksService {
       ? new Date(Date.now() + backoffMinutes * 60 * 1000)
       : null;
 
-    await this.prisma.$transaction([
-      this.prisma.webhookDelivery.update({
+    await this.prisma.$transaction(async (tx) => {
+      await tx.webhookDelivery.update({
         where: { id: deliveryId },
         data: {
           status: retryCount > maxRetries ? 'failed' : 'pending',
@@ -356,16 +356,16 @@ export class WebhooksService {
           retryCount,
           nextRetryAt,
         },
-      }),
-      this.prisma.webhook.update({
+      });
+      await tx.webhook.update({
         where: { id: webhookId },
         data: {
           lastCalledAt: new Date(),
           lastStatusCode: statusCode,
           consecutiveFailures: { increment: 1 },
         },
-      }),
-    ]);
+      });
+    });
   }
 
   /**

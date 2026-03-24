@@ -76,7 +76,7 @@ connect shell && connect share
 
 They open `privateconnect.co/terminal`, enter the code, and get a live terminal.
 
-## AI agent access
+## AI agent access (experimental)
 
 Grant an AI agent (Cursor, Claude, etc.) temporary, scoped access to a private resource, no credentials in prompts, no exposing services publicly.
 

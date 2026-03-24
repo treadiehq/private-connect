@@ -8,10 +8,16 @@ import { SessionsService } from './sessions.service';
 import { CombinedAuthGuard } from '../auth/combined-auth.guard';
 import { z } from 'zod';
 
+const SERVICE_NAME = z
+  .string()
+  .min(1)
+  .max(100)
+  .regex(/^[a-zA-Z0-9_-]+$/, 'Name can only contain letters, numbers, hyphens, and underscores');
+
 const RegisterServiceSchema = z.object({
   agentId: z.string().uuid(),
-  name: z.string().min(1).max(100),
-  targetHost: z.string().min(1).max(253), // Max DNS hostname length
+  name: SERVICE_NAME,
+  targetHost: z.string().min(1).max(253),
   targetPort: z.number().int().min(1).max(65535),
   protocol: z.enum(['auto', 'tcp', 'udp', 'http', 'https']).optional().default('auto'),
   isPublic: z.boolean().optional().default(false),
@@ -24,8 +30,8 @@ const ReachSchema = z.object({
 });
 
 const ExternalServiceSchema = z.object({
-  name: z.string().min(1).max(100),
-  targetHost: z.string().min(1).max(253), // Max DNS hostname length
+  name: SERVICE_NAME,
+  targetHost: z.string().min(1).max(253),
   targetPort: z.number().int().min(1).max(65535),
   protocol: z.enum(['auto', 'tcp', 'udp', 'http', 'https']).optional().default('auto'),
 });

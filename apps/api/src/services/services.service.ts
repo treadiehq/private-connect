@@ -266,7 +266,11 @@ export class ServicesService implements OnModuleInit {
     protocol: string = 'auto',
     isPublic: boolean = false,
   ) {
-    // Check if service already exists (for port reuse and limit checking)
+    const nameCheck = this.validateName(name);
+    if (!nameCheck.valid) {
+      throw new HttpException(nameCheck.error!, HttpStatus.BAD_REQUEST);
+    }
+
     const existing = await this.prisma.service.findUnique({
       where: { workspaceId_name: { workspaceId, name } },
     });
@@ -358,6 +362,11 @@ export class ServicesService implements OnModuleInit {
     targetPort: number,
     protocol: string = 'auto',
   ) {
+    const nameCheck = this.validateName(name);
+    if (!nameCheck.valid) {
+      throw new HttpException(nameCheck.error!, HttpStatus.BAD_REQUEST);
+    }
+
     const existing = await this.prisma.service.findUnique({
       where: { workspaceId_name: { workspaceId, name } },
     });

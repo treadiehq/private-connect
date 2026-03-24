@@ -30,7 +30,18 @@ import { AuthGuard } from '../auth/auth.guard';
 import { CombinedAuthGuard } from '../auth/combined-auth.guard';
 import { AIService } from '../ai/ai.service';
 import { RateLimitGuard, RateLimit } from '../common/rate-limit.guard';
-import { validateUrlSafeForFetch } from '../common/security';
+import { validateUrlSafeForFetch, type ValidatedUrl } from '../common/security';
+
+const SENSITIVE_HEADERS = new Set([
+  'authorization',
+  'cookie',
+  'set-cookie',
+  'x-api-key',
+  'proxy-authorization',
+  'www-authenticate',
+  'x-csrf-token',
+  'x-xsrf-token',
+]);
 
 interface CreateSessionDto {
   serviceId?: string;
@@ -83,7 +94,7 @@ export class DebugController {
     @Req() req: any,
     @Body() body: CreateSessionDto,
   ) {
-    const workspaceId = req.workspaceId;
+    const workspaceId = req.workspaceId || req.workspace?.id;
     if (!workspaceId) {
       throw new BadRequestException('Workspace context required');
     }
@@ -121,7 +132,7 @@ export class DebugController {
     @Req() req: any,
     @Query('includeEnded') includeEnded?: string,
   ) {
-    const workspaceId = req.workspaceId;
+    const workspaceId = req.workspaceId || req.workspace?.id;
     if (!workspaceId) {
       throw new BadRequestException('Workspace context required');
     }
@@ -272,10 +283,12 @@ export class DebugController {
       throw new NotFoundException('Session not found or expired');
     }
 
-    await this.prisma.debugSession.update({
-      where: { id: session.id },
-      data: { aiEnabled: body.enabled },
-    });
+    await this.prisma.withWorkspace(session.workspaceId, () =>
+      this.prisma.debugSession.update({
+        where: { id: session.id },
+        data: { aiEnabled: body.enabled },
+      })
+    );
 
     return { success: true, aiEnabled: body.enabled };
   }
@@ -299,7 +312,9 @@ export class DebugController {
     if (!session) {
       throw new NotFoundException('Session not found or expired');
     }
-    await this.debugService.endSession(session.id);
+    await this.prisma.withWorkspace(session.workspaceId, () =>
+      this.debugService.endSession(session.id)
+    );
     return { success: true, message: 'Session ended' };
   }
 
@@ -362,6 +377,7 @@ export class DebugController {
       session.id,
       limit ? parseInt(limit) : 100,
       before,
+      true,
     );
 
     return { packets };
@@ -381,11 +397,18 @@ export class DebugController {
   @ApiResponse({ status: 200, description: 'Packet details' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Packet not found' })
-  async getPacket(@Param('id') id: string) {
+  async getPacket(@Req() req: any, @Param('id') id: string) {
+    const workspaceId = req.workspaceId || req.workspace?.id;
     const packet = await this.debugService.getPacket(id);
     if (!packet) {
       throw new NotFoundException('Packet not found');
     }
+
+    const session = await this.debugService.getSession(packet.sessionId);
+    if (!session || session.workspaceId !== workspaceId) {
+      throw new NotFoundException('Packet not found');
+    }
+
     return packet;
   }
 
@@ -411,11 +434,18 @@ export class DebugController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Packet not found' })
   async replayPacket(
+    @Req() req: any,
     @Param('id') id: string,
     @Body() body: { targetUrl?: string },
   ) {
+    const workspaceId = req.workspaceId || req.workspace?.id;
     const packet = await this.debugService.getPacket(id);
     if (!packet) {
+      throw new NotFoundException('Packet not found');
+    }
+
+    const session = await this.debugService.getSession(packet.sessionId);
+    if (!session || session.workspaceId !== workspaceId) {
       throw new NotFoundException('Packet not found');
     }
 
@@ -423,53 +453,12 @@ export class DebugController {
       throw new BadRequestException('Can only replay outbound (request) packets');
     }
 
-    // For HTTP packets, we can replay
-    if (packet.protocol === 'http' && packet.parsed) {
-      const parsed = JSON.parse(packet.parsed);
-      const payload = Buffer.from(packet.payload, 'base64').toString('utf8');
-      
-      // Extract body from HTTP payload
-      const bodyStart = payload.indexOf('\r\n\r\n');
-      const httpBody = bodyStart !== -1 ? payload.substring(bodyStart + 4) : '';
-      
-      // Build fetch options
-      const fetchOptions: RequestInit = {
-        method: parsed.method,
-        headers: parsed.headers || {},
-      };
-      
-      if (httpBody && ['POST', 'PUT', 'PATCH'].includes(parsed.method)) {
-        fetchOptions.body = httpBody;
-      }
-
-      // Use provided target URL or construct from original (validated to prevent SSRF)
-      const targetUrl = body.targetUrl || `http://localhost${parsed.path}`;
-      await validateUrlSafeForFetch(targetUrl);
-
-      try {
-        const startTime = Date.now();
-        const response = await fetch(targetUrl, fetchOptions);
-        const latencyMs = Date.now() - startTime;
-        const responseBody = await response.text();
-        
-        return {
-          success: true,
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries()),
-          body: responseBody.substring(0, 10000), // Limit response size
-          latencyMs,
-        };
-      } catch (error: unknown) {
-        const err = error as Error;
-        return {
-          success: false,
-          error: err.message,
-        };
-      }
+    if (packet.protocol !== 'http' || !packet.parsed) {
+      throw new BadRequestException(`Replay not supported for ${packet.protocol} protocol`);
     }
 
-    throw new BadRequestException(`Replay not supported for ${packet.protocol} protocol`);
+    const parsed = JSON.parse(packet.parsed);
+    return this.executeReplay(parsed, packet.payload, body.targetUrl);
   }
 
   /**
@@ -504,8 +493,8 @@ export class DebugController {
       throw new NotFoundException('Session not found or expired');
     }
 
-    const packet = await this.debugService.getPacket(packetId);
-    if (!packet || packet.sessionId !== session.id) {
+    const packet = await this.debugService.getPacketForSession(packetId, session.id);
+    if (!packet) {
       throw new NotFoundException('Packet not found');
     }
 
@@ -518,44 +507,7 @@ export class DebugController {
     }
 
     const parsed = JSON.parse(packet.parsed || '{}');
-    const payload = Buffer.from(packet.payload, 'base64').toString('utf8');
-    
-    const bodyStart = payload.indexOf('\r\n\r\n');
-    const httpBody = bodyStart !== -1 ? payload.substring(bodyStart + 4) : '';
-    
-    const fetchOptions: RequestInit = {
-      method: parsed.method,
-      headers: parsed.headers || {},
-    };
-    
-    if (httpBody && ['POST', 'PUT', 'PATCH'].includes(parsed.method)) {
-      fetchOptions.body = httpBody;
-    }
-
-    const targetUrl = body.targetUrl || `http://localhost${parsed.path}`;
-    await validateUrlSafeForFetch(targetUrl);
-
-    try {
-      const startTime = Date.now();
-      const response = await fetch(targetUrl, fetchOptions);
-      const latencyMs = Date.now() - startTime;
-      const responseBody = await response.text();
-
-      return {
-        success: true,
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-        body: responseBody.substring(0, 10000),
-        latencyMs,
-      };
-    } catch (error: unknown) {
-      const err = error as Error;
-      return {
-        success: false,
-        error: err.message,
-      };
-    }
+    return this.executeReplay(parsed, packet.payload, body.targetUrl);
   }
 
   /**
@@ -632,8 +584,7 @@ export class DebugController {
       throw new NotFoundException('Session not found or expired');
     }
 
-    // Get all packets for the session
-    const packets = await this.debugService.getPackets(session.id, 500);
+    const packets = await this.debugService.getPackets(session.id, 500, undefined, true);
 
     // Build export data
     const exportData = {
@@ -670,6 +621,83 @@ export class DebugController {
   /**
    * Generate summary stats from packets
    */
+  /**
+   * Shared replay execution with header sanitization and safe default URL.
+   */
+  private async executeReplay(
+    parsed: any,
+    rawPayload: string,
+    overrideTargetUrl?: string,
+  ) {
+    const payload = Buffer.from(rawPayload, 'base64').toString('utf8');
+    const bodyStart = payload.indexOf('\r\n\r\n');
+    const httpBody = bodyStart !== -1 ? payload.substring(bodyStart + 4) : '';
+
+    const originalHost = parsed.headers?.host || parsed.headers?.Host || '';
+    const targetUrl =
+      overrideTargetUrl ||
+      (originalHost ? `https://${originalHost}${parsed.path}` : null);
+
+    if (!targetUrl) {
+      throw new BadRequestException(
+        'Cannot determine replay target: no targetUrl provided and original request has no Host header',
+      );
+    }
+
+    const validated: ValidatedUrl = await validateUrlSafeForFetch(targetUrl);
+
+    const headers = { ...(parsed.headers || {}) };
+
+    const targetHost = new URL(targetUrl).host;
+    const isSameHost =
+      originalHost &&
+      targetHost.toLowerCase() === originalHost.toLowerCase();
+
+    if (!isSameHost) {
+      for (const key of Object.keys(headers)) {
+        if (SENSITIVE_HEADERS.has(key.toLowerCase())) {
+          delete headers[key];
+        }
+      }
+    }
+
+    // Use resolved-IP URL to prevent DNS rebinding; set Host header
+    // from the original hostname for correct virtual-host routing.
+    headers['host'] = validated.hostname;
+    delete headers['Host'];
+
+    const fetchOptions: RequestInit = {
+      method: parsed.method,
+      headers,
+    };
+
+    if (httpBody && ['POST', 'PUT', 'PATCH'].includes(parsed.method)) {
+      fetchOptions.body = httpBody;
+    }
+
+    try {
+      const startTime = Date.now();
+      const response = await fetch(validated.fetchUrl, fetchOptions);
+      const latencyMs = Date.now() - startTime;
+      const responseBody = await response.text();
+
+      return {
+        success: true,
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+        body: responseBody.substring(0, 10000),
+        latencyMs,
+      };
+    } catch (error: unknown) {
+      const err = error as Error;
+      return {
+        success: false,
+        error: err.message,
+      };
+    }
+  }
+
   private generateSummary(packets: any[]): any {
     const protocols: Record<string, number> = {};
     const errors: any[] = [];
@@ -831,12 +859,13 @@ export class DebugController {
     // Build context from packet data
     const packets = body.packetContext || [];
 
-    // Load conversation history for multi-turn context
-    const history = await this.prisma.debugAIMessage.findMany({
-      where: { sessionId: session.id },
-      orderBy: { createdAt: 'asc' },
-      take: 20,
-    });
+    const history = await this.prisma.withoutRls(() =>
+      this.prisma.debugAIMessage.findMany({
+        where: { sessionId: session.id },
+        orderBy: { createdAt: 'asc' },
+        take: 20,
+      })
+    );
 
     const ai = this.aiService!;
     const shouldRedact = config.provider !== 'ollama';
@@ -861,13 +890,14 @@ export class DebugController {
         },
       );
 
-      // Store messages for conversation history
-      await this.prisma.debugAIMessage.createMany({
-        data: [
-          { sessionId: session.id, role: 'user', content: body.message },
-          { sessionId: session.id, role: 'assistant', content: response.content, tokensUsed: response.tokensUsed },
-        ],
-      });
+      await this.prisma.withoutRls(() =>
+        this.prisma.debugAIMessage.createMany({
+          data: [
+            { sessionId: session.id, role: 'user', content: body.message },
+            { sessionId: session.id, role: 'assistant', content: response.content, tokensUsed: response.tokensUsed },
+          ],
+        })
+      );
 
       return {
         response: response.content,

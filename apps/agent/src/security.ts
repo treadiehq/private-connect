@@ -62,27 +62,19 @@ export function isHttpsEnforcementDisabled(): boolean {
 }
 
 /**
- * Check if a hostname is a localhost address
- * Supports IPv4, IPv6, and .local TLD (mDNS)
+ * Check if a hostname is a loopback address.
+ * Only true loopback addresses are accepted (localhost, 127.0.0.1, ::1).
+ * mDNS .local hostnames are NOT treated as loopback -- they resolve via
+ * multicast DNS to any machine on the LAN and are susceptible to spoofing.
+ * Use CONNECT_ALLOW_INSECURE=true for non-loopback HTTP connections.
  */
 function isLocalhostHostname(hostname: string): boolean {
-  // Exact localhost matches
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return true;
   }
   
-  // IPv6 loopback (with or without brackets)
   if (hostname === '::1' || hostname === '[::1]') {
     return true;
-  }
-  
-  // .local TLD (mDNS) - must be exactly "something.local", not "something.local.attacker.com"
-  // Valid: myhost.local, my-host.local
-  // Invalid: evil.local.attacker.com, notlocal
-  if (hostname.endsWith('.local')) {
-    // Ensure there's no subdomain after .local (i.e., .local is the TLD)
-    const parts = hostname.split('.');
-    return parts.length === 2 && parts[1] === 'local' && parts[0].length > 0;
   }
   
   return false;

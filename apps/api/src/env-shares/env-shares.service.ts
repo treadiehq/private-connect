@@ -116,16 +116,16 @@ export class EnvSharesService {
       select: { createdById: true },
     });
     if (!share) return false;
-    await this.prisma.$transaction([
-      this.prisma.environmentShareAllowedDevice.upsert({
+    await this.prisma.$transaction(async (tx) => {
+      await tx.environmentShareAllowedDevice.upsert({
         where: { envShareId_agentId: { envShareId, agentId } },
         create: { envShareId, agentId, approvedById },
         update: { approvedById, approvedAt: new Date() },
-      }),
-      this.prisma.environmentSharePendingJoin.deleteMany({
+      });
+      await tx.environmentSharePendingJoin.deleteMany({
         where: { envShareId, agentId },
-      }),
-    ]);
+      });
+    });
     return true;
   }
 
@@ -191,33 +191,35 @@ export class EnvSharesService {
     if (!validation.valid || !validation.share) return null;
 
     const share = validation.share;
+
+    // Browser clients have no agentId, so they cannot be added to the
+    // device allowlist. Block shell access entirely when approval is required.
+    if (share.requireDeviceApproval) {
+      return null;
+    }
+
     const shellRoute = share.routes.find((r) => r.serviceName === 'shell');
     if (!shellRoute) return null;
 
-    let service: { id: string; agentId: string | null; targetHost: string; targetPort: number; name: string } | null = null;
+    // Use the snapshotted route data (targetHost/targetPort) rather than
+    // live service data. The route captures the host/port at share-creation
+    // time; looking up the current service could return different values if
+    // the service was reconfigured, and falling back to a different service
+    // by name risks horizontal privilege escalation.
+    if (!shellRoute.serviceId || !share.createdById) return null;
 
-    if (shellRoute.serviceId) {
-      service = await this.prisma.service.findUnique({
-        where: { id: shellRoute.serviceId },
-        select: { id: true, agentId: true, targetHost: true, targetPort: true, name: true },
-      });
-    }
-
-    if (!service && share.createdById) {
-      const services = await this.prisma.service.findMany({
-        where: { agentId: share.createdById, name: 'shell' },
-        select: { id: true, agentId: true, targetHost: true, targetPort: true, name: true },
-        take: 1,
-      });
-      service = services[0] ?? null;
-    }
+    const service = await this.prisma.service.findUnique({
+      where: { id: shellRoute.serviceId },
+      select: { id: true, agentId: true, name: true },
+    });
 
     if (!service || !service.agentId) return null;
+
     return {
       id: service.id,
       agentId: service.agentId,
-      targetHost: service.targetHost,
-      targetPort: service.targetPort,
+      targetHost: shellRoute.targetHost,
+      targetPort: shellRoute.targetPort,
       name: service.name,
     };
   }

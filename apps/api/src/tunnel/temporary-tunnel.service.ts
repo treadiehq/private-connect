@@ -712,7 +712,7 @@ export class TemporaryTunnelService implements OnModuleDestroy {
       method: string;
       path: string;
       headers: Record<string, string>;
-      body: string;
+      body: string | Buffer;
     },
   ): Promise<{ status: number; headers: Record<string, string>; body: string }> {
     const tunnel = this.getTunnel(tunnelId);
@@ -736,12 +736,14 @@ export class TemporaryTunnelService implements OnModuleDestroy {
       
       this.pendingRequests.set(requestId, { resolve, reject, timeout });
       
+      const isBuffer = Buffer.isBuffer(request.body);
       tunnel.socket.timeout(5000).emit('http_request', {
         requestId,
         method: request.method,
         path: request.path,
         headers: request.headers,
-        body: request.body,
+        body: isBuffer ? request.body.toString('base64') : request.body,
+        bodyEncoding: isBuffer ? 'base64' : undefined,
       }, (err: Error | null) => {
         if (err) {
           const pending = this.pendingRequests.get(requestId);
