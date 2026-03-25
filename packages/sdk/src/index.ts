@@ -286,8 +286,8 @@ export class ServicesAPI {
     const port = service.tunnelPort || service.targetPort;
     const host = 'localhost';
 
-    let connectionString = '';
-    let envVar = 'SERVICE_URL';
+    let connectionString: string;
+    let envVar: string;
 
     if (service.targetPort === 5432 || service.protocol === 'postgres') {
       connectionString = `postgres://${host}:${port}/postgres`;

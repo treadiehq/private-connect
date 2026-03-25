@@ -1,0 +1,31 @@
+---
+description: Developer experience and code quality conventions
+alwaysApply: true
+---
+
+# DX Conventions
+
+## Versions
+
+- All workspace `package.json` versions must stay in sync — update every package when bumping
+- The JSON-LD `softwareVersion` in `nuxt.config.ts` must match the current version
+
+## Types
+
+- API response types used by the web app live in `apps/web/types/index.ts` — keep them in sync with the API's Prisma models
+- Prefer explicit return types on composable functions and API methods
+
+## Dependencies
+
+- Install deps in the correct workspace (`pnpm --filter <workspace> add`), not at root
+- Root `package.json` is for shared tooling only (ESLint, etc.)
+
+## Testing
+
+- New API services should include a `.spec.ts` file
+- Run `pnpm --filter api test` before pushing changes to API logic
+
+## Linting
+
+- ESLint flat config is at the repo root (`eslint.config.mjs`)
+- Run `pnpm lint` to check — CI will enforce it on PRs

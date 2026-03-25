@@ -1,0 +1,61 @@
+---
+description: Security conventions for the NestJS API server
+globs: apps/api/**/*.ts
+alwaysApply: false
+---
+
+# API Security Conventions
+
+## WebSocket Gateways
+
+- CORS must use the env-driven allowlist, never `origin: '*'`
+- Never combine `origin: '*'` with `credentials: true`
+- All gateways must have `@SkipThrottle()` (global ThrottlerGuard is active)
+
+```typescript
+// ❌ BAD
+@WebSocketGateway({ cors: { origin: '*' } })
+
+// ✅ GOOD
+@WebSocketGateway({
+  cors: {
+    origin: (process.env.CORS_ORIGINS || 'https://app.privateconnect.co,https://privateconnect.co')
+      .split(',').map(s => s.trim()).filter(Boolean),
+  },
+})
+```
+
+## Authentication
+
+- Authenticated routes must use `AuthGuard`, `CombinedAuthGuard`, or `ApiKeyGuard`
+- Public routes should be explicitly intentional (health, status, temporary tunnels, ask)
+- Admin routes must use `AdminGuard`
+
+## Tokens and Secrets
+
+- Bearer-style tokens must use at least `randomBytes(16)` (128 bits)
+- Never return `err.message` to clients — use static error strings
+- Never hardcode secrets, API keys, or environment-specific URLs — use `process.env`
+
+## Input Validation
+
+- Global `ValidationPipe` is active with `whitelist` and `forbidNonWhitelisted`
+- New DTOs should use `class-validator` decorators
+- Zod schemas in controllers are also acceptable
+
+## Database
+
+- Always use Prisma parameterized queries or tagged template literals for raw SQL
+- WebSocket handlers don't run the HTTP `ContextInterceptor` — verify RLS context manually if querying tenant data
+- Enforce body size limits on proxy and upload routes via `NETWORK_CONFIG.MAX_REQUEST_BODY_SIZE`
+
+## Rate Limiting
+
+- `ThrottlerGuard` is registered as a global `APP_GUARD`
+- Use `@Throttle()` to override limits on specific routes
+- Use `@SkipThrottle()` on health checks, WebSocket gateways, and agent-facing endpoints
+
+## Error Responses
+
+- Never leak stack traces, file paths, or DB errors to clients
+- Use `HttpException` subclasses with user-safe messages

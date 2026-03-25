@@ -489,7 +489,7 @@ export class SharesController {
               }
               break;
               
-            case 'T': // RowDescription
+            case 'T': { // RowDescription
               const numFields = msgData.readInt16BE(0);
               let offset = 2;
               columns = [];
@@ -499,8 +499,9 @@ export class SharesController {
                 offset = nameEnd + 19; // Skip to next field
               }
               break;
+            }
               
-            case 'D': // DataRow
+            case 'D': { // DataRow
               const numCols = msgData.readInt16BE(0);
               let dOffset = 2;
               const row: any = {};
@@ -516,12 +517,14 @@ export class SharesController {
               }
               rows.push(row);
               break;
+            }
               
-            case 'C': // CommandComplete
+            case 'C': { // CommandComplete
               const tag = msgData.toString('utf8').split('\0')[0];
               const match = tag.match(/\d+$/);
               rowCount = match ? parseInt(match[0], 10) : rows.length;
               break;
+            }
               
             case 'Z': // ReadyForQuery
               readyForQuery = true;
@@ -529,11 +532,12 @@ export class SharesController {
               resolve({ columns, rows, rowCount });
               break;
               
-            case 'E': // ErrorResponse
+            case 'E': { // ErrorResponse
               const errMsg = this.parsePostgresError(msgData);
               socket.end();
               reject(new Error(errMsg));
               break;
+            }
           }
         }
       });

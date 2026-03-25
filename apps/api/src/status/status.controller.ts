@@ -34,7 +34,7 @@ export class StatusController {
     },
   })
   async health() {
-    let dbStatus = 'unknown';
+    let dbStatus: string;
     try {
       await this.prisma.$queryRaw`SELECT 1`;
       dbStatus = 'connected';
@@ -89,7 +89,7 @@ export class StatusController {
   async status() {
     const stats = this.tunnelService.getStats();
     
-    let dbStatus = 'unknown';
+    let dbStatus: string;
     try {
       await this.prisma.$queryRaw`SELECT 1`;
       dbStatus = 'connected';

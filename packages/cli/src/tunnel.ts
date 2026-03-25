@@ -335,13 +335,13 @@ function runUdpProxy(
   });
 
   socket.on('disconnect', (reason: string) => {
-    try { udp.close(); } catch {}
+    try { udp.close(); } catch { /* intentional */ }
     emitter.emit('disconnect', reason);
   });
 
   socket.io.on('reconnect', () => emitter.emit('reconnect'));
   socket.on('connect_error', (err: Error) => emitter.emit('error', err.message));
-  socket.on('tunnel_expired', () => { emitter.emit('expire'); try { udp.close(); } catch {} socket.disconnect(); });
+  socket.on('tunnel_expired', () => { emitter.emit('expire'); try { udp.close(); } catch { /* intentional */ } socket.disconnect(); });
   socket.on('server_shutdown', () => emitter.emit('disconnect', 'server_shutdown'));
 
   socket.on('udp_datagram', (data: { sessionId: string; data: string; remoteAddress: string; remotePort: number }) => {
@@ -358,7 +358,7 @@ function runUdpProxy(
   udp.bind();
 
   return (onClose: () => void) => {
-    try { udp.close(); } catch {}
+    try { udp.close(); } catch { /* intentional */ }
     socket.once('disconnect', () => onClose());
     socket.disconnect();
   };

@@ -1,0 +1,55 @@
+---
+description: Accessibility and UX conventions for the Nuxt web app
+globs: apps/web/**/*.vue
+alwaysApply: false
+---
+
+# Web A11y & UX Conventions
+
+## Modals
+
+- All modals must have `role="dialog"`, `aria-modal="true"`, and `aria-labelledby` pointing to the heading
+- Never use `window.confirm()` or `window.alert()` — use in-app modals
+- Destructive actions (delete, revoke) must use a red-styled confirmation modal that explains consequences
+
+```html
+<!-- ✅ GOOD -->
+<div v-if="showModal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <h3 id="modal-title">Confirm Delete</h3>
+</div>
+```
+
+## Page States
+
+- Every data-fetching page must handle all three states: loading (skeleton or spinner), error (message + retry), empty (illustration or next-step guidance)
+- Show toast feedback after mutations (create, delete, update) via `useToast()`
+
+## Forms
+
+- Every `<input>` must have a `<label>` with matching `for`/`id`
+- Use `sr-only` class for visually hidden labels when the UI context is obvious
+
+## Toggle Switches
+
+- Use `<button role="switch" :aria-checked="value">`, not `<div @click>`
+
+## Tab Strips
+
+- Container: `role="tablist"`
+- Each tab: `role="tab"`, `:aria-selected="isActive"`
+
+## Interactive Controls
+
+- Buttons with only an icon must have `aria-label`
+- Expandable menus/hamburgers must have `:aria-expanded`
+- Never hide actions behind hover-only (`opacity-0 group-hover:opacity-100`) without a mobile fallback — use `md:opacity-0 md:group-hover:opacity-100`
+
+## Links
+
+- All `NuxtLink` / `<a>` hrefs must resolve to real routes — no dead links
+- 404 states should include a back-link to the parent list page
+
+## Styling Consistency
+
+- Use `text-gray-400` for secondary text — never mix in `text-slate-*` variants
+- Use Tailwind v4 syntax: `!` suffix for importance (`border-gray-500/10!`), `bg-linear-to-r` not `bg-gradient-to-r`
