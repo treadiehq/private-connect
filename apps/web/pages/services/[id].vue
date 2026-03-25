@@ -146,11 +146,14 @@
           <div 
             v-if="showSubdomainModal" 
             class="fixed inset-0 z-50 flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="subdomain-modal-title"
             @click.self="showSubdomainModal = false"
           >
             <div class="absolute inset-0 bg-[#09090b]/70 backdrop-blur-sm"></div>
             <div class="relative bg-black-main border border-gray-500/20 rounded-2xl w-full max-w-md p-6 shadow-2xl">
-              <h3 class="text-lg font-semibold text-white mb-2">Custom Public URL</h3>
+              <h3 id="subdomain-modal-title" class="text-lg font-semibold text-white mb-2">Custom Public URL</h3>
               <p class="text-sm text-gray-400 mb-4">
                 Set a custom subdomain for this service. Anyone with the URL can access it.
               </p>
@@ -239,11 +242,14 @@
           <div 
             v-if="showRenameModal" 
             class="fixed inset-0 z-50 flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="rename-modal-title"
             @click.self="showRenameModal = false"
           >
             <div class="absolute inset-0 bg-[#09090b]/70 backdrop-blur-sm"></div>
             <div class="relative bg-black-main border border-gray-500/20 rounded-2xl w-full max-w-md p-6 shadow-2xl">
-              <h3 class="text-lg font-semibold text-white mb-2">Rename Service</h3>
+              <h3 id="rename-modal-title" class="text-lg font-semibold text-white mb-2">Rename Service</h3>
               <p class="text-sm text-gray-400 mb-4">
                 Change the display name for this service.
               </p>
@@ -301,11 +307,14 @@
           <div 
             v-if="showDeleteModal" 
             class="fixed inset-0 z-50 flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-modal-title"
             @click.self="showDeleteModal = false"
           >
             <div class="absolute inset-0 bg-[#09090b]/70 backdrop-blur-sm"></div>
             <div class="relative bg-black-main border border-gray-500/20 rounded-2xl w-full max-w-md p-6 shadow-2xl">
-              <h3 class="text-lg font-semibold text-white mb-2">Delete Service</h3>
+              <h3 id="delete-modal-title" class="text-lg font-semibold text-white mb-2">Delete Service</h3>
               <p class="text-sm text-gray-400 mb-4">
                 Are you sure you want to delete <span class="text-white font-medium">{{ service.name }}</span>? This will stop all tunnels and remove the service permanently.
               </p>

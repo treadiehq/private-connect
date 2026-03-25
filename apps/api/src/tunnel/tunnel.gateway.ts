@@ -8,10 +8,12 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { SkipThrottle } from '@nestjs/throttler';
 import { TunnelService } from './tunnel.service';
 import { AgentsService } from '../agents/agents.service';
 import { SecureLogger, extractClientIp, maskIpAddress } from '../common/security';
 
+@SkipThrottle()
 @WebSocketGateway({
   namespace: '/agent',
   cors: {

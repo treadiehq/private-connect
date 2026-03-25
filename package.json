@@ -8,7 +8,7 @@
     "dev": "pnpm --parallel --filter api --filter web dev",
     "build": "pnpm --filter api build && pnpm --filter web build && pnpm --filter agent build",
     "build:agent": "pnpm --filter agent build",
-    "lint": "pnpm -r lint",
+    "lint": "eslint .",
     "start": "./scripts/start.sh",
     "stop": "./scripts/stop.sh",
     "restart": "./scripts/restart.sh",
@@ -23,10 +23,13 @@
     "node": ">=18.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@oxc-minify/binding-darwin-arm64": "^0.103.0",
     "@oxc-parser/binding-darwin-arm64": "^0.103.0",
     "@oxc-resolver/binding-darwin-arm64": "^11.16.0",
-    "@oxc-transform/binding-darwin-arm64": "^0.103.0"
+    "@oxc-transform/binding-darwin-arm64": "^0.103.0",
+    "eslint": "^10.1.0",
+    "typescript-eslint": "^8.57.2"
   },
   "dependencies": {
     "pg": "^8.13.0"

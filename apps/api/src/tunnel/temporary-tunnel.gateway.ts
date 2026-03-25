@@ -8,15 +8,17 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { SkipThrottle } from '@nestjs/throttler';
 import { TemporaryTunnelService } from './temporary-tunnel.service';
 import { SecureLogger } from '../common/security';
 
+@SkipThrottle()
 @WebSocketGateway({
   namespace: '/temp-tunnel',
   cors: {
     origin: '*',
   },
-  maxHttpBufferSize: 200e6, // 200MB - large game assets, binary transport
+  maxHttpBufferSize: 10e6, // 10MB
   pingTimeout: 120000,
   pingInterval: 25000,
   transports: ['websocket'],
@@ -74,7 +76,7 @@ export class TemporaryTunnelGateway implements OnGatewayConnection, OnGatewayDis
           return { success: true, tcpServerStarted: true };
         } catch (err: any) {
           this.logger.error(`Failed to start TCP server: ${err.message}`);
-          return { success: true, tcpServerStarted: false, error: err.message };
+          return { success: true, tcpServerStarted: false, error: 'Failed to start TCP server' };
         }
       }
       
@@ -85,7 +87,7 @@ export class TemporaryTunnelGateway implements OnGatewayConnection, OnGatewayDis
           return { success: true, udpServerStarted: true };
         } catch (err: any) {
           this.logger.error(`Failed to start UDP server: ${err.message}`);
-          return { success: true, udpServerStarted: false, error: err.message };
+          return { success: true, udpServerStarted: false, error: 'Failed to start UDP server' };
         }
       }
       

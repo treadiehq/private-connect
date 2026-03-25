@@ -5,11 +5,19 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { SkipThrottle } from '@nestjs/throttler';
 import { AuthService } from '../auth/auth.service';
 import { SecureLogger } from '../common/security';
 
+@SkipThrottle()
 @WebSocketGateway({
-  cors: { origin: '*', credentials: true },
+  cors: {
+    origin: (process.env.CORS_ORIGINS || 'https://app.privateconnect.co,https://privateconnect.co')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean),
+    credentials: true,
+  },
   namespace: '/realtime',
 })
 export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect {

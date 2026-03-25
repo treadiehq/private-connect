@@ -8,13 +8,18 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { SkipThrottle } from '@nestjs/throttler';
 import { DebugService } from './debug.service';
 import { SecureLogger } from '../common/security';
 
+@SkipThrottle()
 @WebSocketGateway({
   namespace: '/debug',
   cors: {
-    origin: '*',
+    origin: (process.env.CORS_ORIGINS || 'https://app.privateconnect.co,https://privateconnect.co')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean),
   },
 })
 export class DebugGateway implements OnGatewayConnection, OnGatewayDisconnect {

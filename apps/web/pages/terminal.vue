@@ -13,8 +13,9 @@
           <p class="text-gray-400 text-sm">Enter the share code from the host. They must run <code class="text-gray-300 bg-gray-500/20 px-1 rounded">connect shell</code> and include it in their share.</p>
         </div>
         <form @submit.prevent="startConnection" class="bg-gray-500/10 border border-gray-500/10 rounded-lg p-6">
-          <label class="block text-sm font-medium text-gray-300 mb-2">Share code</label>
+          <label for="share-code" class="block text-sm font-medium text-gray-300 mb-2">Share code</label>
           <input
+            id="share-code"
             v-model="code"
             type="password"
             placeholder="e.g. abc123"

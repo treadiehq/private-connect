@@ -47,7 +47,9 @@
 
         <form @submit.prevent="verifyCode">
           <div class="mb-6">
+            <label for="device-code" class="sr-only">Device code</label>
             <input
+              id="device-code"
               v-model="userCode"
               type="text"
               placeholder="XXXX-XXXX"

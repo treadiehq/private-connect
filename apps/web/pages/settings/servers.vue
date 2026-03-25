@@ -27,10 +27,13 @@
 
     <!-- Tab Navigation -->
     <div class="mb-6 border-b border-gray-500/20">
-      <div class="flex gap-1">
+      <div class="flex gap-1" role="tablist">
         <button
           v-for="tab in tabs"
           :key="tab.id"
+          role="tab"
+          :aria-selected="activeTab === tab.id"
+          :aria-controls="`panel-${tab.id}`"
           @click="activeTab = tab.id"
           :class="[
             'px-4 py-3 text-sm font-medium transition-colors relative',
@@ -240,7 +243,7 @@
               </div>
 
               <!-- Actions -->
-              <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div class="flex items-center gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                 <button
                   @click="checkServerHealth(server)"
                   :disabled="server.healthCheckInProgress"
@@ -426,6 +429,48 @@
       </div>
     </div>
     -->
+
+    <!-- Confirm Modal -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition ease-out duration-150"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition ease-in duration-100"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="confirmModal"
+          class="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-modal-title"
+          @click.self="confirmModal = null"
+        >
+          <div class="absolute inset-0 bg-[#09090b]/70 backdrop-blur-sm"></div>
+          <div class="relative bg-black-main border border-gray-500/20 rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+            <h3 id="confirm-modal-title" class="text-lg font-semibold text-white mb-2">Confirm</h3>
+            <p class="text-sm text-gray-400 mb-6">{{ confirmModal.message }}</p>
+            <div class="flex gap-3">
+              <button
+                @click="confirmModal = null"
+                class="flex-1 py-2 bg-gray-500/10 hover:bg-gray-500/15 rounded-lg transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                @click="runConfirmAction"
+                :disabled="confirmRunning"
+                class="flex-1 py-2 bg-red-400 hover:bg-red-500 disabled:opacity-50 text-white font-medium rounded-lg transition-colors"
+              >
+                {{ confirmRunning ? 'Deleting...' : 'Delete' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -478,6 +523,8 @@ const selectedDiscoveredServers = ref<string[]>([]);
 const healthMonitoringEnabled = ref(true);
 const healthCheckInterval = ref<NodeJS.Timeout | null>(null);
 const refreshingHealth = ref(false);
+const confirmModal = ref<{ message: string; action: () => Promise<void> } | null>(null);
+const confirmRunning = ref(false);
 
 // Common ports to scan
 const COMMON_PORTS = [3000, 3001, 4000, 5000, 5173, 5174, 8000, 8080, 8081, 8443, 8787, 8762, 4096, 5432, 6379, 3306, 27017, 9200];
@@ -697,19 +744,31 @@ const bulkAddSelected = async () => {
 const bulkDelete = async () => {
   if (selectedServers.value.length === 0) return;
   const count = selectedServers.value.length;
-  if (!confirm(`Delete ${count} server${count > 1 ? 's' : ''}?`)) return;
+  confirmModal.value = {
+    message: `Delete ${count} server${count > 1 ? 's' : ''}? This action cannot be undone.`,
+    action: async () => {
+      try {
+        await Promise.all(
+          selectedServers.value.map(serverId => deleteService(serverId))
+        );
+        selectedServers.value = [];
+        await loadServers();
+        success(`Deleted ${count} server${count > 1 ? 's' : ''}`);
+      } catch (error: any) {
+        showError(error.message || 'Failed to delete servers');
+      }
+    },
+  };
+};
 
+const runConfirmAction = async () => {
+  if (!confirmModal.value) return;
+  confirmRunning.value = true;
   try {
-    await Promise.all(
-      selectedServers.value.map(serverId => deleteService(serverId))
-    );
-
-    selectedServers.value = [];
-    await loadServers();
-    success(`Deleted ${count} server${count > 1 ? 's' : ''}`);
-  } catch (error) {
-    console.error('Failed to delete servers:', error);
-    showError('Failed to delete servers');
+    await confirmModal.value.action();
+  } finally {
+    confirmRunning.value = false;
+    confirmModal.value = null;
   }
 };
 
@@ -800,17 +859,20 @@ const editServer = (server: LocalServer) => {
   navigateTo(`/services/${server.id}`);
 };
 
-const removeServer = async (serverId: string) => {
-  if (!confirm('Are you sure you want to remove this server?')) return;
-  
-  try {
-    await deleteService(serverId);
-    await loadServers();
-    success('Server removed successfully');
-  } catch (error) {
-    console.error('Failed to remove server:', error);
-    showError('Failed to remove server');
-  }
+const removeServer = (serverId: string) => {
+  confirmModal.value = {
+    message: 'Are you sure you want to remove this server? This action cannot be undone.',
+    action: async () => {
+      try {
+        await deleteService(serverId);
+        await loadServers();
+        success('Server removed successfully');
+      } catch (error) {
+        console.error('Failed to remove server:', error);
+        showError('Failed to remove server');
+      }
+    },
+  };
 };
 
 const copyCommand = async (command: string) => {

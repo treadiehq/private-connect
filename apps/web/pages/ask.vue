@@ -143,7 +143,7 @@
         >
           <p class="text-xs text-gray-500">
             Want AI to safely access private services?
-            <NuxtLink to="/install" class="text-blue-300 hover:text-blue-200">Enable Private Connect</NuxtLink>
+            <a href="https://privateconnect.co#install" class="text-blue-300 hover:text-blue-200">Enable Private Connect</a>
           </p>
         </div>
 

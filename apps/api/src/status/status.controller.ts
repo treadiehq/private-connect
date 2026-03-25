@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { TunnelService } from '../tunnel/tunnel.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -14,6 +15,7 @@ export class StatusController {
   ) {}
 
   @Get('health')
+  @SkipThrottle()
   @ApiOperation({ 
     summary: 'Health check', 
     description: 'Basic health check endpoint. No authentication required.' 
@@ -49,6 +51,7 @@ export class StatusController {
   }
 
   @Get('v1/status')
+  @SkipThrottle()
   @ApiOperation({ 
     summary: 'Detailed system status', 
     description: 'Returns detailed status including connected agents, active services, and hub statistics. No authentication required.' 

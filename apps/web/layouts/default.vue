@@ -40,7 +40,8 @@
           <!-- Mobile menu button -->
           <button
             class="md:hidden p-1.5 text-gray-400 hover:text-white transition-colors"
-            aria-label="Open navigation menu"
+            :aria-label="mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'"
+            :aria-expanded="mobileMenuOpen"
             @click="mobileMenuOpen = !mobileMenuOpen"
           >
             <svg v-if="!mobileMenuOpen" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

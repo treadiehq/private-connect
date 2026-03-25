@@ -90,7 +90,8 @@
     <!-- Not Found (404) -->
     <div v-else-if="notFound" class="text-center py-20">
       <h2 class="text-2xl font-bold mb-2">Diagnostic not found</h2>
-      <p class="text-gray-400">This diagnostic result may have expired or doesn't exist.</p>
+      <p class="text-gray-400 mb-4">This diagnostic result may have expired or doesn't exist.</p>
+      <NuxtLink to="/services" class="text-blue-300 hover:text-blue-200 text-sm">&larr; Back to services</NuxtLink>
     </div>
 
     <!-- Error State -->

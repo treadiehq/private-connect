@@ -123,9 +123,9 @@
     </div>
 
     <!-- Create Modal -->
-    <div v-if="showCreateModal" class="fixed inset-0 bg-[#09090b]/80 flex items-center justify-center z-50 p-4" @click.self="closeCreateModal">
+    <div v-if="showCreateModal" class="fixed inset-0 bg-[#09090b]/80 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="create-key-title" @click.self="closeCreateModal">
       <div class="bg-black-main border border-gray-500/20 rounded-lg w-full max-w-md p-6 animate-fade-in">
-        <h2 class="text-xl font-semibold mb-4">Create API Key</h2>
+        <h2 id="create-key-title" class="text-xl font-semibold mb-4">Create API Key</h2>
 
         <!-- Show key after creation -->
         <div v-if="newlyCreatedKey">
@@ -141,6 +141,7 @@
               <button
                 @click="copyKey"
                 class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition-colors"
+                aria-label="Copy API key"
               >
                 <svg v-if="copied" class="w-5 h-5 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -208,9 +209,9 @@
     </div>
 
     <!-- Revoke Confirmation Modal -->
-    <div v-if="keyToRevoke" class="fixed inset-0 bg-[#09090b]/80 flex items-center justify-center z-50 p-4" @click.self="keyToRevoke = null">
+    <div v-if="keyToRevoke" class="fixed inset-0 bg-[#09090b]/80 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="revoke-key-title" @click.self="keyToRevoke = null">
       <div class="bg-black-main border border-gray-500/20 rounded-xl w-full max-w-md p-6 animate-fade-in">
-        <h2 class="text-xl font-semibold mb-4">Revoke API Key</h2>
+        <h2 id="revoke-key-title" class="text-xl font-semibold mb-4">Revoke API Key</h2>
         <p class="text-gray-400 mb-6">
           Are you sure you want to revoke <span class="text-white font-medium">{{ keyToRevoke.name }}</span>? 
           Any agents using this key will immediately lose access.
@@ -241,9 +242,9 @@
     </div>
 
     <!-- IP Restrictions Modal -->
-    <div v-if="ipEditKey" class="fixed inset-0 bg-[#09090b]/80 flex items-center justify-center z-50 p-4" @click.self="closeIpModal">
+    <div v-if="ipEditKey" class="fixed inset-0 bg-[#09090b]/80 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="ip-restrict-title" @click.self="closeIpModal">
       <div class="bg-black-main border border-gray-500/20 rounded-xl w-full max-w-lg p-6 animate-fade-in">
-        <h2 class="text-xl font-semibold mb-2">IP Restrictions</h2>
+        <h2 id="ip-restrict-title" class="text-xl font-semibold mb-2">IP Restrictions</h2>
         <p class="text-gray-400 text-sm mb-6">
           Limit which IP addresses can use <span class="text-white font-medium">{{ ipEditKey.name }}</span>. 
           Leave empty to allow all IPs.

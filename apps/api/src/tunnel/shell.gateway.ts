@@ -9,6 +9,7 @@ import {
 } from '@nestjs/websockets';
 import { Inject, forwardRef } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
+import { SkipThrottle } from '@nestjs/throttler';
 import { randomUUID } from 'crypto';
 import { TunnelService } from './tunnel.service';
 import { EnvSharesService } from '../env-shares/env-shares.service';
@@ -80,9 +81,15 @@ interface SharedSessionEntry {
   proxy: BroadcastSocket;
 }
 
+@SkipThrottle()
 @WebSocketGateway({
   namespace: '/shell',
-  cors: { origin: '*' },
+  cors: {
+    origin: (process.env.CORS_ORIGINS || 'https://app.privateconnect.co,https://privateconnect.co')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean),
+  },
   transports: ['websocket'],
   allowUpgrades: false,
 })

@@ -57,7 +57,7 @@ export class DebugService {
     aiModel?: string;
     expiresIn?: number; // minutes, default 60
   }): Promise<DebugSessionInfo> {
-    const token = `s-${randomBytes(4).toString('hex')}`;
+    const token = `s-${randomBytes(16).toString('hex')}`;
     const expiresAt = params.expiresIn 
       ? new Date(Date.now() + params.expiresIn * 60 * 1000)
       : new Date(Date.now() + 60 * 60 * 1000); // Default 1 hour

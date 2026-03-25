@@ -41,10 +41,11 @@
       <div v-else class="bg-gray-500/10 border border-gray-500/10 rounded-lg p-8 animate-fade-in">
         <form @submit.prevent="handleRegister">
           <div class="mb-5">
-            <label class="block text-sm font-medium text-white mb-2">
+            <label for="register-workspace" class="block text-sm font-medium text-white mb-2">
               Workspace name
             </label>
             <input
+              id="register-workspace"
               v-model="workspaceName"
               type="text"
               placeholder="Acme Inc."
@@ -58,10 +59,11 @@
           </div>
 
           <div class="mb-6">
-            <label class="block text-sm font-medium text-white mb-2">
+            <label for="register-email" class="block text-sm font-medium text-white mb-2">
               Email address
             </label>
             <input
+              id="register-email"
               v-model="email"
               type="email"
               placeholder="you@example.com"

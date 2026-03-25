@@ -154,6 +154,9 @@
               <p class="text-sm text-gray-400">Automatically analyze traffic when errors are detected</p>
             </div>
             <button
+              role="switch"
+              :aria-checked="config.autoAnalyze"
+              aria-label="Auto-analyze errors"
               @click="config.autoAnalyze = !config.autoAnalyze"
               :class="[
                 'relative w-12 h-6 rounded-full transition-colors',

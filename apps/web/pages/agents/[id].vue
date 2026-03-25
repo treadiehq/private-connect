@@ -192,7 +192,8 @@
     <!-- Not Found (404) -->
     <div v-else-if="notFound" class="text-center py-20">
       <h2 class="text-2xl font-bold mb-2">Agent not found</h2>
-      <p class="text-gray-400">The agent you're looking for doesn't exist.</p>
+      <p class="text-gray-400 mb-4">The agent you're looking for doesn't exist.</p>
+      <NuxtLink to="/agents" class="text-blue-300 hover:text-blue-200 text-sm">&larr; Back to agents</NuxtLink>
     </div>
 
     <!-- Error State (non-404) -->
