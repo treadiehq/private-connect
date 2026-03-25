@@ -61,7 +61,7 @@ export class AIController {
   @ApiResponse({ status: 400, description: 'Workspace context required' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getConfig(@Req() req: any) {
-    const workspaceId = req.workspaceId;
+    const workspaceId = req.workspaceId || req.workspace?.id;
     if (!workspaceId) {
       throw new BadRequestException('Workspace context required');
     }
@@ -108,7 +108,7 @@ export class AIController {
     @Req() req: any,
     @Body() body: UpdateConfigDto,
   ) {
-    const workspaceId = req.workspaceId;
+    const workspaceId = req.workspaceId || req.workspace?.id;
     if (!workspaceId) {
       throw new BadRequestException('Workspace context required');
     }
@@ -151,7 +151,7 @@ export class AIController {
   @ApiResponse({ status: 400, description: 'Workspace context or AI configuration missing' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async testConfig(@Req() req: any) {
-    const workspaceId = req.workspaceId;
+    const workspaceId = req.workspaceId || req.workspace?.id;
     if (!workspaceId) {
       throw new BadRequestException('Workspace context required');
     }
@@ -206,7 +206,7 @@ export class AIController {
     @Req() req: any,
     @Body() body: AnalyzeDto,
   ) {
-    const workspaceId = req.workspaceId;
+    const workspaceId = req.workspaceId || req.workspace?.id;
     if (!workspaceId) {
       throw new BadRequestException('Workspace context required');
     }
@@ -310,7 +310,7 @@ export class AIController {
     @Req() req: any,
     @Body() body: ChatDto,
   ) {
-    const workspaceId = req.workspaceId;
+    const workspaceId = req.workspaceId || req.workspace?.id;
     if (!workspaceId) {
       throw new BadRequestException('Workspace context required');
     }
@@ -411,7 +411,7 @@ export class AIController {
     @Req() req: any,
     @Param('sessionId') sessionId: string,
   ) {
-    const workspaceId = req.workspaceId;
+    const workspaceId = req.workspaceId || req.workspace?.id;
     if (!workspaceId) {
       throw new BadRequestException('Workspace context required');
     }
