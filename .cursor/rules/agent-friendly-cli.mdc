@@ -1,0 +1,70 @@
+# Agent-Friendly CLI Conventions
+
+## Purpose
+Every `connect` CLI command must work for both human users and AI agents.
+Agents can't press arrow keys, parse colored output, or answer interactive prompts.
+
+## Required for all commands
+
+### Help text with examples
+Every command must include `.addHelpText('after', ...)` with 2-3 copy-pasteable examples.
+Agents pattern-match examples faster than reading descriptions.
+
+```typescript
+.addHelpText('after', `
+Examples:
+  $ connect expose localhost:3000
+  $ connect expose localhost:8080 --name api
+`)
+```
+
+### Structured output (`--json`)
+Every command that returns data must support `--json` for machine-readable output.
+When `--json` is active: output only valid JSON to stdout, send logs to stderr.
+
+### Actionable errors
+Never dump raw API responses or stack traces. Every error must include:
+1. What went wrong (one line)
+2. How to fix it (a copy-pasteable command or next step)
+
+```typescript
+console.error(chalk.red('[x] Service "my-api" not found'));
+console.log(chalk.gray(`  Available: ${names.join(', ')}`));
+console.log(chalk.gray(`  Usage: connect expose localhost:3000 --name my-api`));
+```
+
+### Non-interactive by default
+Every input must be passable as a flag. Interactive prompts are fallbacks only.
+If stdin is not a TTY, never block — use safe defaults or fail with a clear error.
+
+## Required for destructive commands (delete, revoke, stop)
+
+### Confirmation bypass
+Support `--force` or `--yes` to skip confirmation prompts.
+
+### Dry-run support
+Support `--dry-run` to preview what would happen without making changes.
+Print what would happen, then exit 0 with no side effects.
+
+## Required for commands that create or modify state
+
+### Idempotency
+Running the same command twice should not create duplicates or error.
+If the resource already exists with identical config, return the existing one.
+
+## Required for automation
+
+### Stdin support
+Commands that read files (`--file`) should accept `-` to read from stdin for piping.
+
+### CLI flags over env vars
+When env-var-based behavior exists (e.g. `CONNECT_AUTO_APPROVE`), expose
+equivalent CLI flags (`--yes`, `--no`) so they're discoverable via `--help`.
+
+## Anti-patterns
+
+- `.catch(console.error)` at top level — leaks stack traces to agents
+- Raw `response.statusText` in error messages — not actionable
+- Interactive prompts without a `--force`/`--yes` bypass
+- Commands that create resources without checking for duplicates first
+- `--help` that lists options without examples

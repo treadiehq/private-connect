@@ -7,6 +7,7 @@ import { CombinedAuthGuard } from '../auth/combined-auth.guard';
 import { AgentsService } from '../agents/agents.service';
 
 const RESOURCE_TYPES = ['postgres', 'mysql', 'redis', 'http', 'generic-tcp'] as const;
+const SESSION_STATUSES = ['active', 'closed', 'expired'] as const;
 
 const CreateSessionSchema = z.object({
   agentId: z.string().uuid(),
@@ -18,6 +19,14 @@ const CreateSessionSchema = z.object({
   targetHost: z.string().min(1),
   targetPort: z.number().int().min(1).max(65535),
   expiresAt: z.string().datetime(),
+});
+
+const CloseSessionSchema = z.object({
+  status: z.enum(['closed', 'expired']).optional().default('closed'),
+});
+
+const ListQuerySchema = z.object({
+  status: z.enum(SESSION_STATUSES).optional(),
 });
 
 @ApiTags('Resource Sessions')
@@ -64,8 +73,11 @@ export class ResourceSessionsController {
     @Body() body: unknown,
     @Req() req: any,
   ) {
-    const status = (body as any)?.status === 'expired' ? 'expired' as const : 'closed' as const;
-    const result = await this.resourceSessionsService.close(id, req.workspaceId, status);
+    const parsed = CloseSessionSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new HttpException('Invalid request body', HttpStatus.BAD_REQUEST);
+    }
+    const result = await this.resourceSessionsService.close(id, req.workspaceId, parsed.data.status);
 
     if (result.count === 0) {
       throw new HttpException('Session not found or already closed', HttpStatus.NOT_FOUND);
@@ -80,8 +92,12 @@ export class ResourceSessionsController {
   @SkipThrottle()
   @ApiOperation({ summary: 'List resource sessions' })
   async list(@Query('status') status: string | undefined, @Req() req: any) {
+    const parsed = ListQuerySchema.safeParse({ status });
+    if (!parsed.success) {
+      throw new HttpException('Invalid status filter', HttpStatus.BAD_REQUEST);
+    }
     await this.resourceSessionsService.expireStale();
-    const sessions = await this.resourceSessionsService.listByWorkspace(req.workspaceId, status);
+    const sessions = await this.resourceSessionsService.listByWorkspace(req.workspaceId, parsed.data.status);
     return { ok: true, sessions };
   }
 }

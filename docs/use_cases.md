@@ -426,9 +426,9 @@ API_URL=http://user-api.localhost:3000
 - Auto-discovers new services
 
 ```bash
-# Map specific services to specific ports
-connect map staging-db 5432
-connect map redis 6379
+# Reach services — they get stable local ports
+connect reach staging-db --port 5432
+connect reach redis --port 6379
 
 # Now use standard ports
 psql -h localhost -p 5432

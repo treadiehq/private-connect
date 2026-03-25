@@ -411,13 +411,16 @@ function getPconnectServiceName(port: number): string | null {
       
       if (configPath.endsWith('.json')) {
         const config = JSON.parse(content);
-        const service = config.services?.find((s: { port: number }) => s.port === port);
-        if (service?.name) return service.name;
+        if (config.resources && typeof config.resources === 'object') {
+          for (const [name, res] of Object.entries(config.resources)) {
+            if ((res as any)?.port === port) return name;
+          }
+        }
       } else {
-        // Simple YAML parsing for services
-        const match = content.match(new RegExp(`name:\\s*([\\w-]+)[\\s\\S]*?port:\\s*${port}|port:\\s*${port}[\\s\\S]*?name:\\s*([\\w-]+)`));
-        if (match) {
-          return match[1] || match[2];
+        // Look for resources with matching port in YAML
+        const resourceBlocks = content.matchAll(/^\s{2}([\w-]+):\s*\n(?:.*\n)*?\s+port:\s*(\d+)/gm);
+        for (const match of resourceBlocks) {
+          if (parseInt(match[2], 10) === port) return match[1];
         }
       }
     } catch {

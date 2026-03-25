@@ -11,7 +11,6 @@ import {
   TRANSPORT_MODES,
   AccessMode,
   TransportVia,
-  ParsedServiceEntry,
   ParsedExposeEntry,
 } from './types';
 import { defaultPortForType } from './endpoint';
@@ -186,26 +185,8 @@ function validateResource(name: string, raw: unknown): ResourceConfig {
 
 export interface ParsedProjectConfig {
   resources: ResourcesMap;
-  services: ParsedServiceEntry[];
   expose: ParsedExposeEntry[];
   hub?: string;
-}
-
-function parseServicesArray(raw: unknown): ParsedServiceEntry[] {
-  if (!Array.isArray(raw)) return [];
-
-  const services: ParsedServiceEntry[] = [];
-  for (const entry of raw) {
-    if (!entry || typeof entry !== 'object') continue;
-    const s = entry as Record<string, unknown>;
-    services.push({
-      name: String(s.name || ''),
-      port: typeof s.port === 'number' ? s.port : (typeof s.localPort === 'number' ? s.localPort : undefined),
-      localPort: typeof s.localPort === 'number' ? s.localPort : undefined,
-      protocol: typeof s.protocol === 'string' ? s.protocol : undefined,
-    });
-  }
-  return services;
 }
 
 function parseExposeMap(raw: unknown): ParsedExposeEntry[] {
@@ -226,9 +207,8 @@ function parseExposeMap(raw: unknown): ParsedExposeEntry[] {
 }
 
 /**
- * Parse a pconnect.yml / .json file. Extracts all three sections:
- *   - resources: (map — new format)
- *   - services:  (array — legacy format)
+ * Parse a pconnect.yml / .json file. Extracts:
+ *   - resources: (named map with type, host, port, access)
  *   - expose:    (map — expose block)
  * Validates each resource strictly with friendly error messages.
  */
@@ -275,7 +255,6 @@ export function parseResourceConfig(configPath: string): ParsedProjectConfig {
 
   return {
     resources,
-    services: parseServicesArray(raw.services),
     expose: parseExposeMap(raw.expose),
     hub: typeof raw.hub === 'string' ? raw.hub : undefined,
   };

@@ -7,6 +7,7 @@ const HUB_URL = process.env.CONNECT_HUB_URL || 'https://api.privateconnect.co';
 interface DeleteOptions {
   hub?: string;
   force?: boolean;
+  dryRun?: boolean;
 }
 
 export async function deleteCommand(serviceName: string, options: DeleteOptions) {
@@ -47,6 +48,14 @@ export async function deleteCommand(serviceName: string, options: DeleteOptions)
       }
       console.log();
       process.exit(1);
+    }
+
+    // Dry-run mode — show what would happen and exit
+    if (options.dryRun) {
+      console.log(chalk.cyan(`  Would delete service "${serviceName}" (ID: ${service.id})`));
+      console.log(chalk.gray('  No changes made.'));
+      console.log();
+      return;
     }
 
     // Confirm deletion unless --force

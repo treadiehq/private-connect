@@ -110,15 +110,8 @@ export interface ResourceListSuccess {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Legacy config types — services: / expose: sections in pconnect.yml
+// Config types — expose: section in pconnect.yml
 // ─────────────────────────────────────────────────────────────────────────────
-
-export interface ParsedServiceEntry {
-  name: string;
-  port?: number;
-  localPort?: number;
-  protocol?: string;
-}
 
 export interface ParsedExposeEntry {
   name: string;

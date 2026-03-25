@@ -160,6 +160,24 @@ const grant = await pc.grants.create({
 
 See [examples/](examples/) for LangChain and OpenAI integrations.
 
+## Built for agents
+
+Every CLI command supports `--json` for machine-readable output, `--help` with copy-pasteable examples, and flags for everything (no interactive prompts required).
+
+```bash
+connect expose localhost:3000 --name api --json
+# → {"serviceId":"...","name":"api","target":"localhost:3000","tunnelPort":...}
+
+connect grant claude --db postgres --ttl 5m --json
+# → {"id":"...","token":"gnt_...","endpoint":"..."}
+
+connect delete my-service --dry-run
+# → Would delete service "my-service" (ID: ...). No changes made.
+
+connect broker --yes exec -- npm test
+# → Auto-approves review prompts (no stdin needed)
+```
+
 ## CI / preview environments
 
 Expose a local service from GitHub Actions and post a preview URL on the PR:

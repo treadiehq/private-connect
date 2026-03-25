@@ -1,10 +1,12 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as net from 'net';
 import chalk from 'chalk';
 import { loadConfig } from '../config';
 import { findAvailablePort, isPortAvailable } from '../ports';
 import { updateShellState, clearShellState } from './shell';
+import { exposeCommand } from './expose';
 import {
   findProjectConfig,
   parseResourceConfig,
@@ -24,11 +26,11 @@ interface DevOptions {
 }
 
 /**
- * connect dev - Provision all resources / services from pconnect.yml
+ * connect dev - Provision resources and expose services from pconnect.yml
  *
- * Supports both config formats:
- *   resources:  (new — named map with type, host, port, access)
- *   services:   (legacy — array with name + port, requires hub lookup)
+ * Handles both sections of the manifest:
+ *   resources: — connect to remote resources (inbound)
+ *   expose:    — expose local services (outbound)
  */
 export async function devCommand(options: DevOptions) {
   const agentConfig = loadConfig();
@@ -39,7 +41,15 @@ export async function devCommand(options: DevOptions) {
     process.exit(1);
   }
 
-  const configPath = options.file || findProjectConfig();
+  let configPath = options.file || findProjectConfig();
+
+  // Support reading from stdin via --file -
+  if (options.file === '-') {
+    const stdinData = fs.readFileSync(0, 'utf-8');
+    const tmpPath = path.join(os.tmpdir(), `pconnect-stdin-${Date.now()}.yml`);
+    fs.writeFileSync(tmpPath, stdinData);
+    configPath = tmpPath;
+  }
 
   if (!configPath) {
     console.log(chalk.yellow('\n[!] No pconnect.yml found.\n'));
@@ -61,11 +71,11 @@ export async function devCommand(options: DevOptions) {
   }
 
   const hasResources = Object.keys(config.resources).length > 0;
-  const hasServices = config.services.length > 0;
+  const hasExpose = config.expose.length > 0;
 
-  if (!hasResources && !hasServices) {
-    console.error(chalk.red('\n[x] No resources or services defined in config.\n'));
-    console.log(chalk.gray('  Add a resources: section to your pconnect.yml:\n'));
+  if (!hasResources && !hasExpose) {
+    console.error(chalk.red('\n[x] No resources or expose entries defined in config.\n'));
+    console.log(chalk.gray('  Add a resources: or expose: section to your pconnect.yml:\n'));
     console.log(chalk.cyan('    resources:'));
     console.log(chalk.cyan('      staging-db:'));
     console.log(chalk.cyan('        type: postgres'));
@@ -84,18 +94,81 @@ export async function devCommand(options: DevOptions) {
   console.log(chalk.gray(`  Hub:    ${hubUrl}`));
   console.log();
 
+  if (hasExpose) {
+    await devExposeServices(config, hubUrl);
+  }
+
   if (hasResources) {
-    if (hasServices) {
-      console.log(chalk.gray('  Using resources: section (services: is ignored when resources: is present)\n'));
-    }
     await devWithResources(config, hubUrl, agentConfig);
   } else {
-    await devWithLegacyServices(config, hubUrl, agentConfig);
+    // expose-only: keep process alive
+    console.log(chalk.gray('  Press Ctrl+C to stop all services\n'));
+    await new Promise(() => {});
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// New path — resources: format
+// Expose path — expose: section (outbound)
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function devExposeServices(config: ParsedProjectConfig, hubUrl: string) {
+  const entries = config.expose;
+
+  console.log(chalk.white('  Exposing services...\n'));
+
+  const results: Array<{ name: string; target: string; success: boolean; public?: boolean }> = [];
+
+  for (const entry of entries) {
+    if (!entry.target) {
+      console.log(chalk.yellow(`  [!] Skipping "${entry.name}": no target specified`));
+      results.push({ name: entry.name, target: '', success: false });
+      continue;
+    }
+
+    try {
+      const result = await exposeCommand(entry.target, {
+        name: entry.name,
+        hub: hubUrl,
+        protocol: 'auto',
+        public: entry.public || false,
+      });
+
+      results.push({
+        name: entry.name,
+        target: entry.target,
+        success: !!result,
+        public: entry.public,
+      });
+    } catch (error) {
+      const err = error as Error;
+      console.log(chalk.red(`  [x] Failed to expose "${entry.name}": ${err.message}`));
+      results.push({ name: entry.name, target: entry.target, success: false });
+    }
+  }
+
+  const successful = results.filter(r => r.success);
+  const failed = results.filter(r => !r.success);
+
+  if (successful.length > 0) {
+    console.log(chalk.green(`  [ok] ${successful.length} service(s) exposed:\n`));
+    successful.forEach(r => {
+      const publicTag = r.public ? chalk.blue(' [public]') : chalk.gray(' [private]');
+      console.log(chalk.white(`    ${r.name}`) + chalk.gray(` → ${r.target}`) + publicTag);
+    });
+    console.log();
+  }
+
+  if (failed.length > 0) {
+    console.log(chalk.yellow(`  [!] ${failed.length} service(s) failed to expose:\n`));
+    failed.forEach(r => {
+      console.log(chalk.gray(`    ${r.name} → ${r.target || '(no target)'}`));
+    });
+    console.log();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Resources path — resources: section (inbound)
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface DevConnection {
@@ -222,98 +295,6 @@ async function connectResourceViaHub(
       result: { name: resource.name, success: false, error: err.message },
     };
   }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Legacy path — services: format (hub lookup)
-// ─────────────────────────────────────────────────────────────────────────────
-
-async function devWithLegacyServices(
-  config: ParsedProjectConfig,
-  hubUrl: string,
-  agentConfig: ReturnType<typeof loadConfig> & {},
-) {
-  let availableServices: Array<{
-    name: string;
-    targetPort: number;
-    tunnelPort?: number;
-    status: string;
-  }> = [];
-
-  try {
-    const response = await fetch(`${hubUrl}/v1/services`, {
-      headers: { 'x-api-key': agentConfig.apiKey },
-    });
-    if (response.ok) {
-      availableServices = await response.json() as typeof availableServices;
-    }
-  } catch {
-    console.log(chalk.yellow('  [!] Could not fetch service list from hub'));
-  }
-
-  const connections: DevConnection[] = [];
-  const results: Array<{ name: string; success: boolean; port?: number; error?: string; autoSelected?: boolean; requestedPort?: number }> = [];
-
-  console.log(chalk.white('  Connecting to services...\n'));
-
-  for (const service of config.services) {
-    const availableService = availableServices.find(
-      s => s.name.toLowerCase() === service.name.toLowerCase()
-    );
-
-    const localPort = service.port || service.localPort || availableService?.targetPort || 0;
-
-    if (!localPort) {
-      results.push({ name: service.name, success: false, error: 'No port specified and service not found on hub' });
-      continue;
-    }
-
-    if (!availableService) {
-      results.push({ name: service.name, success: false, error: 'Service not found on hub' });
-      continue;
-    }
-
-    if (!availableService.tunnelPort) {
-      results.push({ name: service.name, success: false, error: 'Service has no active tunnel' });
-      continue;
-    }
-
-    try {
-      let actualPort = localPort;
-      let wasAutoSelected = false;
-
-      if (!(await isPortAvailable(localPort))) {
-        const alternativePort = await findAvailablePort(localPort + 1);
-        if (alternativePort) {
-          actualPort = alternativePort;
-          wasAutoSelected = true;
-        } else {
-          throw new Error(`Port ${localPort} is in use and no alternatives available`);
-        }
-      }
-
-      const server = await createHubTunnel(hubUrl, availableService.tunnelPort, actualPort);
-      const handle: ForwarderHandle = {
-        server,
-        localPort: actualPort,
-        close: () => new Promise<void>((resolve) => { server.close(() => resolve()); }),
-      };
-
-      connections.push({ name: service.name, handle });
-      results.push({
-        name: service.name,
-        success: true,
-        port: actualPort,
-        autoSelected: wasAutoSelected,
-        requestedPort: wasAutoSelected ? localPort : undefined,
-      });
-    } catch (error) {
-      const err = error as Error;
-      results.push({ name: service.name, success: false, error: err.message });
-    }
-  }
-
-  printResultsAndWait(connections, results);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

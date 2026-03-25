@@ -1,6 +1,6 @@
-# Config-driven expose: `connect serve`
+# Config-driven expose: `connect dev`
 
-Expose multiple local services from one config file with one command. Define your webhooks, demos, and APIs in `pconnect.yml` and run `connect serve`.
+Expose multiple local services from one config file with one command. Define your webhooks, demos, and APIs in `pconnect.yml` and run `connect dev`.
 
 ---
 
@@ -22,7 +22,7 @@ expose:
 Then:
 
 ```bash
-connect serve
+connect dev
 ```
 
 Output:
@@ -72,7 +72,7 @@ services:
   - name: redis
     port: 6379
 
-# Services to expose from this machine (connect serve)
+# Services to expose from this machine (connect dev)
 expose:
   web:
     target: localhost:3000
@@ -114,7 +114,7 @@ The key (e.g. `web`, `api`) becomes the **service name** in the hub. Teammates c
 ## CLI reference
 
 ```bash
-connect serve [options]
+connect dev [options]
 
 Options:
   -H, --hub <url>    Hub URL (default: https://api.privateconnect.co)
@@ -122,7 +122,7 @@ Options:
   -c, --config <path> Agent config file path
 ```
 
-`connect serve` reads only the `expose` block. `connect dev` reads only the `services` block. Same file, two commands, clear separation.
+`connect dev` reads both the `resources` and `expose` blocks from the same `pconnect.yml`.
 
 ---
 
@@ -139,7 +139,7 @@ expose:
 
 2. Start your app locally (`npm run dev`, `bun dev`, etc.).
 
-3. Run `connect serve`. Copy the public URL from the output.
+3. Run `connect dev`. Copy the public URL from the output.
 
 4. Paste the URL into your webhook provider (Stripe, GitHub, Polar, etc.).
 
@@ -164,7 +164,7 @@ expose:
 ```
 
 ```bash
-connect serve
+connect dev
 # Both get public URLs. Share them with your team or stakeholders.
 ```
 
@@ -197,8 +197,8 @@ connect reach worker
 |----------|---------|
 | Quick anonymous tunnel (no config, no account) | `npx private-connect tunnel 3000` |
 | Single expose with flags | `connect expose localhost:3000 --name web --public` |
-| Multiple exposes from config | `connect serve` (reads `expose` block) |
-| Reach team's services from config | `connect dev` (reads `services` block) |
+| Multiple exposes from config | `connect dev` (reads `expose` block) |
+| Provision resources from config | `connect dev` (reads `resources` block) |
 | Public URL with policy (methods, paths, rate limit) | `connect link <service> --expires 7d --methods POST` |
 
-`connect serve` and `connect dev` complement each other: one exposes, one reaches. Both read from the same `pconnect.yml`.
+`connect dev` handles both `resources` and `expose` sections from the same `pconnect.yml` in one command.

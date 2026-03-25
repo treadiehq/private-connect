@@ -146,19 +146,13 @@ export class ProxyController {
     }
 
     const authHeader = req.headers['authorization'];
-    const tokenFromHeader = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    const tokenFromQuery = req.query['token'] as string | undefined;
-    const grantToken = tokenFromHeader || tokenFromQuery;
+    const grantToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
     if (!grantToken) {
       return res.status(401).json({
         error: 'Grant token required',
         message: 'Provide a grant token via Authorization: Bearer <token>',
       });
-    }
-
-    if (tokenFromQuery) {
-      res.setHeader('X-Deprecation', 'Passing grant tokens via ?token= is deprecated. Use Authorization: Bearer <token> header instead.');
     }
 
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -287,7 +281,7 @@ export class ProxyController {
   @ApiOperation({
     summary: 'Proxy via grant token (root path)',
     description:
-      'Proxies HTTP to the private resource named `:resource`. Provide the grant token via `Authorization: Bearer <token>` or `?token=`.',
+      'Proxies HTTP to the private resource named `:resource`. Provide the grant token via `Authorization: Bearer <token>`.',
   })
   @ApiResponse({ status: 200, description: 'Proxied response from the exposed service.' })
   @ApiResponse({ status: 401, description: 'Grant token missing.' })
@@ -339,19 +333,13 @@ export class ProxyController {
     const userAgent = req.headers['user-agent'] || undefined;
 
     const authHeader = req.headers['authorization'];
-    const tokenFromHeader = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    const tokenFromQuery = req.query['token'] as string | undefined;
-    const grantToken = tokenFromHeader || tokenFromQuery;
+    const grantToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
     if (!grantToken) {
       return res.status(401).json({
         error: 'Grant token required',
         message: 'Provide a grant token via Authorization: Bearer <token>',
       });
-    }
-
-    if (tokenFromQuery) {
-      res.setHeader('X-Deprecation', 'Passing grant tokens via ?token= is deprecated. Use Authorization: Bearer <token> header instead.');
     }
 
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -407,7 +395,7 @@ export class ProxyController {
 
     try {
       const requestBody = await this.getRequestBody(req);
-      const queryString = req.url.includes('?') ? '?' + req.url.split('?').slice(1).join('?').replace(/[&?]token=[^&]*/, '') : '';
+      const queryString = req.url.includes('?') ? '?' + req.url.split('?').slice(1).join('?') : '';
       const requestPath = (targetPath || '/') + queryString;
       const requestHeaders = this.filterHeaders(req.headers as Record<string, string>);
 

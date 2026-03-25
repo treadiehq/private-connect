@@ -17,6 +17,7 @@ interface ExposeOptions {
   debug?: boolean;
   aiEnabled?: boolean;
   e2e?: boolean;
+  json?: boolean;
 }
 
 interface DiagnosticResult {
@@ -47,7 +48,9 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
     process.exit(1);
   }
 
-  console.log(chalk.cyan(`🔗 Exposing ${target} as "${options.name}"...`));
+  if (!options.json) {
+    console.log(chalk.cyan(`🔗 Exposing ${target} as "${options.name}"...`));
+  }
 
   // Load or create config
   const existingConfig = loadConfig();
@@ -60,9 +63,11 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
 
   const config = ensureConfig(options.hub, options.apiKey);
   
-  console.log(chalk.gray(`   Agent ID: ${config.agentId}`));
-  console.log(chalk.gray(`   Label:    ${config.label}`));
-  console.log(chalk.gray(`   Hub URL:  ${config.hubUrl}`));
+  if (!options.json) {
+    console.log(chalk.gray(`   Agent ID: ${config.agentId}`));
+    console.log(chalk.gray(`   Label:    ${config.label}`));
+    console.log(chalk.gray(`   Hub URL:  ${config.hubUrl}`));
+  }
 
   // Register agent first if needed
   await registerAgent(config);
@@ -79,8 +84,11 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
 
   const isPublic = (options.link || isNonHttpService) ? false : (options.public || false);
   
-  // Register service with hub
-  const service = await registerService(config.agentId, options.name, host, port, options.protocol, isPublic, config);
+  // Idempotency: check if this exact service is already registered
+  const existingService = await findExistingService(config.agentId, options.name, host, port, config);
+  
+  // Register service with hub (or reuse existing)
+  const service = existingService || await registerService(config.agentId, options.name, host, port, options.protocol, isPublic, config);
   
   if (!service) {
     console.error(chalk.red('[x] Failed to register service'));
@@ -90,11 +98,28 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
   // Store serviceId for return value
   const result = { serviceId: service.id };
 
-  console.log(chalk.green(`[ok] Service registered`));
-  console.log(chalk.gray(`   Service ID: ${service.id}`));
-  console.log(chalk.gray(`   Tunnel Port: ${service.tunnelPort}`));
-  console.log(chalk.gray(`   Protocol: ${service.protocol}`));
-  
+  if (!options.json) {
+    console.log(chalk.green(`[ok] Service registered`));
+    console.log(chalk.gray(`   Service ID: ${service.id}`));
+    console.log(chalk.gray(`   Tunnel Port: ${service.tunnelPort}`));
+    console.log(chalk.gray(`   Protocol: ${service.protocol}`));
+  }
+
+  if (options.json) {
+    const jsonOutput: Record<string, unknown> = {
+      serviceId: service.id,
+      name: options.name,
+      target,
+      tunnelPort: service.tunnelPort,
+      protocol: service.protocol,
+      isPublic: service.isPublic,
+    };
+    if (service.publicUrl) {
+      jsonOutput.publicUrl = service.publicUrl;
+    }
+    console.log(JSON.stringify(jsonOutput));
+  }
+
   if (service.publicUrl) {
     console.log(chalk.cyan(`\n🌐 Public URL: ${service.publicUrl}`));
     console.log(chalk.gray(`   External services (Stripe, GitHub, etc.) can send webhooks to this URL`));
@@ -852,13 +877,45 @@ async function registerAgent(config: { agentId: string; token: string; hubUrl: s
     });
     
     if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Registration failed: ${response.status} - ${text}`);
+      const status = response.status;
+      const errMsg = status === 401 || status === 403
+        ? 'Invalid or expired API key. Run: connect login <your-api-key>'
+        : `HTTP ${status}. Run: connect doctor  to check connectivity`;
+      throw new Error(errMsg);
     }
   } catch (error: unknown) {
     const err = error as Error;
     console.error(chalk.red(`[x] Agent registration failed: ${err.message}`));
     throw error;
+  }
+}
+
+async function findExistingService(
+  agentId: string,
+  name: string,
+  targetHost: string,
+  targetPort: number,
+  config: { hubUrl: string; apiKey: string },
+): Promise<{ id: string; tunnelPort: number; protocol: string; isPublic: boolean; publicUrl: string | null } | null> {
+  try {
+    const response = await fetch(`${config.hubUrl}/v1/services`, {
+      headers: { 'x-api-key': config.apiKey },
+    });
+    if (!response.ok) return null;
+
+    const data = await response.json() as { services?: Array<{ id: string; name: string; agentId: string; targetHost: string; targetPort: number; tunnelPort: number; protocol: string; isPublic: boolean; publicUrl: string | null }> };
+    const services = data.services || (Array.isArray(data) ? data : []);
+
+    const match = services.find(
+      (s: any) => s.agentId === agentId && s.name === name && s.targetPort === targetPort
+    );
+    if (match) {
+      console.log(chalk.gray(`   [ok] "${name}" already exposed on port ${targetPort}, reusing`));
+      return match;
+    }
+    return null;
+  } catch {
+    return null;
   }
 }
 
@@ -889,8 +946,15 @@ async function registerService(
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      console.error(chalk.red(`Service registration failed: ${text}`));
+      const status = response.status;
+      console.error(chalk.red(`[x] Service registration failed (HTTP ${status})`));
+      if (status === 401 || status === 403) {
+        console.log(chalk.gray(`  Check your API key: connect login <your-api-key>`));
+      } else if (status === 409) {
+        console.log(chalk.gray(`  A service with this name may already exist. Try a different --name.`));
+      } else {
+        console.log(chalk.gray(`  Run: connect doctor  to check connectivity`));
+      }
       return null;
     }
 

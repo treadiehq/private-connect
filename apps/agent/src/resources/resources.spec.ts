@@ -187,15 +187,14 @@ resources:
 
   it('returns empty resources when section is absent', () => {
     const p = writeConfig('pconnect.yml', `
-services:
-  - name: db
-    port: 5432
+hub: https://api.example.com
 `);
     const result = parseResourceConfig(p);
     expect(Object.keys(result.resources)).toHaveLength(0);
+    expect(result.hub).toBe('https://api.example.com');
   });
 
-  it('preserves services section alongside resources', () => {
+  it('ignores unknown top-level keys like services', () => {
     const p = writeConfig('pconnect.yml', `
 resources:
   staging-db:
@@ -204,58 +203,11 @@ resources:
     port: 5432
     access:
       mode: tcp
-services:
-  - name: db
-    port: 5432
-  - name: redis
-    port: 6379
 hub: https://api.example.com
 `);
     const result = parseResourceConfig(p);
     expect(Object.keys(result.resources)).toHaveLength(1);
-    expect(result.services).toHaveLength(2);
     expect(result.hub).toBe('https://api.example.com');
-  });
-
-  it('handles old config with only services (no resources)', () => {
-    const p = writeConfig('pconnect.yml', `
-services:
-  - name: staging-db
-    port: 5432
-  - name: redis
-    port: 6379
-hub: https://api.example.com
-`);
-    const result = parseResourceConfig(p);
-    expect(Object.keys(result.resources)).toHaveLength(0);
-    expect(result.services).toHaveLength(2);
-    expect(result.hub).toBe('https://api.example.com');
-  });
-
-  it('parses typed service entries with all fields', () => {
-    const p = writeConfig('pconnect.yml', `
-services:
-  - name: db
-    port: 5432
-    localPort: 5433
-    protocol: tcp
-  - name: api
-    port: 3000
-`);
-    const result = parseResourceConfig(p);
-    expect(result.services).toHaveLength(2);
-    expect(result.services[0]).toEqual({
-      name: 'db',
-      port: 5432,
-      localPort: 5433,
-      protocol: 'tcp',
-    });
-    expect(result.services[1]).toEqual({
-      name: 'api',
-      port: 3000,
-      localPort: undefined,
-      protocol: undefined,
-    });
   });
 
   it('parses typed expose entries', () => {
@@ -284,7 +236,7 @@ expose:
     });
   });
 
-  it('returns empty arrays when services and expose are absent', () => {
+  it('returns empty expose array when expose is absent', () => {
     const p = writeConfig('pconnect.yml', `
 resources:
   db:
@@ -295,7 +247,6 @@ resources:
       mode: tcp
 `);
     const result = parseResourceConfig(p);
-    expect(result.services).toHaveLength(0);
     expect(result.expose).toHaveLength(0);
   });
 

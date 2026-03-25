@@ -12,6 +12,8 @@ interface GrantOptions {
   config?: string;
   list?: boolean;
   revoke?: string;
+  json?: boolean;
+  dryRun?: boolean;
 }
 
 interface GrantResponse {
@@ -141,6 +143,21 @@ export async function grantCommand(agentLabel: string | undefined, options: Gran
 
     const g = data.grant;
 
+    if (options.json) {
+      console.log(JSON.stringify({
+        id: g.id,
+        agent: g.agentLabel,
+        resourceType: g.resourceType,
+        resourceName: g.resourceName,
+        scope: g.scope,
+        persistent: g.persistent,
+        expiresAt: g.expiresAt,
+        token: g.token,
+        endpoint: g.endpoint,
+      }));
+      return;
+    }
+
     console.log(chalk.green('\n  Grant created.\n'));
     console.log(`  ${chalk.gray('Agent:')}     ${chalk.white(g.agentLabel)}`);
     console.log(`  ${chalk.gray('Resource:')}  ${chalk.white(g.resourceName)} ${chalk.dim(`(${g.resourceType})`)}`);
@@ -230,6 +247,12 @@ async function revokeGrantCommand(grantId: string, options: GrantOptions) {
   }
 
   const hubUrl = config.hubUrl || options.hub;
+
+  if (options.dryRun) {
+    console.log(chalk.cyan(`\n[dry-run] Would revoke grant ${grantId.slice(0, 8)}...`));
+    console.log(chalk.gray('  No changes made.\n'));
+    return;
+  }
 
   try {
     const response = await fetch(`${hubUrl}/v1/grants/${grantId}`, {

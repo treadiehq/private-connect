@@ -18,7 +18,7 @@ A hub-and-spoke connectivity platform. Agents run on machines, expose local serv
 | `apps/agent` | CLI + daemon | Node.js, compiled to binary via `pkg` |
 | `packages/cli` | `npx private-connect` commands | Node.js (no auth required) |
 | `packages/sdk` | `@privateconnect/sdk` | TypeScript |
-| `integrations/` | OpenClaw, Clawdbot skills | Markdown + config |
+| `integrations/` | OpenClaw skill | Markdown + config |
 | `docs/` | All documentation | Markdown |
 
 ## Key concepts
@@ -33,7 +33,7 @@ A hub-and-spoke connectivity platform. Agents run on machines, expose local serv
 
 ## CLI commands (authenticated)
 
-`connect up`, `connect expose`, `connect reach`, `connect share`, `connect join`, `connect clone`, `connect link`, `connect delete`, `connect proxy`, `connect daemon`, `connect dev`, `connect serve`, `connect dns`, `connect mcp`, `connect broker`, `connect shell`, `connect grant`, `connect status`, `connect doctor`, `connect whoami`, `connect update`, `connect logout`
+`connect up`, `connect expose`, `connect reach`, `connect share`, `connect join`, `connect clone`, `connect link`, `connect delete`, `connect proxy`, `connect daemon`, `connect dev`, `connect dns`, `connect mcp`, `connect broker`, `connect shell`, `connect grant`, `connect status`, `connect doctor`, `connect whoami`, `connect update`, `connect logout`
 
 ## CLI commands (npx, no auth)
 

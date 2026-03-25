@@ -6,15 +6,12 @@ import { exposeCommand } from './commands/expose';
 import { reachCommand } from './commands/reach';
 import { proxyCommand } from './commands/proxy';
 import { whoamiCommand } from './commands/whoami';
-import { discoverCommand } from './commands/discover';
 import { logoutCommand } from './commands/logout';
 import { updateCommand } from './commands/update';
 import { shareCommand, listSharesCommand, revokeShareCommand, pendingShareCommand, approveShareCommand, denyShareCommand } from './commands/share';
 import { joinCommand } from './commands/join';
-import { mapCommand, mapStatusCommand } from './commands/map';
 import { daemonCommand } from './commands/daemon';
 import { devCommand, devInitCommand } from './commands/dev';
-import { serveCommand } from './commands/serve';
 import { linkCommand } from './commands/link';
 import { deleteCommand } from './commands/delete';
 import { doctorCommand, cleanupCommand, statusCommand } from './commands/doctor';
@@ -235,6 +232,13 @@ program
   .option('-n, --name <name>', 'Agent name')
   .option('-t, --token <token>', 'Pre-authenticated token (for CI/CD)')
   .option('-c, --config <path>', 'Config file path (for multiple agents)')
+  .addHelpText('after', `
+Examples:
+  $ connect up
+  $ connect up --api-key pc_xxx
+  $ connect up --name my-server --label staging
+  $ connect up --token <pre-auth-token>
+`)
   .action((options) => {
     if (options.config) setConfigPath(options.config);
     upCommand(options);
@@ -245,6 +249,10 @@ program
   .description('Save your API key so you don\'t need --api-key on every command')
   .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-c, --config <path>', 'Config file path')
+  .addHelpText('after', `
+Examples:
+  $ connect login pc_xxx
+`)
   .action((apiKey, options) => {
     if (options.config) setConfigPath(options.config);
     loginCommand(apiKey, options);
@@ -267,6 +275,15 @@ program
   .option('--ai', 'Enable AI Copilot for debug session (requires --debug)')
   .option('--no-e2e', 'Disable end-to-end encryption for tunnel data')
   .option('-c, --config <path>', 'Config file path (for multiple agents)')
+  .option('--json', 'Output as JSON (machine-readable)')
+  .addHelpText('after', `
+Examples:
+  $ connect expose localhost:3000
+  $ connect expose localhost:8080 --name api
+  $ connect expose localhost:5432 --name db --protocol tcp
+  $ connect expose localhost:3000 --public --debug
+  $ connect expose localhost:3000 --name api --json
+`)
   .action((target, options) => {
     if (options.config) setConfigPath(options.config);
     // Map --ai to aiEnabled for the expose command
@@ -310,6 +327,13 @@ program
   .option('--json', 'Output as JSON')
   .option('--no-e2e', 'Disable end-to-end encryption for tunnel data')
   .option('-c, --config <path>', 'Config file path (for multiple agents)')
+  .addHelpText('after', `
+Examples:
+  $ connect reach api
+  $ connect reach postgres --port 5432
+  $ connect reach api --json
+  $ connect reach api --check
+`)
   .action((service, options) => {
     if (options.config) setConfigPath(options.config);
     reachCommand(service, options);
@@ -327,6 +351,13 @@ program
   .option('--key <path>', 'Path to custom TLS private key (implies --https)')
   .option('--trust', 'Add the local CA to system trust store')
   .option('--foreground', 'Run in foreground (default: daemonize)')
+  .addHelpText('after', `
+Examples:
+  $ connect proxy start
+  $ connect proxy start --https --trust
+  $ connect proxy stop
+  $ connect proxy status
+`)
   .action((action, options) => {
     if (options.config) setConfigPath(options.config);
     if (options.trust && !action) action = 'trust';
@@ -343,6 +374,14 @@ program
   .option('-r, --rate-limit <rpm>', 'Rate limit per minute', parseLimit)
   .option('-n, --name <name>', 'Service name (auto-detected if not provided)')
   .option('-c, --config <path>', 'Config file path (for multiple agents)')
+  .option('--json', 'Output as JSON (machine-readable)')
+  .addHelpText('after', `
+Examples:
+  $ connect link 3000
+  $ connect link localhost:8080
+  $ connect link api --expires 7d
+  $ connect link 3000 --methods GET,POST --paths /api
+`)
   .action((target, options) => {
     if (options.config) setConfigPath(options.config);
     linkCommand(target, options);
@@ -353,7 +392,14 @@ program
   .description('Delete a service and stop all its tunnels')
   .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-f, --force', 'Skip confirmation prompt')
+  .option('--dry-run', 'Preview what would be deleted without making changes')
   .option('-c, --config <path>', 'Config file path (for multiple agents)')
+  .addHelpText('after', `
+Examples:
+  $ connect delete my-service
+  $ connect delete my-service --force
+  $ connect delete my-service --dry-run
+`)
   .action((service, options) => {
     if (options.config) setConfigPath(options.config);
     deleteCommand(service, options);
@@ -364,27 +410,24 @@ program
   .description('Print agent identity and workspace membership')
   .option('--json', 'Output as JSON')
   .option('-c, --config <path>', 'Config file path (for multiple agents)')
+  .addHelpText('after', `
+Examples:
+  $ connect whoami
+  $ connect whoami --json
+`)
   .action((options) => {
     if (options.config) setConfigPath(options.config);
     whoamiCommand(options);
   });
 
 program
-  .command('discover')
-  .description('Scan for local services and optionally expose them')
-  .option('--host <host>', 'Host to scan', 'localhost')
-  .option('--ports <ports>', 'Comma-separated list of ports to scan', parsePorts)
-  .option('--json', 'Output as JSON')
-  .option('-c, --config <path>', 'Config file path (for multiple agents)')
-  .action((options) => {
-    if (options.config) setConfigPath(options.config);
-    discoverCommand(options);
-  });
-
-program
   .command('logout')
   .description('Clear local credentials and log out')
   .option('-c, --config <path>', 'Config file path (for multiple agents)')
+  .addHelpText('after', `
+Examples:
+  $ connect logout
+`)
   .action((options) => {
     if (options.config) setConfigPath(options.config);
     logoutCommand(options);
@@ -394,6 +437,11 @@ program
   .command('update')
   .description('Update the CLI to the latest version')
   .option('-f, --force', 'Force update even if already on latest version')
+  .addHelpText('after', `
+Examples:
+  $ connect update
+  $ connect update --force
+`)
   .action((options) => {
     updateCommand(options);
   });
@@ -413,6 +461,18 @@ program
   .option('--approve <code>', 'Approve a device to join (use with --agent)')
   .option('--deny <code>', 'Deny a pending device (use with --agent)')
   .option('--agent <id>', 'Agent ID (for use with --approve or --deny)')
+  .option('--json', 'Output as JSON (machine-readable)')
+  .option('--dry-run', 'Preview what would be revoked (use with --revoke)')
+  .addHelpText('after', `
+Examples:
+  $ connect share
+  $ connect share --name "staging env" --expires 7d
+  $ connect share --list
+  $ connect share --revoke ABC123
+  $ connect share --revoke ABC123 --dry-run
+  $ connect share --require-approval
+  $ connect share --json
+`)
   .action((options) => {
     if (options.config) setConfigPath(options.config);
     
@@ -446,28 +506,13 @@ program
   .description('Join a shared environment from a teammate')
   .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-c, --config <path>', 'Config file path')
+  .addHelpText('after', `
+Examples:
+  $ connect join ABC123
+`)
   .action((code, options) => {
     if (options.config) setConfigPath(options.config);
     joinCommand(code, options);
-  });
-
-// Mapping Commands
-program
-  .command('map [service] [localPort]')
-  .description('Map a service to a local port (e.g., staging-db → localhost:5432)')
-  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
-  .option('-c, --config <path>', 'Config file path')
-  .option('-r, --remove', 'Remove the mapping')
-  .option('-s, --status', 'Show status of all mappings')
-  .action((service, localPort, options) => {
-    if (options.config) setConfigPath(options.config);
-    if (options.status) {
-      mapStatusCommand(options);
-    } else {
-      // Coerce localPort to number if provided
-      const port = localPort ? parsePort(localPort) : undefined;
-      mapCommand(service, port, options);
-    }
   });
 
 // Daemon Commands
@@ -479,6 +524,14 @@ program
   .option('--proxy', 'Also run the proxy server')
   .option('--proxy-port <port>', 'Proxy port', parsePort, 3000)
   .option('-r, --replace', 'Kill existing daemon and start a new one')
+  .addHelpText('after', `
+Examples:
+  $ connect daemon install
+  $ connect daemon start
+  $ connect daemon status
+  $ connect daemon logs
+  $ connect daemon stop
+`)
   .action((action, options) => {
     if (options.config) setConfigPath(options.config);
     const validatedAction = validateDaemonAction(action);
@@ -488,12 +541,19 @@ program
 // Dev Mode Commands
 program
   .command('dev')
-  .description('Provision all resources from pconnect.yml — the manifest runtime')
+  .description('Provision resources and expose services from pconnect.yml')
   .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-f, --file <path>', 'Path to pconnect.yml file')
   .option('-c, --config <path>', 'Agent config file path')
   .option('-b, --background', 'Run in background')
   .option('--init', 'Create a pconnect.yml manifest in the current directory')
+  .addHelpText('after', `
+Examples:
+  $ connect dev
+  $ connect dev --init
+  $ connect dev --file custom.yml
+  $ connect dev --background
+`)
   .action((options) => {
     if (options.config) setConfigPath(options.config);
     
@@ -510,24 +570,18 @@ program
     }
   });
 
-// Serve Mode Commands
-program
-  .command('serve')
-  .description('Expose all services defined in the expose block of pconnect.yml')
-  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
-  .option('-f, --file <path>', 'Path to pconnect.yml file')
-  .option('-c, --config <path>', 'Agent config file path')
-  .action((options) => {
-    if (options.config) setConfigPath(options.config);
-    serveCommand(options);
-  });
-
 // Health & Diagnostics Commands
 program
   .command('doctor')
   .description('Check system health and fix common issues')
   .option('--fix', 'Auto-fix detected issues')
   .option('--json', 'Output as JSON')
+  .addHelpText('after', `
+Examples:
+  $ connect doctor
+  $ connect doctor --fix
+  $ connect doctor --json
+`)
   .action((options) => {
     doctorCommand(options);
   });
@@ -536,6 +590,11 @@ program
   .command('cleanup')
   .description('Clean up orphaned processes and stale files')
   .option('-f, --force', 'Actually perform cleanup (dry-run by default)')
+  .addHelpText('after', `
+Examples:
+  $ connect cleanup
+  $ connect cleanup --force
+`)
   .action((options) => {
     cleanupCommand(options);
   });
@@ -544,6 +603,11 @@ program
   .command('status')
   .description('Quick status overview')
   .option('--json', 'Output as JSON')
+  .addHelpText('after', `
+Examples:
+  $ connect status
+  $ connect status --json
+`)
   .action((options) => {
     statusCommand(options);
   });
@@ -556,7 +620,14 @@ program
   .option('-o, --output <path>', 'Output .env file path', '.env.pconnect')
   .option('--no-env', 'Skip .env file generation')
   .option('-l, --list', 'List teammates with clonable environments')
+  .option('--json', 'Output as JSON (machine-readable)')
   .option('-c, --config <path>', 'Config file path')
+  .addHelpText('after', `
+Examples:
+  $ connect clone alice
+  $ connect clone --list
+  $ connect clone alice --no-env
+`)
   .action(async (target, options) => {
     if (options.config) setConfigPath(options.config);
     
@@ -592,6 +663,13 @@ program
   .option('-p, --port <port>', 'DNS server port', parsePort, 15353)
   .option('-d, --domain <domain>', 'Domain suffix', 'connect')
   .option('-c, --config <path>', 'Config file path')
+  .addHelpText('after', `
+Examples:
+  $ connect dns install
+  $ connect dns status
+  $ connect dns test
+  $ connect dns uninstall
+`)
   .action(async (action, options) => {
     if (options.config) setConfigPath(options.config);
     
@@ -609,6 +687,11 @@ program
   .description('AI assistant integration via MCP (setup|serve)')
   .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-c, --config <path>', 'Config file path')
+  .addHelpText('after', `
+Examples:
+  $ connect mcp setup
+  $ connect mcp serve
+`)
   .action(async (action, options) => {
     if (options.config) setConfigPath(options.config);
     await mcpCommand(action, options);
@@ -626,6 +709,17 @@ program
   .option('--action <action>', 'Filter by action (allow|block|review)')
   .option('-s, --stats', 'Show audit statistics')
   .option('-u, --uninstall', 'Uninstall hooks')
+  .option('--yes', 'Auto-approve review prompts')
+  .option('--no', 'Auto-deny review prompts')
+  .addHelpText('after', `
+Examples:
+  $ connect broker init
+  $ connect broker status
+  $ connect broker claude
+  $ connect broker exec -- npm test
+  $ connect broker --yes exec -- npm test
+  $ connect broker audit --stats
+`)
   .action(async (action, args, options) => {
     await brokerCommand(action, args, options);
   });
@@ -643,7 +737,17 @@ program
   .option('--scope <scope>', 'Access scope: read-only, full (default: read-only)', 'read-only')
   .option('-l, --list', 'List active grants')
   .option('-r, --revoke <id>', 'Revoke a grant by ID')
+  .option('--dry-run', 'Preview what would be revoked (use with --revoke)')
+  .option('--json', 'Output as JSON (machine-readable)')
   .option('-c, --config <path>', 'Config file path')
+  .addHelpText('after', `
+Examples:
+  $ connect grant claude --db postgres --ttl 5m
+  $ connect grant cursor --api staging --persistent
+  $ connect grant --list
+  $ connect grant --revoke <id>
+  $ connect grant claude --db postgres --json
+`)
   .action(async (agent, options) => {
     if (options.config) setConfigPath(options.config);
     await grantCommand(agent, options);
@@ -656,6 +760,13 @@ program
   .option('-t, --type <type>', 'Filter by type (file|command|git)')
   .option('--action <action>', 'Filter by action (allow|block|review)')
   .option('-s, --stats', 'Show audit statistics')
+  .addHelpText('after', `
+Examples:
+  $ connect audit
+  $ connect audit --stats
+  $ connect audit --type command --action block
+  $ connect audit --limit 100
+`)
   .action(async (options) => {
     const { brokerAuditCommand } = await import('./commands/broker');
     await brokerAuditCommand(options);
@@ -669,6 +780,12 @@ program
   .option('-l, --list', 'List active debug sessions')
   .option('-s, --stop <token>', 'Stop a debug session')
   .option('-c, --config <path>', 'Config file path')
+  .addHelpText('after', `
+Examples:
+  $ connect debug --list
+  $ connect debug <session-token>
+  $ connect debug --stop <token>
+`)
   .action(async (session, options) => {
     if (options.config) setConfigPath(options.config);
     await debugCommand(session, options);

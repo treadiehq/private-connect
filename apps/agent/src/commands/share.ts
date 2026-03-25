@@ -11,6 +11,8 @@ interface ShareOptions {
   approveCode?: string;
   denyCode?: string;
   agentId?: string;
+  json?: boolean;
+  dryRun?: boolean;
 }
 
 interface ShareRoute {
@@ -44,7 +46,9 @@ export async function shareCommand(options: ShareOptions) {
 
   const hubUrl = config.hubUrl || options.hub;
 
-  console.log(chalk.cyan('\n🤝 Creating environment share...\n'));
+  if (!options.json) {
+    console.log(chalk.cyan('\n🤝 Creating environment share...\n'));
+  }
 
   // Parse expiry option (supports Nh, Nd, or "never")
   let expiresInHours = 24; // default
@@ -82,7 +86,13 @@ export async function shareCommand(options: ShareOptions) {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: response.statusText })) as { message?: string };
-      console.error(chalk.red(`[x] Failed to create share: ${error.message || response.statusText}`));
+      const status = response.status;
+      console.error(chalk.red(`[x] Failed to create share (HTTP ${status})`));
+      if (status === 401 || status === 403) {
+        console.log(chalk.gray(`  Check your API key: connect login <your-api-key>`));
+      } else {
+        console.log(chalk.gray(`  ${error.message || 'Unknown error'}. Run: connect doctor`));
+      }
       process.exit(1);
     }
 
@@ -96,6 +106,17 @@ export async function shareCommand(options: ShareOptions) {
     const share = data.share;
     const expiresAt = new Date(share.expiresAt);
     const hoursLeft = Math.round((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60));
+
+    if (options.json) {
+      console.log(JSON.stringify({
+        code: share.code,
+        name: share.name || null,
+        expiresAt: share.expiresAt,
+        requireApproval: share.requireDeviceApproval || false,
+        routes: share.routes,
+      }));
+      return;
+    }
 
     // Success output
     console.log(chalk.green.bold('[ok] Environment share created!\n'));
@@ -218,6 +239,12 @@ export async function revokeShareCommand(code: string, options: ShareOptions) {
 
   const hubUrl = config.hubUrl || options.hub;
 
+  if (options.dryRun) {
+    console.log(chalk.cyan(`\n[dry-run] Would revoke share ${code}`));
+    console.log(chalk.gray('  No changes made.\n'));
+    return;
+  }
+
   try {
     const response = await fetch(`${hubUrl}/v1/env-shares/${code}`, {
       method: 'DELETE',
@@ -228,7 +255,10 @@ export async function revokeShareCommand(code: string, options: ShareOptions) {
     });
 
     if (!response.ok) {
-      console.error(chalk.red(`[x] Failed to revoke share: ${response.statusText}`));
+      console.error(chalk.red(`[x] Failed to revoke share (HTTP ${response.status})`));
+      if (response.status === 404) {
+        console.log(chalk.gray(`  Share "${code}" not found. List shares with: connect share --list`));
+      }
       process.exit(1);
     }
 
