@@ -170,7 +170,7 @@
             </button>
             <span class="text-gray-600">|</span>
             <button
-              @click="refreshHealth"
+              @click="refreshHealth()"
               :disabled="refreshingHealth"
               class="text-xs text-gray-400 hover:text-white transition-colors disabled:opacity-50 flex items-center gap-1"
             >
@@ -299,7 +299,6 @@
         <!-- Add Server Input -->
         <div class="px-5 py-4 border-t border-gray-500/10 bg-gray-500/5">
           <div class="flex items-center gap-3">
-            <div class="w-2 h-2 rounded-full bg-gray-500"></div>
             <input
               v-model="newServerUrl"
               type="text"
@@ -785,7 +784,10 @@ const runConfirmAction = async () => {
 };
 
 // Health monitoring
-const checkServerHealth = async (server: LocalServer) => {
+const checkServerHealth = async (
+  server: LocalServer,
+  opts?: { silent?: boolean }
+) => {
   const serverIndex = localServers.value.findIndex(s => s.id === server.id);
   if (serverIndex === -1) return;
 
@@ -798,21 +800,37 @@ const checkServerHealth = async (server: LocalServer) => {
       localServers.value[serverIndex].lastHealthCheck = new Date();
       localServers.value[serverIndex].latency = result.diagnostic?.latencyMs;
     }
-    success('Health check completed');
+    if (!opts?.silent) {
+      success('Health check completed');
+    }
+    return { ok: true };
   } catch (error) {
     console.error('Health check failed:', error);
-    showError('Health check failed');
+    if (!opts?.silent) {
+      showError('Health check failed');
+    }
+    return { ok: false };
   } finally {
     localServers.value[serverIndex].healthCheckInProgress = false;
   }
 };
 
-const refreshHealth = async () => {
+const refreshHealth = async (opts?: { silent?: boolean }) => {
   refreshingHealth.value = true;
   try {
-    await Promise.all(
-      localServers.value.map(server => checkServerHealth(server))
+    const results = await Promise.all(
+      localServers.value.map(server => checkServerHealth(server, { silent: true }))
     );
+    if (!opts?.silent) {
+      const total = localServers.value.length;
+      const okCount = results.filter(r => r?.ok).length;
+      const failCount = total - okCount;
+      if (failCount > 0) {
+        showError(`Health checks completed (${okCount}/${total} OK)`);
+      } else {
+        success(`Health checks completed (${total})`);
+      }
+    }
   } finally {
     refreshingHealth.value = false;
   }
@@ -830,7 +848,7 @@ const formatHealthTime = (date: Date) => {
 watch(healthMonitoringEnabled, (enabled) => {
   if (enabled) {
     healthCheckInterval.value = setInterval(() => {
-      refreshHealth();
+      refreshHealth({ silent: true });
     }, 30000); // Every 30 seconds
   } else {
     if (healthCheckInterval.value) {
@@ -959,7 +977,7 @@ onMounted(async () => {
   // Start health monitoring if enabled
   if (healthMonitoringEnabled.value) {
     healthCheckInterval.value = setInterval(() => {
-      refreshHealth();
+      refreshHealth({ silent: true });
     }, 30000);
   }
 });
