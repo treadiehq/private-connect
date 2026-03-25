@@ -75,8 +75,8 @@ WebSocket gateways, `/health`, and `/v1/status` are `@SkipThrottle()`.
 | File | Topic |
 |------|-------|
 | `README.md` | Overview + quick start |
-| `DETAILED.md` | Full CLI reference, API reference, all features |
-| `USE_CASES.md` | Real-world scenarios |
+| `docs/detailed.md` | Full CLI reference, API reference, all features |
+| `docs/use_cases.md` | Real-world scenarios |
 | `docs/security.md` | Security architecture, E2E encryption, threat model |
 | `docs/AI.md` | AI integration (MCP, broker, orchestration, SDK) |
 | `docs/debugging.md` | Live traffic debugging + AI copilot |

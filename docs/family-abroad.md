@@ -125,4 +125,4 @@ Tailscale gives them the network (and optional exit). Private Connect gives them
 See also:
 
 - [Tailscale and Private Connect](tailscale-and-private-connect.md) — how the two fit together
-- [Use Cases: Access Your Home Lab from Anywhere](../USE_CASES.md#access-your-home-lab-from-anywhere) — home lab basics
+- [Use Cases: Access Your Home Lab from Anywhere](./use_cases.md#access-your-home-lab-from-anywhere) — home lab basics

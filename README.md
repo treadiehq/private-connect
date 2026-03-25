@@ -144,13 +144,13 @@ cd apps/agent && pnpm run build:binary
 
 ## Docs
 
-- [Full CLI reference](DETAILED.md)
-- [API reference](DETAILED.md#control-api)
+- [Full CLI reference](docs/detailed.md)
+- [API reference](docs/detailed.md#control-api)
 - [Security](docs/security.md)
 - [Terminal from anywhere](docs/terminal.md)
 - [SDK](packages/sdk)
 - [AI agent examples](examples/)
-- [Use cases](USE_CASES.md)
+- [Use cases](docs/use_cases.md)
 
 ## Community
 

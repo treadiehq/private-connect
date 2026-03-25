@@ -37,4 +37,4 @@ Operators can tune the free tier:
 - **Custom subdomains** for named services (e.g. `pc-myname.privateconnect.co`) and persistent tunnels are available with a workspace/account.
 - **Named agents**, **reach by name**, and **team sharing** use the full CLI with signup.
 
-See [README](../README.md) and [DETAILED.md](../DETAILED.md) for full capabilities.
+See [README](../README.md) and [detailed.md](./detailed.md) for full capabilities.
