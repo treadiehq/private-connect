@@ -160,6 +160,15 @@
             </svg>
           </div>
         </div>
+
+        <label class="flex items-center gap-2 cursor-pointer select-none pb-1">
+          <input
+            v-model="groupConsecutiveHubReconnects"
+            type="checkbox"
+            class="rounded border-gray-500/30 bg-gray-500/10 text-blue-400 focus:ring-blue-300/50"
+          />
+          <span class="text-sm text-gray-400">Group back-to-back hub reconnects</span>
+        </label>
       </div>
     </div>
 
@@ -196,14 +205,15 @@
 
       <div v-else class="divide-y divide-gray-500/10">
         <div
-          v-for="event in events"
-          :key="event.id"
+          v-for="event in timelineRows"
+          :key="rowKey(event)"
           class="px-5 py-4 hover:bg-gray-500/5 transition-colors"
+          :class="timelineAccent(event).border"
         >
           <div class="flex items-start gap-4">
             <!-- Event Type Icon -->
             <div
-              :class="getEventIconClass(event.type)"
+              :class="timelineAccent(event).icon"
               class="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"
             >
               <component :is="getEventIcon(event.type)" class="w-5 h-5" />
@@ -211,13 +221,25 @@
 
             <!-- Event Details -->
             <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="font-medium text-white">{{ formatEventName(event.event) }}</span>
+              <div class="flex flex-wrap items-center gap-2 mb-1">
+                <span class="font-medium" :class="timelineAccent(event).title">{{ formatEventName(event.event) }}</span>
                 <span
-                  :class="getEventBadgeClass(event.type)"
-                  class="px-2 py-0.5 text-xs rounded-full"
+                  v-if="hubReconnectGroupSize(event) > 1"
+                  class="px-2 py-0.5 text-xs rounded-full bg-emerald-400/15 text-emerald-200 tabular-nums"
+                >
+                  ×{{ hubReconnectGroupSize(event) }}
+                </span>
+                <span
+                  :class="categoryBadgeClass(event)"
+                  class="px-2 py-0.5 text-xs rounded-full capitalize"
                 >
                   {{ event.type }}
+                </span>
+                <span
+                  v-if="event.clientType"
+                  class="px-2 py-0.5 text-xs rounded-full bg-blue-300/15 text-blue-200"
+                >
+                  {{ formatClientTypeLabel(event.clientType) }}
                 </span>
               </div>
 
@@ -227,28 +249,45 @@
                 <span v-if="event.serviceName">Service: {{ event.serviceName }}</span>
               </div>
 
+              <div
+                v-if="hubReconnectGroupSize(event) > 1 && event.hubReconnectOldestAt"
+                class="text-xs text-gray-500 mt-1"
+              >
+                Back-to-back hub reconnects · earliest {{ formatRelativeAgo(event.hubReconnectOldestAt) }}
+                <span class="text-gray-600">({{ formatTime(event.hubReconnectOldestAt) }})</span>
+              </div>
+
+              <div v-if="event.userAgent" class="text-xs text-gray-500 mt-1 font-mono truncate" :title="event.userAgent">
+                Client: {{ shortenUserAgent(event.userAgent) }}
+              </div>
+
+              <div v-if="agentExpiringSoon(event)" class="text-xs text-amber-300/90 mt-1">
+                Token expiring soon
+              </div>
+
               <div v-if="event.ipAddress" class="text-xs text-gray-500 mt-1">
-                IP: {{ event.ipAddress }}
+                {{ formatIpLabel(event.ipAddress) }}
               </div>
 
               <!-- Event Details Expansion -->
-              <div v-if="event.details" class="mt-2">
+              <div v-if="hasExpandableDetails(event)" class="mt-2">
                 <button
-                  @click="toggleDetails(event.id)"
+                  @click="toggleDetails(rowKey(event))"
                   class="text-xs text-blue-300 hover:text-blue-400 transition-colors"
                 >
-                  {{ expandedEvents.has(event.id) ? 'Hide details' : 'Show details' }}
+                  {{ expandedEvents.has(rowKey(event)) ? 'Hide details' : 'Show details' }}
                 </button>
                 <pre
-                  v-if="expandedEvents.has(event.id)"
+                  v-if="expandedEvents.has(rowKey(event))"
                   class="mt-2 p-3 bg-gray-500/10 border border-gray-500/10 rounded-lg text-xs text-gray-300 overflow-x-auto"
-                >{{ JSON.stringify(event.details, null, 2) }}</pre>
+                >{{ formatTimelineDetailsJson(event) }}</pre>
               </div>
             </div>
 
             <!-- Timestamp -->
             <div class="shrink-0 text-right">
-              <div class="text-sm text-gray-400">{{ formatTime(event.timestamp) }}</div>
+              <div class="text-sm text-gray-300">{{ formatRelativeAgo(event.timestamp) }}</div>
+              <div class="text-xs text-gray-500">{{ formatTime(event.timestamp) }}</div>
               <div class="text-xs text-gray-500">{{ formatDate(event.timestamp) }}</div>
             </div>
           </div>
@@ -259,7 +298,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, h } from 'vue';
+import { ref, computed, onMounted, h } from 'vue';
 
 interface AuditEvent {
   id: string;
@@ -268,10 +307,25 @@ interface AuditEvent {
   timestamp: string;
   agentId?: string;
   agentLabel?: string;
+  clientType?: string;
+  userAgent?: string;
   serviceId?: string;
   serviceName?: string;
   ipAddress?: string;
   details?: Record<string, unknown>;
+}
+
+/** Timeline row: may merge consecutive identical hub CONNECTED events for one agent. */
+interface AuditTimelineRow extends AuditEvent {
+  hubReconnectOldestAt?: string;
+  hubReconnectGroupTimes?: string[];
+  hubReconnectGroupCount?: number;
+}
+
+interface TimelineAccent {
+  icon: string;
+  title: string;
+  border: string;
 }
 
 interface AuditStats {
@@ -306,6 +360,7 @@ const events = ref<AuditEvent[]>([]);
 const stats = ref<AuditStats | null>(null);
 const agents = ref<Agent[]>([]);
 const expandedEvents = ref(new Set<string>());
+const groupConsecutiveHubReconnects = ref(true);
 
 const filters = ref({
   type: '' as '' | 'agent' | 'share' | 'session' | 'diagnostic',
@@ -331,6 +386,84 @@ const getTimeRangeSince = (range: string): string => {
 };
 
 const fetchError = ref('');
+
+function isAgentHubConnected(e: AuditEvent): e is AuditEvent & { agentId: string } {
+  return e.type === 'agent' && e.event === 'CONNECTED' && Boolean(e.agentId);
+}
+
+/**
+ * Merges each run of back-to-back CONNECTED rows for the same agent into one row (newest first).
+ */
+function buildHubReconnectGroups(events: AuditEvent[]): AuditTimelineRow[] {
+  const out: AuditTimelineRow[] = [];
+  let i = 0;
+  while (i < events.length) {
+    const e = events[i]!;
+    if (isAgentHubConnected(e)) {
+      const agentId = e.agentId;
+      const run: AuditEvent[] = [e];
+      let j = i + 1;
+      while (j < events.length) {
+        const next = events[j]!;
+        if (!isAgentHubConnected(next) || next.agentId !== agentId) break;
+        run.push(next);
+        j++;
+      }
+      if (run.length === 1) {
+        out.push({ ...e });
+      } else {
+        const newest = run[0]!;
+        const oldest = run[run.length - 1]!;
+        out.push({
+          ...newest,
+          hubReconnectGroupCount: run.length,
+          hubReconnectOldestAt: oldest.timestamp,
+          hubReconnectGroupTimes: run.map((r) => r.timestamp),
+        });
+      }
+      i = j;
+      continue;
+    }
+    out.push({ ...e });
+    i++;
+  }
+  return out;
+}
+
+const timelineRows = computed(() => {
+  if (!groupConsecutiveHubReconnects.value) {
+    return events.value.map((e) => ({ ...e })) as AuditTimelineRow[];
+  }
+  return buildHubReconnectGroups(events.value);
+});
+
+const rowKey = (event: AuditTimelineRow) => {
+  if ((event.hubReconnectGroupCount ?? 0) > 1 && event.agentId && event.hubReconnectOldestAt) {
+    return `hubgrp:${event.agentId}:${event.timestamp}:${event.hubReconnectOldestAt}`;
+  }
+  return event.id;
+};
+
+const hubReconnectGroupSize = (event: AuditTimelineRow) =>
+  event.hubReconnectGroupCount ?? 1;
+
+const hasExpandableDetails = (event: AuditTimelineRow) =>
+  Boolean(event.details) || hubReconnectGroupSize(event) > 1;
+
+const formatTimelineDetailsJson = (event: AuditTimelineRow) => {
+  if (hubReconnectGroupSize(event) > 1) {
+    return JSON.stringify(
+      {
+        hubReconnectsInGroup: event.hubReconnectGroupCount,
+        timesNewestFirst: event.hubReconnectGroupTimes,
+        latestDetails: event.details ?? null,
+      },
+      null,
+      2,
+    );
+  }
+  return JSON.stringify(event.details ?? {}, null, 2);
+};
 
 const loadData = async () => {
   loading.value = true;
@@ -380,29 +513,150 @@ const formatDate = (timestamp: string) => {
   return new Date(timestamp).toLocaleDateString();
 };
 
+const formatRelativeAgo = (timestamp: string) => {
+  const now = Date.now();
+  const date = new Date(timestamp).getTime();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${diffDays}d ago`;
+};
+
 const formatEventName = (event: string) => {
   return event.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 };
 
-const getEventIconClass = (type: string) => {
-  switch (type) {
-    case 'agent':
-      return 'bg-blue-300/10 text-blue-300';
+const shortenUserAgent = (ua: string, maxLen = 72) => {
+  const t = ua.trim();
+  if (t.length <= maxLen) return t;
+  return `${t.slice(0, maxLen - 1)}…`;
+};
+
+const formatClientTypeLabel = (clientType: string) => {
+  return clientType
+    .split(/[-_]/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+};
+
+const isLoopbackIp = (ip: string) => {
+  const n = ip.trim().toLowerCase();
+  return n === '127.0.0.1' || n === '::1' || n === 'localhost';
+};
+
+const formatIpLabel = (ip: string) => {
+  if (isLoopbackIp(ip)) {
+    return 'IP: local (loopback)';
+  }
+  return `IP: ${ip}`;
+};
+
+const agentExpiringSoon = (event: AuditTimelineRow) => {
+  if (event.type !== 'agent' || event.event !== 'CONNECTED') return false;
+  return event.details?.expiringSoon === true;
+};
+
+const timelineAccent = (event: AuditTimelineRow): TimelineAccent => {
+  if (event.type === 'agent') {
+    switch (event.event) {
+      case 'CONNECTED':
+        return {
+          icon: 'bg-emerald-300/10 text-emerald-300',
+          title: 'text-emerald-200',
+          border: 'border-l-2 border-l-emerald-400/55',
+        };
+      case 'REJECTED':
+      case 'EXPIRED':
+        return {
+          icon: 'bg-red-400/10 text-red-300',
+          title: 'text-red-200',
+          border: 'border-l-2 border-l-red-400/55',
+        };
+      case 'IP_CHANGED':
+        return {
+          icon: 'bg-amber-300/10 text-amber-300',
+          title: 'text-amber-200',
+          border: 'border-l-2 border-l-amber-400/55',
+        };
+      case 'ROTATED':
+        return {
+          icon: 'bg-violet-300/10 text-violet-300',
+          title: 'text-violet-200',
+          border: 'border-l-2 border-l-violet-400/55',
+        };
+      case 'PROVISIONED':
+        return {
+          icon: 'bg-blue-300/10 text-blue-300',
+          title: 'text-blue-200',
+          border: 'border-l-2 border-l-blue-400/55',
+        };
+      default:
+        return {
+          icon: 'bg-gray-500/10 text-gray-300',
+          title: 'text-white',
+          border: 'border-l-2 border-l-gray-500/50',
+        };
+    }
+  }
+
+  switch (event.type) {
     case 'share':
-      return 'bg-emerald-300/10 text-emerald-300';
-    case 'session':
-      return 'bg-amber-300/10 text-amber-300';
-    case 'diagnostic':
-      return 'bg-purple-300/10 text-purple-300';
+      return {
+        icon: 'bg-emerald-300/10 text-emerald-300',
+        title: 'text-white',
+        border: 'border-l-2 border-l-emerald-400/55',
+      };
+    case 'session': {
+      const ev = event.event.toUpperCase();
+      const failed = ev.includes('FAIL') || ev.includes('DENIED') || ev.includes('ERROR');
+      if (failed) {
+        return {
+          icon: 'bg-red-400/10 text-red-300',
+          title: 'text-red-200',
+          border: 'border-l-2 border-l-red-400/55',
+        };
+      }
+      return {
+        icon: 'bg-amber-300/10 text-amber-300',
+        title: 'text-white',
+        border: 'border-l-2 border-l-amber-400/55',
+      };
+    }
+    case 'diagnostic': {
+      const ev = event.event.toUpperCase();
+      const bad = ev.includes('FAIL') || ev.includes('ERROR') || ev.includes('DOWN');
+      if (bad) {
+        return {
+          icon: 'bg-red-400/10 text-red-300',
+          title: 'text-red-200',
+          border: 'border-l-2 border-l-red-400/55',
+        };
+      }
+      return {
+        icon: 'bg-purple-300/10 text-purple-300',
+        title: 'text-white',
+        border: 'border-l-2 border-l-purple-400/55',
+      };
+    }
     default:
-      return 'bg-gray-500/10 text-gray-400';
+      return {
+        icon: 'bg-gray-500/10 text-gray-400',
+        title: 'text-white',
+        border: 'border-l-2 border-l-gray-500/50',
+      };
   }
 };
 
-const getEventBadgeClass = (type: string) => {
-  switch (type) {
-    case 'agent':
-      return 'bg-blue-300/10 text-blue-300';
+const categoryBadgeClass = (event: AuditTimelineRow) => {
+  if (event.type === 'agent') {
+    return 'bg-gray-500/15 text-gray-400';
+  }
+  switch (event.type) {
     case 'share':
       return 'bg-emerald-300/10 text-emerald-300';
     case 'session':
@@ -410,7 +664,7 @@ const getEventBadgeClass = (type: string) => {
     case 'diagnostic':
       return 'bg-purple-300/10 text-purple-300';
     default:
-      return 'bg-gray-500/10 text-gray-400';
+      return 'bg-gray-500/15 text-gray-400';
   }
 };
 

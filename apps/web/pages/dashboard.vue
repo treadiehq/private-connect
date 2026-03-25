@@ -170,7 +170,7 @@
             <div class="flex-1 min-w-0">
               <div class="text-sm text-white truncate">{{ formatEventName(event.event) }}</div>
               <div class="text-xs text-gray-500 truncate">
-                {{ event.agentLabel || event.serviceName || 'System' }}
+                {{ activitySubtitle(event) }}
               </div>
             </div>
             <div class="text-xs text-gray-500 shrink-0">
@@ -197,6 +197,9 @@ interface AuditEvent {
   serviceName?: string;
 }
 
+/** Display row: hub CONNECTED events for the same agent are folded into one row. */
+type RecentActivityRow = AuditEvent & { connectionCount?: number };
+
 useHead({ title: 'Overview - Private Connect' })
 
 definePageMeta({
@@ -212,7 +215,42 @@ const services = ref<Service[]>([]);
 const loading = ref(true);
 const fetchError = ref('');
 const auditLoading = ref(true);
-const recentActivity = ref<AuditEvent[]>([]);
+const recentActivity = ref<RecentActivityRow[]>([]);
+
+const DASHBOARD_AUDIT_FETCH_LIMIT = 120;
+const DASHBOARD_AUDIT_ROWS = 10;
+
+/**
+ * Hub reconnects each log CONNECTED; merge duplicates per agent so the overview stays readable.
+ */
+function compressRecentActivity(events: AuditEvent[], maxRows: number): RecentActivityRow[] {
+  const out: RecentActivityRow[] = [];
+  const connectedRowIndex = new Map<string, number>();
+
+  for (const e of events) {
+    if (e.type === 'agent' && e.event === 'CONNECTED' && e.agentId) {
+      const idx = connectedRowIndex.get(e.agentId);
+      if (idx !== undefined) {
+        const row = out[idx]!;
+        row.connectionCount = (row.connectionCount ?? 1) + 1;
+        continue;
+      }
+      if (out.length >= maxRows) {
+        continue;
+      }
+      connectedRowIndex.set(e.agentId, out.length);
+      out.push({ ...e, connectionCount: 1 });
+      continue;
+    }
+
+    if (out.length >= maxRows) {
+      continue;
+    }
+    out.push({ ...e });
+  }
+
+  return out;
+}
 
 // Computed stats
 const onlineAgents = computed(() => agents.value.filter(a => a.isOnline).length);
@@ -261,6 +299,14 @@ const formatEventName = (event: string) => {
   return event.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 };
 
+const activitySubtitle = (event: RecentActivityRow) => {
+  const base = event.agentLabel || event.serviceName || 'System';
+  if (event.type === 'agent' && event.event === 'CONNECTED' && event.connectionCount && event.connectionCount > 1) {
+    return `${base} · ${event.connectionCount} hub reconnects`;
+  }
+  return base;
+};
+
 const formatTimeAgo = (timestamp: string) => {
   const now = new Date();
   const date = new Date(timestamp);
@@ -294,8 +340,8 @@ const retryFetch = async () => {
     loading.value = false;
   }
   try {
-    const auditData = await fetchAuditLog({ limit: 10 });
-    recentActivity.value = auditData.events;
+    const auditData = await fetchAuditLog({ limit: DASHBOARD_AUDIT_FETCH_LIMIT });
+    recentActivity.value = compressRecentActivity(auditData.events ?? [], DASHBOARD_AUDIT_ROWS);
   } catch (error) {
     // Audit is non-critical, degrade gracefully
   } finally {
