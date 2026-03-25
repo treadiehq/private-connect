@@ -53,22 +53,34 @@
     <!-- Servers Tab -->
     <div v-if="activeTab === 'servers'" class="space-y-6">
       <!-- Bulk Actions Bar -->
-      <div v-if="selectedServers.length > 0" class="bg-blue-300/10 border border-blue-300/20 rounded-lg px-4 py-3 flex items-center justify-between">
+      <div v-if="selectedServers.length > 0 || selectedDiscoveredServers.length > 0" class="bg-blue-300/10 border border-blue-300/20 rounded-lg px-4 py-3 flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <span class="text-sm text-white font-medium">{{ selectedServers.length }} server{{ selectedServers.length > 1 ? 's' : '' }} selected</span>
+          <span class="text-sm text-white font-medium">
+            <template v-if="selectedDiscoveredServers.length > 0 && selectedServers.length === 0">
+              {{ selectedDiscoveredServers.length }} discovered server{{ selectedDiscoveredServers.length > 1 ? 's' : '' }} selected
+            </template>
+            <template v-else-if="selectedServers.length > 0 && selectedDiscoveredServers.length === 0">
+              {{ selectedServers.length }} server{{ selectedServers.length > 1 ? 's' : '' }} selected
+            </template>
+            <template v-else>
+              {{ selectedServers.length }} server{{ selectedServers.length > 1 ? 's' : '' }} +
+              {{ selectedDiscoveredServers.length }} discovered selected
+            </template>
+          </span>
         </div>
         <div class="flex items-center gap-2">
           <button
-            @click="bulkAddSelected"
+            v-if="selectedDiscoveredServers.length > 0"
+            @click="bulkAddDiscovered"
             class="px-3 py-1.5 bg-blue-300 hover:bg-blue-400 text-black text-sm font-medium rounded-lg transition-colors"
           >
-            Add Selected
+            Add
           </button>
           <button
             @click="bulkDelete"
             class="px-3 py-1.5 bg-red-400 hover:bg-red-500 text-white text-sm font-medium rounded-lg transition-colors"
           >
-            Delete Selected
+            Delete
           </button>
           <button
             @click="clearSelection"
@@ -104,7 +116,7 @@
                 type="checkbox"
                 :value="`${server.host}:${server.port}`"
                 v-model="selectedDiscoveredServers"
-                class="w-4 h-4 rounded border-gray-500/20 bg-gray-500/10 text-blue-300 focus:ring-blue-300"
+                class="h-4 w-4 rounded border border-gray-500/30 bg-gray-500/10 text-blue-300 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black-main disabled:cursor-not-allowed disabled:opacity-50"
               />
               <div class="w-2 h-2 rounded-full bg-emerald-300"></div>
               <div class="flex-1">
@@ -145,7 +157,7 @@
               <input
                 v-model="healthMonitoringEnabled"
                 type="checkbox"
-                class="w-3.5 h-3.5 rounded border-gray-500/20 bg-gray-500/10 text-blue-300 focus:ring-blue-300 focus:ring-offset-0"
+                class="h-3.5 w-3.5 rounded border border-gray-500/30 bg-gray-500/10 text-blue-300 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black-main disabled:cursor-not-allowed disabled:opacity-50"
               />
               Auto health-check
             </label>
@@ -207,7 +219,7 @@
                 type="checkbox"
                 :checked="selectedServers.includes(server.id)"
                 @change="toggleServerSelection(server.id)"
-                class="w-4 h-4 rounded border-gray-500/10 bg-gray-500/10 text-blue-300 focus:ring-blue-300"
+                class="h-4 w-4 rounded border border-gray-500/30 bg-gray-500/10 text-blue-300 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black-main disabled:cursor-not-allowed disabled:opacity-50"
               />
 
               <!-- Status Indicator -->
@@ -355,7 +367,7 @@
         <div v-if="mcpStatus === 'connected'" class="space-y-3">
           <div class="p-4 bg-emerald-300/10 border border-emerald-300/10 rounded-lg">
             <div class="flex items-start gap-3">
-              <svg class="w-5 h-5 text-emerald-300 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg class="w-5 h-5 text-emerald-300 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div class="flex-1">

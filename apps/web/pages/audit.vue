@@ -165,7 +165,7 @@
           <input
             v-model="groupConsecutiveHubReconnects"
             type="checkbox"
-            class="rounded border-gray-500/30 bg-gray-500/10 text-blue-400 focus:ring-blue-300/50"
+            class="h-4 w-4 rounded border border-gray-500/30 bg-gray-500/10 text-blue-300 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black-main disabled:cursor-not-allowed disabled:opacity-50"
           />
           <span class="text-sm text-gray-400">Group back-to-back hub reconnects</span>
         </label>
