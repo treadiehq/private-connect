@@ -110,11 +110,6 @@ export default defineNuxtConfig({
             'name': 'Private Connect',
             'url': 'https://privateconnect.co',
             'description': 'Access your private services and local database from Sprites, exe.dev, Cursor or anywhere. No VPN, no open ports.',
-            'potentialAction': {
-              '@type': 'SearchAction',
-              'target': 'https://privateconnect.co/search?q={search_term_string}',
-              'query-input': 'required name=search_term_string'
-            }
           })
         },
         {
