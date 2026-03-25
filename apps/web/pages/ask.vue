@@ -147,7 +147,6 @@
           </p>
         </div>
 
-        <!-- Phase 1: CTA when unreachable -->
         <div
           v-if="result.reachability.classification === 'UNREACHABLE_OR_PRIVATE'"
           class="bg-blue-300/10 border border-blue-300/30 rounded-xl p-6 space-y-4"

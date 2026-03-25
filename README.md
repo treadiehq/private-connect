@@ -173,9 +173,6 @@ connect grant claude --db postgres --ttl 5m --json
 
 connect delete my-service --dry-run
 # → Would delete service "my-service" (ID: ...). No changes made.
-
-connect broker --yes exec -- npm test
-# → Auto-approves review prompts (no stdin needed)
 ```
 
 ## CI / preview environments

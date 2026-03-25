@@ -133,30 +133,6 @@ AI: [Uses find_agents_by_capability('gpu')]
 
 ---
 
-## Broker Integration
-
-When using MCP with the Agent Permission Broker, all AI actions are policy-checked:
-
-```bash
-# Initialize broker policy
-connect broker init
-
-# MCP server automatically respects .connect/policy.yml
-```
-
-Actions that violate policy are blocked:
-
-```
-User: "Delete all the .env files"
-
-AI: [Uses expose_service]
-    [Action blocked by broker policy]
-    
-    "I can't delete .env files - they're protected by your workspace policy."
-```
-
----
-
 ## Troubleshooting
 
 ### "MCP server not found"
@@ -206,6 +182,5 @@ connect mcp serve --verbose
 ## Related
 
 - [AI Integration Guide](./AI.md) - Full AI documentation
-- [Broker Policy](./broker.md) - Access control for AI agents
 - [TypeScript SDK](../packages/sdk/README.md) - Programmatic access
 

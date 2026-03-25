@@ -19,7 +19,6 @@ import { shellInitCommand, shellSetupCommand } from './commands/shell';
 import { dnsCommand, serveDns } from './commands/dns';
 import { mcpCommand } from './commands/mcp';
 import { cloneCommand, cloneListCommand } from './commands/clone';
-import { brokerCommand } from './commands/broker';
 import { grantCommand } from './commands/grant';
 import { connectCommand } from './commands/connect';
 import { debugCommand } from './commands/debug';
@@ -697,33 +696,6 @@ Examples:
     await mcpCommand(action, options);
   });
 
-// Agent Permission Broker Commands
-program
-  .command('broker [action] [args...]')
-  .description('Agent Permission Broker - Zero Trust for AI agents (init|status|run|exec|hooks|audit)')
-  .option('-w, --working-dir <path>', 'Working directory')
-  .option('-a, --agent <id>', 'Agent identifier')
-  .option('-o, --observe', 'Observe mode - log but do not enforce')
-  .option('-l, --limit <n>', 'Limit audit entries', parseLimit, 50)
-  .option('-t, --type <type>', 'Filter by type (file|command|git)')
-  .option('--action <action>', 'Filter by action (allow|block|review)')
-  .option('-s, --stats', 'Show audit statistics')
-  .option('-u, --uninstall', 'Uninstall hooks')
-  .option('--yes', 'Auto-approve review prompts')
-  .option('--no', 'Auto-deny review prompts')
-  .addHelpText('after', `
-Examples:
-  $ connect broker init
-  $ connect broker status
-  $ connect broker claude
-  $ connect broker exec -- npm test
-  $ connect broker --yes exec -- npm test
-  $ connect broker audit --stats
-`)
-  .action(async (action, args, options) => {
-    await brokerCommand(action, args, options);
-  });
-
 // Grant Commands - AI agent access (time-limited or persistent)
 program
   .command('grant [agent]')
@@ -751,25 +723,6 @@ Examples:
   .action(async (agent, options) => {
     if (options.config) setConfigPath(options.config);
     await grantCommand(agent, options);
-  });
-
-program
-  .command('audit')
-  .description('View agent action audit log')
-  .option('-l, --limit <n>', 'Number of entries to show', parseLimit, 50)
-  .option('-t, --type <type>', 'Filter by type (file|command|git)')
-  .option('--action <action>', 'Filter by action (allow|block|review)')
-  .option('-s, --stats', 'Show audit statistics')
-  .addHelpText('after', `
-Examples:
-  $ connect audit
-  $ connect audit --stats
-  $ connect audit --type command --action block
-  $ connect audit --limit 100
-`)
-  .action(async (options) => {
-    const { brokerAuditCommand } = await import('./commands/broker');
-    await brokerAuditCommand(options);
   });
 
 // Debug Commands

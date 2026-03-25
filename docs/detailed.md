@@ -218,7 +218,6 @@ connect daemon <action>       # Background daemon (install|status|logs)
 connect dev                   # Provision resources + expose services (pconnect.yml)
 connect dns <action>          # Local DNS (*.connect domains)
 connect mcp <action>          # AI assistant integration
-connect broker <action>       # Agent Permission Broker
 connect status                # Quick status check (hub, agent, daemon)
 connect doctor                # Full diagnostics
 connect cleanup               # Clean orphaned processes
@@ -677,18 +676,6 @@ Works with Cursor, Claude Desktop. AI can:
 - List and connect to services
 - Run health checks
 - Help debug connectivity
-
-### Agent Permission Broker
-
-Control what AI can do in your workspace:
-
-```bash
-connect broker init          # Create policy.yml
-connect broker run -- opencode
-connect audit                # View action log
-```
-
-See [docs/broker.md](docs/broker.md).
 
 ---
 

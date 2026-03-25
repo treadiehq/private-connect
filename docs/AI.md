@@ -11,7 +11,7 @@ Private Connect provides three layers of AI integration:
 | Layer | What it does | Use case |
 |-------|--------------|----------|
 | **MCP** | AI tools can access services | Claude/Cursor connecting to your database |
-| **Broker** | Policy-based access control | Prevent AI from modifying secrets |
+| **Grants** | Scoped, time-limited resource access | Give AI read-only DB access for 5 minutes |
 | **Orchestration** | Agent-to-agent coordination | Distributed AI workflows across machines |
 
 ---
@@ -22,8 +22,8 @@ Private Connect provides three layers of AI integration:
 # Set up MCP for your AI tool (Cursor, Claude Desktop)
 connect mcp setup
 
-# Initialize broker policy in your project
-connect broker init
+# Grant an AI agent scoped access to a resource
+connect grant claude --db postgres --ttl 5m
 
 # List available agents for orchestration
 connect agents
@@ -81,51 +81,6 @@ AI: [Uses get_connection_string for prod-db]
     [Connects via DATABASE_URL]
     [Lists tables and returns answer]
 ```
-
----
-
-## Agent Permission Broker
-
-Control what AI agents can do in your codebase.
-
-### Quick Start
-
-```bash
-# Initialize policy
-connect broker init
-
-# Run AI agent through broker
-connect broker run -- aider
-connect broker run -- claude
-```
-
-### Default Protections
-
-| Target | Action | Why |
-|--------|--------|-----|
-| Source code (`src/**`) | allow | Safe for agents to modify |
-| Config files (`*.json`) | review | Prompt before changes |
-| Secrets (`.env`, `*.key`) | block | Never allow agent access |
-| CI/CD workflows | block | Can run arbitrary code |
-
-### Policy File
-
-```yaml
-# .connect/policy.yml
-version: 1
-default: review
-
-rules:
-  - path: "src/**"
-    action: allow
-  - path: ".env*"
-    action: block
-    reason: "Environment files contain secrets"
-  - command: "rm -rf *"
-    action: block
-```
-
-→ Full documentation: [broker.md](./broker.md)
 
 ---
 
@@ -327,8 +282,8 @@ const url = await pc.services.getConnectionString("prod-db");
 │                    MCP Server                            │
 │              (connect mcp serve)                         │
 │  ┌─────────────┬─────────────┬─────────────────────┐    │
-│  │   Services  │   Broker    │   Orchestration     │    │
-│  │   Access    │   Policy    │   (Agent Comms)     │    │
+│  │   Services  │   Grants    │   Orchestration     │    │
+│  │   Access    │   (Scoped)  │   (Agent Comms)     │    │
 │  └─────────────┴─────────────┴─────────────────────┘    │
 └─────────────────────┬───────────────────────────────────┘
                       │
@@ -407,11 +362,10 @@ const reviews = await pc.agents.getMessages({
 connect mcp setup              # Output MCP config
 connect mcp serve              # Start MCP server
 
-# Broker
-connect broker init            # Initialize policy
-connect broker run -- <cmd>    # Run command through broker
-connect broker status          # Check policy status
-connect audit                  # View audit log
+# Grants
+connect grant claude --db postgres --ttl 5m
+connect grant --list           # List active grants
+connect grant --revoke <id>    # Revoke a grant
 
 # Agents
 connect agents                 # List agents
@@ -433,15 +387,12 @@ connect connection-string <service>
 |----------|-------------|
 | `PRIVATECONNECT_API_KEY` | API key for SDK/programmatic access |
 | `CONNECT_HUB_URL` | Hub URL (default: https://api.privateconnect.co) |
-| `CONNECT_BROKER` | Set when running under broker |
 | `CONNECT_AGENT` | Agent identifier |
-| `CONNECT_AUTO_APPROVE` | Auto-approve broker reviews |
 
 ---
 
 ## Related Documentation
 
-- [Broker Policy Reference](./broker.md)
 - [AI Teams Guide](./ai-teams.md)
 - [Security Model](./security.md)
 - [SDK README](../packages/sdk/README.md)

@@ -33,7 +33,7 @@ A hub-and-spoke connectivity platform. Agents run on machines, expose local serv
 
 ## CLI commands (authenticated)
 
-`connect up`, `connect expose`, `connect reach`, `connect share`, `connect join`, `connect clone`, `connect link`, `connect delete`, `connect proxy`, `connect daemon`, `connect dev`, `connect dns`, `connect mcp`, `connect broker`, `connect shell`, `connect grant`, `connect status`, `connect doctor`, `connect whoami`, `connect update`, `connect logout`
+`connect up`, `connect expose`, `connect reach`, `connect share`, `connect join`, `connect clone`, `connect link`, `connect delete`, `connect proxy`, `connect daemon`, `connect dev`, `connect dns`, `connect mcp`, `connect shell`, `connect grant`, `connect status`, `connect doctor`, `connect whoami`, `connect update`, `connect logout`
 
 ## CLI commands (npx, no auth)
 
@@ -78,10 +78,9 @@ WebSocket gateways, `/health`, and `/v1/status` are `@SkipThrottle()`.
 | `docs/detailed.md` | Full CLI reference, API reference, all features |
 | `docs/use_cases.md` | Real-world scenarios |
 | `docs/security.md` | Security architecture, E2E encryption, threat model |
-| `docs/AI.md` | AI integration (MCP, broker, orchestration, SDK) |
+| `docs/AI.md` | AI integration (MCP, grants, orchestration, SDK) |
 | `docs/debugging.md` | Live traffic debugging + AI copilot |
 | `docs/mcp.md` | MCP setup for Cursor/Claude |
-| `docs/broker.md` | Agent permission broker |
 | `docs/terminal.md` | Remote shell via share codes |
 | `docs/free-tier.md` | Unauthenticated tunnel limits |
 | `packages/cli/README.md` | npx CLI docs |
