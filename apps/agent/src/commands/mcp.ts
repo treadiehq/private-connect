@@ -1,10 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
 import * as readline from 'readline';
-import { spawn, spawnSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import chalk from 'chalk';
-import { loadConfig, getConfigDir } from '../config';
+import { loadConfig } from '../config';
 import { loadPolicy, evaluateFileWrite, evaluateCommand } from '../broker/policy';
 import { logFileWrite, logCommand } from '../broker/audit';
 
@@ -380,7 +379,7 @@ export async function mcpServeCommand(options: McpOptions) {
     try {
       const message: McpMessage = JSON.parse(line);
       await handleMessage(message);
-    } catch (error) {
+    } catch {
       sendError(null, -32700, 'Parse error');
     }
   });
@@ -953,7 +952,7 @@ export async function mcpServeCommand(options: McpOptions) {
               throw new Error('Failed to broadcast message');
             }
           } catch (err) {
-            throw new Error(`Failed to broadcast: ${(err as Error).message}`);
+            throw new Error(`Failed to broadcast: ${(err as Error).message}`, { cause: err });
           }
           break;
         }
@@ -993,7 +992,7 @@ export async function mcpServeCommand(options: McpOptions) {
               throw new Error('Failed to fetch messages');
             }
           } catch (err) {
-            throw new Error(`Failed to get messages: ${(err as Error).message}`);
+            throw new Error(`Failed to get messages: ${(err as Error).message}`, { cause: err });
           }
           break;
         }
@@ -1023,7 +1022,7 @@ export async function mcpServeCommand(options: McpOptions) {
               throw new Error('Failed to find agents');
             }
           } catch (err) {
-            throw new Error(`Failed to find agents: ${(err as Error).message}`);
+            throw new Error(`Failed to find agents: ${(err as Error).message}`, { cause: err });
           }
           break;
         }
@@ -1138,7 +1137,7 @@ export async function mcpServeCommand(options: McpOptions) {
 /**
  * Setup command - helps users configure MCP for their AI tools
  */
-export async function mcpSetupCommand(options: McpOptions) {
+export async function mcpSetupCommand(_options: McpOptions) {
   const config = loadConfig();
   const connectPath = process.argv[1];
   

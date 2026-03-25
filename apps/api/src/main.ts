@@ -288,7 +288,7 @@ process.on('uncaughtException', (err) => {
   console.error('=== UNCAUGHT EXCEPTION ===', err);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason, _promise) => {
   console.error('=== UNHANDLED REJECTION ===', reason);
 });
 

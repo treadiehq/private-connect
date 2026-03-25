@@ -5,7 +5,7 @@ import chalk from 'chalk';
 import { ensureConfig, AgentConfig, loadConfig, generateConfig, getConfigPath, clearConfig } from '../config';
 import { deviceAuthFlow } from '../device-auth';
 import { enforceSecureConnection, handleTokenExpiry, handleSecurityEvent, SecurityError } from '../security';
-import { runZeroTouchSetup, isSetupComplete } from '../setup';
+import { runZeroTouchSetup } from '../setup';
 import { exposeCommand } from './expose';
 
 interface UpOptions {

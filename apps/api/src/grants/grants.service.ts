@@ -3,11 +3,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { createHash, randomBytes } from 'crypto';
 
-const VALID_RESOURCE_TYPES = ['db', 'api', 'path'] as const;
-const VALID_SCOPES = ['read-only', 'full'] as const;
+const _VALID_RESOURCE_TYPES = ['db', 'api', 'path'] as const;
+const _VALID_SCOPES = ['read-only', 'full'] as const;
 
-export type ResourceType = typeof VALID_RESOURCE_TYPES[number];
-export type GrantScope = typeof VALID_SCOPES[number];
+export type ResourceType = typeof _VALID_RESOURCE_TYPES[number];
+export type GrantScope = typeof _VALID_SCOPES[number];
 
 const MAX_TTL_SECONDS = 24 * 60 * 60; // 24 hours
 const MIN_TTL_SECONDS = 60; // 1 minute

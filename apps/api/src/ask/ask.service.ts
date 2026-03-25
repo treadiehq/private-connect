@@ -5,7 +5,6 @@ import type {
   AskResponse,
   AskReceipt,
   Reachability,
-  ReachabilityClassification,
   BlockedAction,
 } from './ask.types';
 

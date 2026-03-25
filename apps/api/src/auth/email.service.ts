@@ -86,13 +86,13 @@ If you didn't request this, you can safely ignore this email.`;
 
       if (error) {
         this.logger.error(`Failed to send email to ${to}:`, error);
-        throw new Error('Failed to send magic link email');
+        throw new Error('Failed to send magic link email', { cause: error });
       }
 
       this.logger.log(`Magic link email sent to ${to}`);
     } catch (error) {
       this.logger.error(`Failed to send email to ${to}:`, error);
-      throw new Error('Failed to send magic link email');
+      throw new Error('Failed to send magic link email', { cause: error });
     }
   }
 }

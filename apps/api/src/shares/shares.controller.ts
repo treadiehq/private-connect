@@ -451,7 +451,7 @@ export class SharesController {
       let columns: string[] = [];
       const rows: any[] = [];
       let rowCount = 0;
-      let readyForQuery = false;
+      let _readyForQuery = false;
 
       socket.setTimeout(10000);
 
@@ -527,7 +527,7 @@ export class SharesController {
             }
               
             case 'Z': // ReadyForQuery
-              readyForQuery = true;
+              _readyForQuery = true;
               socket.end();
               resolve({ columns, rows, rowCount });
               break;
@@ -915,7 +915,7 @@ export class SharesController {
     path: string,
     req: Request,
     res: Response,
-    startTime: number,
+    _startTime: number,
   ) {
     if (!this.tunnelService.isAgentConnected(service.agentId)) {
       res.status(503).json({

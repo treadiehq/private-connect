@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, Query, Headers, HttpException, HttpStatus, Inject, forwardRef, UseGuards, Req, Delete, Patch } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Query, HttpException, HttpStatus, Inject, forwardRef, UseGuards, Req, Delete, Patch } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiSecurity, ApiQuery } from '@nestjs/swagger';
 import { ServicesService } from './services.service';
 import { DiagnosticsService } from './diagnostics.service';
@@ -367,7 +367,7 @@ export class ServicesController {
       throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
     }
 
-    const { sourceAgentId, mode, timeoutMs } = parsed.data;
+    const { sourceAgentId, mode: _mode, timeoutMs: _timeoutMs } = parsed.data;
 
     // Validate source agent exists and belongs to workspace
     const sourceAgent = await this.agentsService.findById(sourceAgentId);
@@ -550,7 +550,7 @@ export class ServicesController {
     @Query('subdomain') subdomain: string,
     @Req() req: any,
   ) {
-    const workspace = req.workspace;
+    const _workspace = req.workspace;
     const normalizedSubdomain = subdomain?.toLowerCase().trim();
     
     if (!normalizedSubdomain) {

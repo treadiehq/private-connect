@@ -103,7 +103,7 @@ export class TemporaryTunnelService implements OnModuleDestroy {
     this.logger.log(`Notifying ${tunnelCount} connected tunnel(s) of shutdown...`);
 
     // Notify all connected clients
-    for (const [tunnelId, tunnel] of this.tunnels) {
+    for (const [_tunnelId, tunnel] of this.tunnels) {
       if (tunnel.socket?.connected) {
         // Send shutdown warning with reason
         tunnel.socket.emit('server_shutdown', {
@@ -133,14 +133,14 @@ export class TemporaryTunnelService implements OnModuleDestroy {
     await new Promise(resolve => setTimeout(resolve, 500));
 
     // Now disconnect all sockets
-    for (const [tunnelId, tunnel] of this.tunnels) {
+    for (const [_tunnelId, tunnel] of this.tunnels) {
       if (tunnel.socket?.connected) {
         tunnel.socket.disconnect();
       }
     }
 
     // Close all TCP connections
-    for (const [connId, conn] of this.tcpConnections) {
+    for (const [_connId, conn] of this.tcpConnections) {
       conn.clientSocket.end();
     }
 

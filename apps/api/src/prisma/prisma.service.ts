@@ -28,6 +28,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
     this._originalTransaction = PrismaClient.prototype.$transaction.bind(this);
 
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
     this._rlsClient = (this as PrismaClient).$extends({
       query: {

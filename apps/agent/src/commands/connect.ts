@@ -345,7 +345,7 @@ async function createShareLink(
     console.log();
     console.log(chalk.gray('────────────────────────────────────────'));
     console.log();
-  } catch (_error) {
+  } catch {
     console.log(chalk.yellow('\n[!] Could not create share link'));
   }
 }

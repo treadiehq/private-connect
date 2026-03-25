@@ -16,7 +16,7 @@
     "clean": "./scripts/clean.sh",
     "fresh": "./scripts/clean.sh && ./scripts/start.sh",
     "docker:logs": "docker compose logs -f",
-    "db:reset": "pnpm --filter api db:reset",
+    "db:reset": "pnpm --filter api db:dangerous-reset",
     "db:studio": "pnpm --filter api db:studio"
   },
   "engines": {
@@ -30,8 +30,5 @@
     "@oxc-transform/binding-darwin-arm64": "^0.103.0",
     "eslint": "^10.1.0",
     "typescript-eslint": "^8.57.2"
-  },
-  "dependencies": {
-    "pg": "^8.13.0"
   }
 }

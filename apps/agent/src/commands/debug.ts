@@ -151,8 +151,6 @@ async function stopDebugSession(tokenOrId: string, options: DebugOptions): Promi
 }
 
 async function watchDebugSession(tokenOrId: string, options: DebugOptions): Promise<void> {
-  const config = loadConfig();
-  
   // Determine the token to use
   const token = tokenOrId.startsWith('s-') ? tokenOrId : null;
   

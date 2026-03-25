@@ -369,7 +369,7 @@ function isIPv4InBlockedRange(ip: string): boolean {
  * so that all forms of the same address compare identically.
  */
 function expandIPv6(ip: string): string {
-  let addr = ip.toLowerCase().replace(/^\[|\]$/g, '');
+  const addr = ip.toLowerCase().replace(/^\[|\]$/g, '');
 
   // Split on :: to handle zero-compression
   const sides = addr.split('::');

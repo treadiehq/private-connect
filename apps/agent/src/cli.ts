@@ -31,7 +31,6 @@ import { setConfigPath } from './config';
 import { validateHubUrl } from './security';
 
 // Read version from package.json to avoid drift
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const pkg = require('../package.json') as { version: string };
 const VERSION = pkg.version;
 

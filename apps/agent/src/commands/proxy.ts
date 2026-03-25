@@ -11,7 +11,7 @@ import { loadActiveRoutes, getActiveRoutesPath, ActiveRoute } from '../active-ro
 import { ensureCerts, isCATrusted, trustCA, loadTLSOptions } from '../certs';
 import {
   writeProxyState, clearProxyState, readProxyState,
-  getProxyPidPath, getProxyLogPath, getProxyHeader,
+  getProxyLogPath, getProxyHeader,
   getDefaultProxyPort, isProxyResponding, waitForProxy,
 } from '../proxy-state';
 

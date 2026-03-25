@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { spawn, execSync, spawnSync, ChildProcess } from 'child_process';
+import { spawn, execSync, ChildProcess } from 'child_process';
 import chalk from 'chalk';
 import { loadConfig, getConfigDir } from '../config';
 
@@ -119,7 +119,7 @@ function cleanupPidFile(pidPath: string): void {
  */
 async function verifyProcessStarted(
   child: ChildProcess, 
-  pidPath: string
+  _pidPath: string
 ): Promise<{ success: boolean; error?: string }> {
   const startTime = Date.now();
   
@@ -255,7 +255,7 @@ async function installDaemon(options: DaemonOptions) {
   }
 }
 
-async function installLaunchd(connectPath: string, hubUrl: string, options: DaemonOptions) {
+async function installLaunchd(connectPath: string, hubUrl: string, _options: DaemonOptions) {
   const plistPath = getLaunchdPlistPath();
   const logPath = getLogPath();
   
@@ -333,7 +333,7 @@ async function installLaunchd(connectPath: string, hubUrl: string, options: Daem
   }
 }
 
-async function installSystemd(connectPath: string, hubUrl: string, options: DaemonOptions) {
+async function installSystemd(connectPath: string, hubUrl: string, _options: DaemonOptions) {
   const servicePath = getSystemdServicePath();
   const logPath = getLogPath();
   

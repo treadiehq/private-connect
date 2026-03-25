@@ -104,7 +104,7 @@ export class AuthService {
       }
 
       // Create user, workspace, and initial API key in a transaction
-      const { user, workspace, apiKey } = await this.prisma.$transaction(async (tx) => {
+      const { user, workspace: _workspace, apiKey: _apiKey } = await this.prisma.$transaction(async (tx) => {
         const user = await tx.user.create({
           data: {
             email: normalizedEmail,

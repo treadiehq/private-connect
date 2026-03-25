@@ -434,7 +434,7 @@ export async function brokerGitCheckCommand(hookType: 'pre-commit' | 'pre-push',
     
     try {
       isForce = await detectForcePush(workingDir);
-    } catch (_err) {
+    } catch {
       // SECURITY: If force detection fails, assume it might be a force push
       console.error(chalk.yellow(`\n[!] Could not determine push type, treating as force-push for safety`));
       isForce = true;

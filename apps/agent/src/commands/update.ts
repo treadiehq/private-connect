@@ -59,7 +59,7 @@ function fetchLatestRelease(): Promise<ReleaseInfo> {
       res.on('end', () => {
         try {
           resolve(JSON.parse(data));
-        } catch (e) {
+        } catch {
           reject(new Error('Failed to parse release info'));
         }
       });
@@ -183,9 +183,7 @@ export async function updateCommand(options: { force?: boolean }) {
     // Cleanup
     fs.unlinkSync(tmpFile);
     
-    // Verify
-    const newVersion = getInstalledVersion();
-    console.log(chalk.green(`\n[ok] Updated to version ${newVersion}!`));
+    console.log(chalk.green(`\n[ok] Updated to version ${latestVersion}!`));
     
   } catch (error: any) {
     spinner.fail('Update failed');

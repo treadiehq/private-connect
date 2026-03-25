@@ -5,7 +5,7 @@ interface LogoutOptions {
   config?: string;
 }
 
-export async function logoutCommand(options: LogoutOptions) {
+export async function logoutCommand(_options: LogoutOptions) {
   const configPath = getConfigPath();
   const existingConfig = loadConfig();
   

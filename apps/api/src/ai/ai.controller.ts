@@ -5,7 +5,6 @@ import {
   Put,
   Body,
   Param,
-  Query,
   Req,
   UseGuards,
   BadRequestException,
@@ -18,7 +17,7 @@ import {
   ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
-import { AIService, AIConfig, ChatMessage } from './ai.service';
+import { AIService, ChatMessage } from './ai.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
 

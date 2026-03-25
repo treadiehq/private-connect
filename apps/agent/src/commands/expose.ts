@@ -713,7 +713,7 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
     });
     
     // Handle responses from local UDP service
-    udpSocket.on('message', (msg: Buffer, rinfo: dgram.RemoteInfo) => {
+    udpSocket.on('message', (msg: Buffer, _rinfo: dgram.RemoteInfo) => {
       // Find the most recent session to route response
       const lastSession = Array.from(udpSessions.entries()).pop();
       if (lastSession) {

@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import chalk from 'chalk';
-import { loadConfig, getConfigDir } from '../config';
+import { getConfigDir } from '../config';
 
 interface ShellOptions {
   shell?: string;
@@ -196,7 +196,7 @@ export async function shellInitCommand(shell: string | undefined, options: Shell
 /**
  * connect shell-setup - Interactive setup for shell integration
  */
-export async function shellSetupCommand(options: ShellOptions) {
+export async function shellSetupCommand(_options: ShellOptions) {
   const shell = detectShell();
   const rcFile = shell === 'zsh' ? '~/.zshrc' : shell === 'bash' ? '~/.bashrc' : '~/.config/fish/config.fish';
   

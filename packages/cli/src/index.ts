@@ -28,7 +28,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { URL } from 'url';
 import { randomBytes } from 'crypto';
-import { io, Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
 
 // Colors (no dependencies)
 const c = {
@@ -82,7 +82,7 @@ function formatStats(durations: number[]): string {
 }
 
 // Track usage (fire and forget, don't block)
-function trackUsage(command: string): void {
+function trackUsage(_command: string): void {
   const data = JSON.stringify({
     os: process.platform,
     arch: process.arch === 'arm64' ? 'arm64' : 'x64',
@@ -102,12 +102,6 @@ function trackUsage(command: string): void {
   req.on('error', () => {}); // Silently ignore errors
   req.write(data);
   req.end();
-}
-
-interface TestResult {
-  tcp: { ok: boolean; latency?: number; error?: string };
-  tls: { ok: boolean; issuer?: string; expiry?: string; error?: string } | null;
-  http: { ok: boolean; status?: number; latency?: number; error?: string } | null;
 }
 
 async function testTcp(host: string, port: number, timeout = 5000): Promise<{ ok: boolean; latency?: number; error?: string }> {
@@ -453,7 +447,7 @@ function getProviderInstructions(provider: WebhookProvider): string[] {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const HUB_URL = process.env.CONNECT_HUB_URL || 'https://api.privateconnect.co';
-const TUNNEL_DOMAIN = process.env.CONNECT_TUNNEL_DOMAIN || 'tunnel.privateconnect.co';
+const _TUNNEL_DOMAIN = process.env.CONNECT_TUNNEL_DOMAIN || 'tunnel.privateconnect.co';
 
 const TUNNEL_STORE_DIR = path.join(os.homedir(), '.private-connect');
 const TUNNEL_STORE_FILE = path.join(TUNNEL_STORE_DIR, 'tunnels.json');
@@ -492,7 +486,7 @@ function saveTunnelToStore(tunnelId: string, managementToken: string, type: stri
       createdAt: new Date().toISOString(),
     });
     fs.writeFileSync(TUNNEL_STORE_FILE, JSON.stringify(store, null, 2), 'utf8');
-  } catch (err) {
+  } catch {
     // Non-fatal: tunnel still works, just list/close from this machine won't have token
   }
 }
@@ -660,7 +654,7 @@ async function createTemporaryTunnel(options: TunnelOptions): Promise<void> {
           const debugData = JSON.parse(debugResponse.body) as { session: { token: string; url: string } };
           debugSession = { token: debugData.session.token, url: debugData.session.url };
         }
-      } catch (err) {
+      } catch {
         // Silently fail - debug is optional
       }
     }
@@ -810,7 +804,6 @@ async function runTunnelProxy(tunnelId: string, wsUrl: string, localHost: string
       reconnectionDelay: 1000,
     });
 
-    let requestCount = 0;
     const requestDurations: number[] = [];
 
     socket.on('connect', () => {
@@ -1192,7 +1185,7 @@ async function runUdpTunnelProxy(tunnelId: string, wsUrl: string, localHost: str
     });
 
     // Handle response from local UDP service
-    localUdpSocket.on('message', (msg: Buffer, rinfo: dgram.RemoteInfo) => {
+    localUdpSocket.on('message', (msg: Buffer, _rinfo: dgram.RemoteInfo) => {
       const timestamp = new Date().toLocaleTimeString();
       console.log(`  ${c.gray}[${timestamp}]${c.reset} ${c.cyan}UDP${c.reset} → response (${msg.length} bytes)`);
 
@@ -1841,7 +1834,7 @@ async function showPairingQR(): Promise<void> {
  * Generate a simple ASCII QR code representation
  * In production, use a proper QR library like 'qrcode-terminal'
  */
-function generateAsciiQR(data: string): string {
+function generateAsciiQR(_data: string): string {
   // Simple box representation - in production use qrcode-terminal package
   const lines = [
     '  ┌──────────────────────────────────────┐',

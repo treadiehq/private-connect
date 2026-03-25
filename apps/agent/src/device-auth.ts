@@ -15,14 +15,6 @@ interface DeviceCodeResponse {
   interval: number;
 }
 
-interface DeviceTokenResponse {
-  error?: string;
-  api_key?: string;
-  workspace_id?: string;
-  workspace_name?: string;
-  user_email?: string;
-}
-
 interface AuthResult {
   apiKey: string;
   workspaceId: string;
@@ -398,7 +390,7 @@ export async function deviceAuthFlow(
         return validated.result;
       }
 
-    } catch (error) {
+    } catch {
       consecutiveErrors++;
 
       // Limit consecutive network errors to prevent infinite retry on fatal errors

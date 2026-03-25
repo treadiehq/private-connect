@@ -10,21 +10,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { proxyRateLimiter, proxySubdomainLimiter, RateLimiter } from '../common/rate-limiter';
 
 const grantRateLimiter = new RateLimiter(60000, 300);
-import { 
-  resilientRequest, 
-  classifyNetworkError, 
-  NetworkErrorType,
-  NETWORK_CONFIG,
-} from '../common/network';
+import { resilientRequest } from '../common/network';
 import { SecureLogger, escapeHtml } from '../common/security';
 
 // Security limits - packet capture enabled
 const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_PATH_LENGTH = 2048;
-const MAX_HEADER_SIZE = 8192;
+const _MAX_HEADER_SIZE = 8192;
 
 // Proxy-specific timeouts
-const PROXY_CONNECT_TIMEOUT_MS = 10000;
+const _PROXY_CONNECT_TIMEOUT_MS = 10000;
 const PROXY_REQUEST_TIMEOUT_MS = 30000;
 
 /**

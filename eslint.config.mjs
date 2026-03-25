@@ -20,6 +20,7 @@ export default tseslint.config(
       '**/archived/**',
       '**/coverage/**',
       'scripts/**',
+      '**/jest.config.*',
     ],
   },
 );

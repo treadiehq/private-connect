@@ -471,7 +471,7 @@ export async function createServerWithAutoPort(
   try {
     const server = await createFn(alternativePort);
     return { server, port: alternativePort, wasAutoSelected: true };
-  } catch (error) {
+  } catch {
     // Race condition - try one more time with auto port
     const autoPort = await getAutoPort(host);
     const server = await createFn(autoPort);

@@ -10,7 +10,6 @@
 import * as net from 'net';
 import * as fs from 'fs';
 import * as path from 'path';
-import { spawnSync } from 'child_process';
 import { getPortUser } from './ports';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -115,7 +114,7 @@ const PROCESS_NAME_MAP: Record<string, string> = {
  */
 export async function detectService(
   port: number,
-  host: string = 'localhost'
+  _host: string = 'localhost'
 ): Promise<DetectedService> {
   // Priority 1: Check pconnect.yml in current directory
   const pconnectName = getPconnectServiceName(port);

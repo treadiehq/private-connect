@@ -599,7 +599,7 @@ export class DebugService {
     const type = first[0];
 
     switch (type) {
-      case '*': // Array (commands)
+      case '*': {
         const count = parseInt(first.substring(1));
         const args: string[] = [];
         for (let i = 1; i < lines.length && args.length < count; i += 2) {
@@ -610,8 +610,9 @@ export class DebugService {
         return {
           type: 'command',
           command: args[0]?.toUpperCase(),
-          args: args.slice(1, 5), // Limit args preview
+          args: args.slice(1, 5),
         };
+      }
       case '+': // Simple string
         return { type: 'simple_string', value: first.substring(1) };
       case '-': // Error
@@ -662,7 +663,7 @@ export class DebugService {
           dataFields: json.data ? Object.keys(json.data).slice(0, 10) : [],
         };
       }
-    } catch (err) {
+    } catch {
       // Not valid JSON, try regex extraction
       const queryMatch = str.match(/"query"\s*:\s*"([^"]+)"/);
       if (queryMatch) {
@@ -678,10 +679,10 @@ export class DebugService {
   }
 
   private detectGraphQLOperation(query: string): string {
-    if (/^\s*mutation\b/i.test(query) || /\bmutation\s*[\({]/i.test(query)) {
+    if (/^\s*mutation\b/i.test(query) || /\bmutation\s*[({]/i.test(query)) {
       return 'mutation';
     }
-    if (/^\s*subscription\b/i.test(query) || /\bsubscription\s*[\({]/i.test(query)) {
+    if (/^\s*subscription\b/i.test(query) || /\bsubscription\s*[({]/i.test(query)) {
       return 'subscription';
     }
     return 'query';
@@ -700,7 +701,7 @@ export class DebugService {
     
     // Extract path from HEADERS frame for RPC method
     const pathMatch = str.match(/:path:\s*([^\r\n]+)/i) || str.match(/path\s*([^\r\n\0]+)/i);
-    const methodMatch = pathMatch?.[1]?.match(/\/([^\/]+)\/([^\/\s\0]+)/);
+    const methodMatch = pathMatch?.[1]?.match(/\/([^/]+)\/([^/\s\0]+)/);
     
     // Extract grpc-status from trailers
     const statusMatch = str.match(/grpc-status:\s*(\d+)/i);

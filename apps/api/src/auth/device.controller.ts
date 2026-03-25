@@ -104,7 +104,6 @@ export class DeviceController {
       throw new HttpException(parsed.error.message, HttpStatus.BAD_REQUEST);
     }
 
-    // Extract authenticated user and workspace from the session (populated by AuthGuard)
     const userId = request.user?.id;
     const workspaceId = request.workspace?.id;
 
@@ -113,13 +112,23 @@ export class DeviceController {
     }
 
     const { userCode } = parsed.data;
-    const result = await this.deviceService.verifyDeviceCode(userCode, userId, workspaceId);
 
-    if (!result.success) {
-      throw new HttpException(result.error || 'Verification failed', HttpStatus.BAD_REQUEST);
+    try {
+      const result = await this.deviceService.verifyDeviceCode(userCode, userId, workspaceId);
+
+      if (!result.success) {
+        throw new HttpException(result.error || 'Verification failed', HttpStatus.BAD_REQUEST);
+      }
+
+      return { success: true, message: 'Device authorized' };
+    } catch (err) {
+      if (err instanceof HttpException) throw err;
+      throw new HttpException(
+        (err as Error).message || 'Device verification failed',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        { cause: err },
+      );
     }
-
-    return { success: true, message: 'Device authorized' };
   }
 }
 

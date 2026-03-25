@@ -194,7 +194,7 @@ async function createLocalTunnel(
       try {
         // Connect to the service via the reach endpoint
         // For now, we'll proxy through the hub's tunnel infrastructure
-        const serviceTarget = serviceId || serviceName;
+        const _serviceTarget = serviceId || serviceName;
         
         // Get service info to find tunnel port
         const serviceResponse = await fetch(`${hubUrl}/v1/services?name=${encodeURIComponent(serviceName)}`, {

@@ -133,7 +133,7 @@ export class TemporaryTunnelGateway implements OnGatewayConnection, OnGatewayDis
    * Heartbeat to keep connection alive
    */
   @SubscribeMessage('heartbeat')
-  handleHeartbeat(@ConnectedSocket() client: Socket) {
+  handleHeartbeat(@ConnectedSocket() _client: Socket) {
     return { success: true, timestamp: Date.now() };
   }
 

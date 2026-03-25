@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import * as net from 'net';
 import * as dgram from 'dgram';
 import { execSync, spawn } from 'child_process';
 import chalk from 'chalk';
@@ -103,7 +102,7 @@ async function installDnsMacOS(domain: string, options: DnsOptions) {
     
     try {
       execSync(`sudo mkdir -p ${RESOLVER_DIR}`);
-    } catch (error) {
+    } catch {
       console.error(chalk.red('\n[x] Failed to create resolver directory.'));
       console.log(chalk.gray('  Run: sudo mkdir -p /etc/resolver\n'));
       process.exit(1);
@@ -126,7 +125,7 @@ port ${dnsPort}
     execSync(`sudo chmod 644 ${resolverPath}`);
     
     console.log(chalk.gray(`  Created: ${resolverPath}`));
-  } catch (error) {
+  } catch {
     console.error(chalk.red('\n[x] Failed to create resolver file.'));
     console.log(chalk.gray(`  Run: sudo tee ${resolverPath} << 'EOF'\n${resolverContent}EOF\n`));
     process.exit(1);
@@ -182,7 +181,7 @@ Domains=~${domain}
       execSync(`sudo systemctl restart systemd-resolved`);
       
       console.log(chalk.gray(`  Created: ${dropInFile}`));
-    } catch (error) {
+    } catch {
       console.error(chalk.red('\n[x] Failed to configure systemd-resolved.'));
       console.log(chalk.gray('  You may need to configure DNS manually.\n'));
       process.exit(1);
@@ -323,7 +322,7 @@ export async function serveDns(options: DnsOptions) {
       }
 
       // Extract service name
-      const serviceName = queryName.slice(0, -(domain.length + 1)).toLowerCase();
+      const _serviceName = queryName.slice(0, -(domain.length + 1)).toLowerCase();
       
       // Always resolve to 127.0.0.1 - the proxy/reach will handle the actual routing
       const ip = '127.0.0.1';
@@ -503,7 +502,7 @@ async function stopDns() {
     }
     
     console.log(chalk.green('\n[ok] DNS server stopped\n'));
-  } catch (error) {
+  } catch {
     console.error(chalk.red(`\n[x] Failed to stop DNS server\n`));
   }
 }

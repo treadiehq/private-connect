@@ -1,13 +1,13 @@
 import chalk from 'chalk';
-import { io, Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
 import * as net from 'net';
 import { v4 as uuidv4 } from 'uuid';
 import { loadConfig } from '../config';
-import { enforceSecureConnection, handleTokenExpiry, handleSecurityEvent, SecurityError } from '../security';
-import { findAvailablePort, isPortAvailable } from '../ports';
+import { enforceSecureConnection, SecurityError } from '../security';
+import { isPortAvailable } from '../ports';
 import { getStablePort, savePort } from '../port-map';
 import { registerRoute, unregisterRoute } from '../active-routes';
-import { readProxyState, getProxyUrl } from '../proxy-state';
+import { getProxyUrl } from '../proxy-state';
 import { ensureProxyRunning } from './proxy';
 import { E2ESession } from '../e2e';
 
@@ -395,7 +395,7 @@ async function createLocalTunnel(
       }
     });
 
-    localSocket.on('error', (err) => {
+    localSocket.on('error', (_err) => {
       socket.emit('reach_close', { connectionId });
       connections.delete(connectionId);
     });

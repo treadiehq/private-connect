@@ -1,15 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { execSync } from 'child_process';
 import chalk from 'chalk';
 import { getConfigDir, loadConfig } from '../config';
-import { 
-  findPrivateConnectPorts, 
-  isProcessRunning, 
-  killProcess, 
+import {
+  findPrivateConnectPorts,
+  isProcessRunning,
+  killProcess,
   isPortAvailable,
-  waitForPort 
 } from '../ports';
 
 interface DoctorOptions {
@@ -414,7 +412,7 @@ export async function cleanupCommand(options: { force?: boolean }) {
 
   // Clean up PID files
   const pidFiles = [DAEMON_PID_FILE, PROXY_PID_FILE];
-  let cleanedFiles = 0;
+  let _cleanedFiles = 0;
 
   for (const pidFile of pidFiles) {
     const pidPath = path.join(configDir, pidFile);
@@ -423,7 +421,7 @@ export async function cleanupCommand(options: { force?: boolean }) {
         try {
           fs.unlinkSync(pidPath);
           console.log(chalk.green(`  [ok] Removed ${pidFile}`));
-          cleanedFiles++;
+          _cleanedFiles++;
         } catch {
           console.log(chalk.red(`  [x] Failed to remove ${pidFile}`));
         }

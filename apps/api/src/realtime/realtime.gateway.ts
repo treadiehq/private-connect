@@ -144,7 +144,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   /**
    * Register an agent's socket connection
    */
-  registerAgent(socketId: string, agentId: string, workspaceId: string) {
+  registerAgent(socketId: string, agentId: string, _workspaceId: string) {
     this.agentSockets.set(agentId, socketId);
     const clientInfo = this.clients.get(socketId);
     if (clientInfo) {
@@ -179,7 +179,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
    */
   getConnectedAgents(workspaceId: string): string[] {
     const agents: string[] = [];
-    for (const [socketId, info] of this.clients.entries()) {
+    for (const [_socketId, info] of this.clients.entries()) {
       if (info.workspaceId === workspaceId && info.agentId) {
         agents.push(info.agentId);
       }

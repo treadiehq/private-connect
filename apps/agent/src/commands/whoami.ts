@@ -34,13 +34,13 @@ export async function whoamiCommand(options: WhoamiOptions) {
   }
 
   // Fetch agent info from hub
-  let agentInfo = null;
+  let _agentInfo = null;
   let workspaceInfo: WorkspaceInfo | null = null;
 
   try {
     const response = await fetch(`${config.hubUrl}/v1/agents/${config.agentId}`);
     if (response.ok) {
-      agentInfo = await response.json();
+      _agentInfo = await response.json();
     }
   } catch {
     // Ignore fetch errors

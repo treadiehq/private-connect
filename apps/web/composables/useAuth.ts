@@ -95,7 +95,7 @@ export function useAuth() {
         method: 'POST',
         credentials: 'include',
       });
-    } catch (e) {
+    } catch {
       // Ignore errors
     }
 
@@ -129,7 +129,7 @@ export function useAuth() {
       authState.isAuthenticated = true;
 
       return data;
-    } catch (e) {
+    } catch {
       authState.user = null;
       authState.workspace = null;
       authState.isAuthenticated = false;
