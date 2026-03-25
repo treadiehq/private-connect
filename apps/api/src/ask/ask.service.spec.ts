@@ -2,6 +2,18 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { AskService } from './ask.service';
 import type { AskReceipt } from './ask.types';
+import * as security from '../common/security';
+
+jest.spyOn(security, 'validateUrlSafeForFetch').mockImplementation(async (url: string) => {
+  const parsed = new URL(url);
+  const blocked = ['localhost', '127.0.0.1', '::1'];
+  const blockedSuffixes = ['.localhost', '.local', '.internal'];
+  const host = parsed.hostname.toLowerCase();
+  if (blocked.includes(host) || blockedSuffixes.some(s => host.endsWith(s))) {
+    throw new BadRequestException('Target URL host is not allowed');
+  }
+  return { url, fetchUrl: url, hostname: parsed.hostname };
+});
 
 describe('AskService', () => {
   let service: AskService;
@@ -14,40 +26,42 @@ describe('AskService', () => {
   });
 
   describe('normalizeServiceInput', () => {
-    it('adds http:// for localhost', () => {
-      expect(service.normalizeServiceInput('localhost')).toBe('http://localhost');
-      expect(service.normalizeServiceInput('localhost:3000')).toBe('http://localhost:3000');
+    it('adds https:// and returns origin for public hostnames', async () => {
+      expect(await service.normalizeServiceInput('example.com')).toBe('https://example.com');
+      expect(await service.normalizeServiceInput('api.example.com:443')).toBe('https://api.example.com');
     });
 
-    it('adds http:// for 127.0.0.1', () => {
-      expect(service.normalizeServiceInput('127.0.0.1')).toBe('http://127.0.0.1');
-      expect(service.normalizeServiceInput('127.0.0.1:8080')).toBe('http://127.0.0.1:8080');
+    it('keeps full URLs and returns origin only', async () => {
+      expect(await service.normalizeServiceInput('https://example.com')).toBe('https://example.com');
+      expect(await service.normalizeServiceInput('https://example.com/path')).toBe('https://example.com');
     });
 
-    it('adds https:// for other hostnames', () => {
-      expect(service.normalizeServiceInput('example.com')).toBe('https://example.com');
-      expect(service.normalizeServiceInput('my-api.internal')).toBe('https://my-api.internal');
-      // URL origin normalizes default ports (443 for https → omitted)
-      expect(service.normalizeServiceInput('api.example.com:443')).toBe('https://api.example.com');
+    it('trims whitespace', async () => {
+      expect(await service.normalizeServiceInput('  example.com  ')).toBe('https://example.com');
     });
 
-    it('keeps full URLs and returns origin only', () => {
-      expect(service.normalizeServiceInput('http://localhost:3000')).toBe('http://localhost:3000');
-      expect(service.normalizeServiceInput('https://example.com')).toBe('https://example.com');
-      expect(service.normalizeServiceInput('https://example.com/path')).toBe('https://example.com');
+    it('rejects localhost (SSRF protection)', async () => {
+      await expect(service.normalizeServiceInput('localhost')).rejects.toThrow(BadRequestException);
+      await expect(service.normalizeServiceInput('localhost:3000')).rejects.toThrow(BadRequestException);
+      await expect(service.normalizeServiceInput('http://localhost:3000')).rejects.toThrow(BadRequestException);
     });
 
-    it('trims whitespace', () => {
-      expect(service.normalizeServiceInput('  localhost:3000  ')).toBe('http://localhost:3000');
+    it('rejects loopback IPs (SSRF protection)', async () => {
+      await expect(service.normalizeServiceInput('127.0.0.1')).rejects.toThrow(BadRequestException);
+      await expect(service.normalizeServiceInput('127.0.0.1:8080')).rejects.toThrow(BadRequestException);
     });
 
-    it('throws for empty input', () => {
-      expect(() => service.normalizeServiceInput('')).toThrow(BadRequestException);
-      expect(() => service.normalizeServiceInput('   ')).toThrow(BadRequestException);
+    it('rejects .internal domains (SSRF protection)', async () => {
+      await expect(service.normalizeServiceInput('my-api.internal')).rejects.toThrow(BadRequestException);
     });
 
-    it('throws for invalid URL', () => {
-      expect(() => service.normalizeServiceInput('not a url!!!')).toThrow(BadRequestException);
+    it('throws for empty input', async () => {
+      await expect(service.normalizeServiceInput('')).rejects.toThrow(BadRequestException);
+      await expect(service.normalizeServiceInput('   ')).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws for invalid URL', async () => {
+      await expect(service.normalizeServiceInput('not a url!!!')).rejects.toThrow(BadRequestException);
     });
   });
 

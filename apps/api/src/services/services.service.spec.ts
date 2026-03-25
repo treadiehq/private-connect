@@ -3,6 +3,7 @@ import { ServicesService } from './services.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TunnelService } from '../tunnel/tunnel.service';
 import { WorkspaceService } from '../workspace/workspace.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { HttpException } from '@nestjs/common';
 
 describe('ServicesService', () => {
@@ -13,9 +14,14 @@ describe('ServicesService', () => {
   const mockPrismaService = {
     service: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
       upsert: jest.fn(),
       update: jest.fn(),
+      delete: jest.fn(),
+    },
+    agent: {
+      findUnique: jest.fn(),
     },
     diagnosticResult: {
       create: jest.fn(),
@@ -31,6 +37,10 @@ describe('ServicesService', () => {
     getPlanLimits: jest.fn(),
   };
 
+  const mockWebhooksService = {
+    emit: jest.fn().mockResolvedValue(undefined),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -38,6 +48,7 @@ describe('ServicesService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: TunnelService, useValue: mockTunnelService },
         { provide: WorkspaceService, useValue: mockWorkspaceService },
+        { provide: WebhooksService, useValue: mockWebhooksService },
       ],
     }).compile();
 
@@ -51,37 +62,42 @@ describe('ServicesService', () => {
   });
 
   describe('register', () => {
+    beforeEach(() => {
+      prismaService.agent.findUnique.mockResolvedValue({
+        workspaceId: 'workspace-1',
+      });
+    });
+
     it('should prevent duplicate service names within workspace', async () => {
-      // Setup: workspace at limit, no existing service with this name
+      prismaService.service.findUnique.mockResolvedValue(null);
       workspaceService.getUsage.mockResolvedValue({
         canAddService: false,
         workspace: { plan: 'FREE' },
       });
-      prismaService.service.findUnique.mockResolvedValue(null);
 
-      // Should throw when at limit and not updating existing
       await expect(
         service.register('workspace-1', 'agent-1', 'test-service', 'localhost', 8080, 'auto')
       ).rejects.toThrow(HttpException);
     });
 
     it('should allow updating existing service even at limit', async () => {
-      // Setup: workspace at limit, but service already exists
-      workspaceService.getUsage.mockResolvedValue({
-        canAddService: false,
-        workspace: { plan: 'FREE' },
-      });
       prismaService.service.findUnique.mockResolvedValue({
-        id: 'existing-service',
-        name: 'test-service',
-      });
-      prismaService.service.upsert.mockResolvedValue({
         id: 'existing-service',
         name: 'test-service',
         tunnelPort: 23000,
       });
+      prismaService.service.upsert.mockResolvedValue({
+        id: 'existing-service',
+        name: 'test-service',
+        targetHost: 'localhost',
+        targetPort: 8080,
+        tunnelPort: 23000,
+        protocol: 'auto',
+        agentId: 'agent-1',
+        createdAt: new Date(),
+        agent: { label: 'default' },
+      });
 
-      // Should succeed - updating existing service
       const result = await service.register(
         'workspace-1', 'agent-1', 'test-service', 'localhost', 8080, 'auto'
       );
@@ -91,6 +107,7 @@ describe('ServicesService', () => {
     });
 
     it('should register new service when under limit', async () => {
+      prismaService.service.findUnique.mockResolvedValue(null);
       workspaceService.getUsage.mockResolvedValue({
         canAddService: true,
         workspace: { plan: 'FREE' },
@@ -98,7 +115,13 @@ describe('ServicesService', () => {
       prismaService.service.upsert.mockResolvedValue({
         id: 'new-service',
         name: 'test-service',
+        targetHost: 'localhost',
+        targetPort: 8080,
         tunnelPort: 23001,
+        protocol: 'auto',
+        agentId: 'agent-1',
+        createdAt: new Date(),
+        agent: { label: 'default' },
       });
 
       const result = await service.register(
