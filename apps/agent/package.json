@@ -1,6 +1,6 @@
 {
   "name": "agent",
-  "version": "0.7.6",
+  "version": "0.7.7",
   "private": true,
   "bin": {
     "connect": "./dist/cli.js"
@@ -14,25 +14,32 @@
     "build:binary:linux-arm": "bun build src/cli.ts --compile --target=bun-linux-arm64 --outfile=bin/connect-linux-arm64",
     "build:binary:macos": "bun build src/cli.ts --compile --target=bun-darwin-x64 --outfile=bin/connect-darwin-x64",
     "build:binary:macos-arm": "bun build src/cli.ts --compile --target=bun-darwin-arm64 --outfile=bin/connect-darwin-arm64",
-    "build:binary:all": "npm run build:binary:linux && npm run build:binary:linux-arm && npm run build:binary:macos && npm run build:binary:macos-arm"
+    "build:binary:all": "npm run build:binary:linux && npm run build:binary:linux-arm && npm run build:binary:macos && npm run build:binary:macos-arm",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "dependencies": {
     "chalk": "^4.1.2",
     "commander": "^11.1.0",
     "inquirer": "^8.2.6",
+    "js-yaml": "^4.1.1",
     "node-pty": "^1.1.0",
     "ora": "^5.4.1",
     "socket.io-client": "^4.7.4",
     "uuid": "^9.0.1"
   },
   "optionalDependencies": {
-    "pg": "^8.13.0",
-    "mysql2": "^3.11.0"
+    "mysql2": "^3.11.0",
+    "pg": "^8.13.0"
   },
   "devDependencies": {
     "@types/inquirer": "^8.2.10",
+    "@types/jest": "^29.5.11",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.11.0",
     "@types/uuid": "^9.0.7",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   }

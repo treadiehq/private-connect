@@ -1,43 +1,45 @@
 /**
  * Private Connect SDK
  *
- * Programmatic access to Private Connect services, grants, and agent orchestration.
+ * Define your connections in pconnect.yml. Access them from anywhere.
  *
  * @example
  * ```typescript
  * import { PrivateConnect } from '@privateconnect/sdk';
  *
- * const pc = new PrivateConnect({ apiKey: 'your-api-key' });
+ * // Load your project's connection manifest
+ * const pc = PrivateConnect.fromManifest();
  *
- * // Connect to a service (assumes tunnel is already open)
- * const db = await pc.connect('postgres-prod');
- * console.log(db.connectionString); // postgres://localhost:5432/...
+ * // Get a resource declared in pconnect.yml
+ * const db = pc.resource('staging-db');
+ * console.log(db.connectionString); // postgres://internal-db:5432
+ * console.log(db.envVar);           // DATABASE_URL
  *
- * // Grant an AI agent temporary access
- * const grant = await pc.grants.create({
+ * // With an API key, you also get hub API access
+ * const pc2 = PrivateConnect.fromManifest('./pconnect.yml', {
+ *   apiKey: process.env.PRIVATECONNECT_API_KEY,
+ * });
+ * const grant = await pc2.grants.create({
  *   agentLabel: 'claude',
  *   resourceType: 'db',
  *   resourceName: 'postgres',
  *   ttl: '5m',
  * });
- * console.log(grant.token); // gnt_...
- *
- * // List all agents
- * const agents = await pc.agents.list();
  * ```
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import * as yaml from 'js-yaml';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface PrivateConnectConfig {
-  /** API key for authentication */
-  apiKey: string;
+  /** API key for authentication. Required for hub API calls; optional for manifest-only usage. */
+  apiKey?: string;
   /** Hub URL (default: https://api.privateconnect.co) */
   hubUrl?: string;
   /** Agent ID (auto-detected from local config if not provided) */
@@ -110,6 +112,178 @@ export interface GrantCreateOptions {
   scope?: 'read-only' | 'full';
   /** Duration string: 60s, 5m, 1h, 1d. Omit for persistent grant. */
   ttl?: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Manifest Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const RESOURCE_TYPES = ['postgres', 'mysql', 'redis', 'http', 'generic-tcp'] as const;
+export type ResourceType = typeof RESOURCE_TYPES[number];
+
+export const ACCESS_MODES = ['tcp', 'http'] as const;
+export type AccessMode = typeof ACCESS_MODES[number];
+
+export const TRANSPORT_MODES = ['direct', 'hub'] as const;
+export type TransportVia = typeof TRANSPORT_MODES[number];
+
+export interface ManifestResourceConfig {
+  type: ResourceType;
+  host?: string;
+  port?: number;
+  targetHost?: string;
+  targetPort?: number;
+  url?: string;
+  access: { mode: AccessMode; via?: TransportVia };
+}
+
+export interface ManifestResource {
+  name: string;
+  type: ResourceType;
+  host: string;
+  port: number;
+  connectionString: string;
+  envVar: string;
+  accessMode: AccessMode;
+  via: TransportVia;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Manifest Parsing
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MANIFEST_FILENAMES = [
+  'pconnect.yml',
+  'pconnect.yaml',
+  'pconnect.json',
+  '.pconnect.yml',
+  '.pconnect.yaml',
+  '.pconnect.json',
+];
+
+const DEFAULT_PORTS: Record<ResourceType, number> = {
+  postgres: 5432,
+  mysql: 3306,
+  redis: 6379,
+  http: 80,
+  'generic-tcp': 0,
+};
+
+const PROTOCOL_SCHEMES: Record<ResourceType, string> = {
+  postgres: 'postgres',
+  mysql: 'mysql',
+  redis: 'redis',
+  http: 'http',
+  'generic-tcp': 'tcp',
+};
+
+const ENV_VAR_MAP: Record<ResourceType, string> = {
+  postgres: 'DATABASE_URL',
+  mysql: 'DATABASE_URL',
+  redis: 'REDIS_URL',
+  http: 'API_URL',
+  'generic-tcp': 'TCP_URL',
+};
+
+function findManifest(startDir?: string): string | null {
+  let dir = startDir || process.cwd();
+
+  for (let depth = 0; depth < 4; depth++) {
+    for (const filename of MANIFEST_FILENAMES) {
+      const filePath = path.join(dir, filename);
+      if (fs.existsSync(filePath)) return filePath;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+
+  return null;
+}
+
+function parseManifestFile(filePath: string): Record<string, ManifestResourceConfig> {
+  const content = fs.readFileSync(filePath, 'utf-8');
+  let raw: Record<string, unknown>;
+
+  if (filePath.endsWith('.json')) {
+    raw = JSON.parse(content);
+  } else {
+    raw = yaml.load(content) as Record<string, unknown>;
+  }
+
+  if (!raw || typeof raw !== 'object' || !raw.resources || typeof raw.resources !== 'object') {
+    return {};
+  }
+
+  const resources: Record<string, ManifestResourceConfig> = {};
+  const rawResources = raw.resources as Record<string, unknown>;
+
+  for (const [name, value] of Object.entries(rawResources)) {
+    if (!value || typeof value !== 'object') continue;
+    const obj = value as Record<string, unknown>;
+
+    const type = obj.type as string;
+    if (!RESOURCE_TYPES.includes(type as ResourceType)) continue;
+
+    const accessObj = (obj.access && typeof obj.access === 'object')
+      ? obj.access as Record<string, unknown>
+      : { mode: 'tcp' };
+
+    resources[name] = {
+      type: type as ResourceType,
+      host: typeof obj.host === 'string' ? obj.host : undefined,
+      port: typeof obj.port === 'number' ? obj.port : undefined,
+      targetHost: typeof obj.targetHost === 'string' ? obj.targetHost : undefined,
+      targetPort: typeof obj.targetPort === 'number' ? obj.targetPort : undefined,
+      url: typeof obj.url === 'string' ? obj.url : undefined,
+      access: {
+        mode: (ACCESS_MODES.includes(accessObj.mode as AccessMode)
+          ? accessObj.mode
+          : 'tcp') as AccessMode,
+        via: (TRANSPORT_MODES.includes(accessObj.via as TransportVia)
+          ? accessObj.via
+          : 'direct') as TransportVia,
+      },
+    };
+  }
+
+  return resources;
+}
+
+function resolveManifestResource(name: string, config: ManifestResourceConfig): ManifestResource {
+  let host: string;
+  let port: number;
+
+  if (config.type === 'http' && config.url) {
+    try {
+      const parsed = new URL(config.url);
+      host = parsed.hostname;
+      port = parsed.port ? parseInt(parsed.port, 10) : (parsed.protocol === 'https:' ? 443 : 80);
+    } catch {
+      host = config.host || config.targetHost || 'localhost';
+      port = config.port || config.targetPort || DEFAULT_PORTS[config.type];
+    }
+  } else {
+    host = config.targetHost || config.host || 'localhost';
+    port = config.targetPort || config.port || DEFAULT_PORTS[config.type];
+  }
+
+  const scheme = PROTOCOL_SCHEMES[config.type];
+  const connectionString = `${scheme}://${host}:${port}`;
+
+  const envVar = ENV_VAR_MAP[config.type]
+    || `${name.toUpperCase().replace(/-/g, '_')}_URL`;
+
+  return {
+    name,
+    type: config.type,
+    host,
+    port,
+    connectionString,
+    envVar,
+    accessMode: config.access.mode,
+    via: config.access.via || 'direct',
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -391,7 +565,9 @@ export class GrantsAPI {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export class PrivateConnect {
-  private config: { apiKey: string; hubUrl: string; agentId?: string };
+  private config: { apiKey?: string; hubUrl: string; agentId?: string };
+  private manifest: Map<string, ManifestResource> = new Map();
+  private manifestPath?: string;
 
   /** Agents API for discovery and orchestration */
   public agents: AgentsAPI;
@@ -402,7 +578,7 @@ export class PrivateConnect {
   /** Grants API for managing scoped access tokens (time-limited or persistent) */
   public grants: GrantsAPI;
 
-  constructor(config: PrivateConnectConfig) {
+  constructor(config: PrivateConnectConfig = {}) {
     this.config = {
       apiKey: config.apiKey,
       hubUrl: config.hubUrl || 'https://api.privateconnect.co',
@@ -417,6 +593,102 @@ export class PrivateConnect {
       trackSdkUsage(this.config.hubUrl);
     }
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Manifest API — the primary way to use the SDK
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Load a pconnect.yml manifest and return a configured client.
+   *
+   * Auto-discovers pconnect.yml in the current directory (or parents) if no
+   * path is given. Pass a config to also enable hub API access.
+   *
+   * @example
+   * ```typescript
+   * const pc = PrivateConnect.fromManifest();
+   * const db = pc.resource('staging-db');
+   * console.log(db.connectionString); // postgres://internal-db:5432
+   * ```
+   */
+  static fromManifest(
+    manifestPath?: string,
+    config?: PrivateConnectConfig,
+  ): PrivateConnect {
+    const resolvedPath = manifestPath
+      ? path.resolve(manifestPath)
+      : findManifest();
+
+    if (!resolvedPath) {
+      throw new Error(
+        'No pconnect.yml found. Create one in your project root:\n\n' +
+        '  resources:\n' +
+        '    staging-db:\n' +
+        '      type: postgres\n' +
+        '      host: internal-db\n' +
+        '      port: 5432\n' +
+        '      access:\n' +
+        '        mode: tcp\n'
+      );
+    }
+
+    const instance = new PrivateConnect(config || { disableTracking: true });
+    instance.manifestPath = resolvedPath;
+
+    const rawResources = parseManifestFile(resolvedPath);
+    for (const [name, rawConfig] of Object.entries(rawResources)) {
+      instance.manifest.set(name, resolveManifestResource(name, rawConfig));
+    }
+
+    return instance;
+  }
+
+  /**
+   * Get a resource declared in pconnect.yml by name.
+   *
+   * Returns its type, host, port, connection string, and suggested env var.
+   * When `connect dev` is running, the connection string points to a live
+   * local tunnel.
+   */
+  resource(name: string): ManifestResource {
+    const r = this.manifest.get(name);
+    if (!r) {
+      const available = Array.from(this.manifest.keys());
+      const msg = available.length
+        ? `Available: ${available.join(', ')}`
+        : 'No resources loaded. Did you call PrivateConnect.fromManifest()?';
+      throw new Error(`Resource "${name}" not found. ${msg}`);
+    }
+    return r;
+  }
+
+  /**
+   * List all resources declared in the loaded manifest.
+   */
+  resources(): ManifestResource[] {
+    return Array.from(this.manifest.values());
+  }
+
+  /**
+   * Generate a `.env`-compatible block for all manifest resources.
+   *
+   * @example
+   * ```typescript
+   * const pc = PrivateConnect.fromManifest();
+   * console.log(pc.envBlock());
+   * // DATABASE_URL=postgres://internal-db:5432
+   * // REDIS_URL=redis://redis.internal:6379
+   * ```
+   */
+  envBlock(): string {
+    return this.resources()
+      .map(r => `${r.envVar}=${r.connectionString}`)
+      .join('\n');
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Existing APIs
+  // ─────────────────────────────────────────────────────────────────────────
 
   /** The resolved agent ID, or undefined if not configured. */
   get agentId(): string | undefined {
@@ -452,13 +724,26 @@ export class PrivateConnect {
     return this.config.agentId;
   }
 
+  /** Requires an API key or throws. */
+  private requireApiKey(): string {
+    if (!this.config.apiKey) {
+      throw new Error(
+        'API key required for hub API calls. Either:\n' +
+        '  1. Set PRIVATECONNECT_API_KEY environment variable, or\n' +
+        '  2. Pass apiKey in the config.'
+      );
+    }
+    return this.config.apiKey;
+  }
+
   /** Internal fetch with API key auth. */
-  async fetch(path: string, options?: RequestInit): Promise<Response> {
-    const url = `${this.config.hubUrl}${path}`;
+  async fetch(urlPath: string, options?: RequestInit): Promise<Response> {
+    const apiKey = this.requireApiKey();
+    const url = `${this.config.hubUrl}${urlPath}`;
     const response = await fetch(url, {
       ...options,
       headers: {
-        'x-api-key': this.config.apiKey,
+        'x-api-key': apiKey,
         'Content-Type': 'application/json',
         ...options?.headers,
       },
@@ -475,7 +760,7 @@ export class PrivateConnect {
 
 export default PrivateConnect;
 
-/** Convenience function for quick one-off connections. */
+/** Convenience function for quick one-off connections via the hub API. */
 export async function connect(
   serviceName: string,
   config?: PrivateConnectConfig & { grantToken?: string },
@@ -487,4 +772,12 @@ export async function connect(
 
   const client = new PrivateConnect({ ...config, apiKey });
   return client.connect(serviceName, { grantToken: config?.grantToken });
+}
+
+/**
+ * Load pconnect.yml and get a resource by name.
+ * Shorthand for `PrivateConnect.fromManifest().resource(name)`.
+ */
+export function fromManifest(manifestPath?: string): PrivateConnect {
+  return PrivateConnect.fromManifest(manifestPath);
 }

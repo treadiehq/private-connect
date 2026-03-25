@@ -367,6 +367,173 @@ See [docs/debugging.md](docs/debugging.md) for complete documentation.
 
 ---
 
+## Agent-Native Resource Access
+
+Private Connect can expose private resources as named, ephemeral endpoints for humans and AI agents.
+
+### Config Schema
+
+Add a `resources:` section to your `pconnect.yml`:
+
+```yaml
+resources:
+  staging-db:
+    type: postgres
+    host: internal-db
+    port: 5432
+    access:
+      mode: tcp
+
+  payments-api:
+    type: http
+    url: http://payments.service.internal:3000
+    access:
+      mode: http
+
+  redis-cache:
+    type: redis
+    host: redis.internal
+    port: 6379
+    access:
+      mode: tcp
+
+  prod-db:
+    type: postgres
+    host: prod-db.vpc
+    port: 5432
+    access:
+      mode: tcp
+      via: hub    # Route through Private Connect hub
+```
+
+**Supported resource types:** `postgres`, `mysql`, `redis`, `http`, `generic-tcp`
+
+**Fields:**
+| Field | Required | Description |
+|-------|----------|-------------|
+| `type` | Yes | Resource type |
+| `host` / `targetHost` | Yes (tcp) | Target hostname |
+| `port` / `targetPort` | No | Target port (defaults to standard port for type) |
+| `url` | Yes (http) | Full URL for HTTP resources |
+| `access.mode` | Yes | `tcp` or `http` |
+| `access.via` | No | `direct` (default) or `hub` |
+
+### List Resources
+
+```bash
+connect resources
+```
+
+Output:
+```
+  staging-db     postgres    internal-db:5432
+  payments-api   http        payments.service.internal:3000
+  redis-cache    redis       redis.internal:6379
+  prod-db        postgres    prod-db.vpc:5432 [hub]
+```
+
+```bash
+connect resources --json
+```
+
+```json
+{
+  "ok": true,
+  "resources": [
+    { "name": "staging-db", "type": "postgres", "target": "internal-db:5432", "via": "direct" }
+  ]
+}
+```
+
+### Connect to a Resource
+
+```bash
+connect resource staging-db
+```
+
+Output:
+```
+  ✔ Connected to staging-db
+    Type:       postgres
+    Endpoint:   postgres://127.0.0.1:5432
+    Expires in: 15m
+    Name:       staging-db.pc
+    psql:       psql -h 127.0.0.1 -p 5432
+
+  Press Ctrl+C to disconnect
+```
+
+### JSON Mode for Agents
+
+```bash
+connect resource staging-db --json
+```
+
+Returns only JSON, no logs:
+```json
+{
+  "ok": true,
+  "session": {
+    "id": "sess_a1b2c3d4e5f6g7h8",
+    "resource": "staging-db",
+    "type": "postgres",
+    "protocol": "tcp",
+    "endpoint": "postgres://127.0.0.1:5432",
+    "expiresAt": "2026-03-25T12:15:00.000Z",
+    "expiresInSeconds": 900,
+    "suggestedName": "staging-db.pc"
+  }
+}
+```
+
+On error:
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "RESOURCE_NOT_FOUND",
+    "message": "Resource 'foo' not found in config. Available: staging-db, payments-api"
+  }
+}
+```
+
+**Error codes:** `RESOURCE_NOT_FOUND`, `CONFIG_NOT_FOUND`, `CONFIG_INVALID`, `PORT_UNAVAILABLE`, `CONNECTION_FAILED`, `TARGET_UNREACHABLE`, `HUB_NOT_CONFIGURED`
+
+### Options
+
+```bash
+connect resource <name> [options]
+
+--json              Machine-friendly JSON output (no extra logs)
+--local             Force direct connection (skip hub even if config says via: hub)
+--ttl <duration>    Session TTL: 15m, 1h, 300s (default: 15m)
+--port <port>       Local port to bind (default: same as resource target port)
+--name <alias>      Override display name
+-f, --file <path>   Path to pconnect.yml
+```
+
+### TTL Behavior
+
+The session stays in foreground (like `connect reach`). The TTL is a real timer — when it expires, the process exits cleanly. Most developers will Ctrl+C before the timer fires.
+
+Supported formats: `15m`, `1h`, `300s`
+
+### Transport Modes
+
+- **`direct`** (default): the CLI machine connects directly to the resource target. No hub needed.
+- **`hub`**: the connection routes through the Private Connect hub, wrapping the existing `reach` flow. Useful when the CLI machine cannot reach the target directly, but a connected agent can.
+
+Use `--local` to force direct mode regardless of config.
+
+### Current Limitations
+
+- `.pc` names are informational only — no DNS resolution yet
+- No background daemon or multi-session management
+- No remote share links for resource sessions
+- Auth for resource connections is not yet implemented
+
+---
+
 ## Advanced Features
 
 ### Background Daemon

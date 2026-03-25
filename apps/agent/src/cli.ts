@@ -27,6 +27,8 @@ import { grantCommand } from './commands/grant';
 import { connectCommand } from './commands/connect';
 import { debugCommand } from './commands/debug';
 import { loginCommand } from './commands/login';
+import { resourceCommand } from './commands/resource';
+import { resourcesCommand } from './commands/resources';
 import { setConfigPath } from './config';
 import { validateHubUrl } from './security';
 
@@ -486,12 +488,12 @@ program
 // Dev Mode Commands
 program
   .command('dev')
-  .description('Connect to all services defined in pconnect.yml')
+  .description('Provision all resources from pconnect.yml — the manifest runtime')
   .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-f, --file <path>', 'Path to pconnect.yml file')
   .option('-c, --config <path>', 'Agent config file path')
   .option('-b, --background', 'Run in background')
-  .option('--init', 'Initialize a new pconnect.yml file (cannot be used with other options)')
+  .option('--init', 'Create a pconnect.yml manifest in the current directory')
   .action((options) => {
     if (options.config) setConfigPath(options.config);
     
@@ -670,6 +672,32 @@ program
   .action(async (session, options) => {
     if (options.config) setConfigPath(options.config);
     await debugCommand(session, options);
+  });
+
+// Resource Access Commands
+program
+  .command('resource <name>')
+  .description('Connect to a named resource from pconnect.yml')
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('--json', 'Output as JSON (machine-friendly, no extra logs)')
+  .option('--local', 'Force direct connection (skip hub even if config says via: hub)')
+  .option('-n, --name <alias>', 'Override display name for this session')
+  .option('--ttl <duration>', 'Session TTL: 15m, 1h, 300s (default: 15m)', '15m')
+  .option('-p, --port <port>', 'Local port to bind (default: same as resource target port)')
+  .option('-f, --file <path>', 'Path to pconnect.yml')
+  .option('-c, --config <path>', 'Agent config file path')
+  .action(async (name, options) => {
+    if (options.config) setConfigPath(options.config);
+    await resourceCommand(name, options);
+  });
+
+program
+  .command('resources')
+  .description('List all named resources from pconnect.yml')
+  .option('--json', 'Output as JSON')
+  .option('-f, --file <path>', 'Path to pconnect.yml')
+  .action(async (options) => {
+    await resourcesCommand(options);
   });
 
 program.parse(process.argv);

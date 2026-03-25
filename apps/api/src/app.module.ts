@@ -23,6 +23,7 @@ import { DebugModule } from './debug/debug.module';
 import { AIModule } from './ai/ai.module';
 import { AskModule } from './ask/ask.module';
 import { GrantsModule } from './grants/grants.module';
+import { ResourceSessionsModule } from './resource-sessions/resource-sessions.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { GrantsModule } from './grants/grants.module';
     AIModule,
     AskModule,
     GrantsModule,
+    ResourceSessionsModule,
   ],
   providers: [
     {

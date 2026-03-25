@@ -1,0 +1,51 @@
+# pconnect.yml — your project's connection manifest
+#
+# Define what your software connects to. Private Connect makes it work
+# everywhere — your laptop, CI, a teammate's machine, an AI agent.
+#
+# Usage:
+#   connect dev                         # provision all resources
+#   connect resource staging-db         # connect to one
+#   connect resource staging-db --json  # machine-readable output
+#
+# Copy this file to your project root as pconnect.yml.
+
+resources:
+  # ── Databases ─────────────────────────────────────────────────────
+  staging-db:
+    type: postgres
+    host: internal-db
+    port: 5432
+    access:
+      mode: tcp
+
+  redis-cache:
+    type: redis
+    host: redis.internal
+    port: 6379
+    access:
+      mode: tcp
+
+  # ── APIs ──────────────────────────────────────────────────────────
+  payments-api:
+    type: http
+    url: http://payments.service.internal:3000
+    access:
+      mode: http
+
+  # ── Hub-mediated (routes through the hub when direct is blocked) ─
+  prod-db:
+    type: postgres
+    host: prod-db.vpc
+    port: 5432
+    access:
+      mode: tcp
+      via: hub
+
+  # ── Local dev resource (test with: python3 -m http.server 8000) ──
+  local-http:
+    type: http
+    host: localhost
+    port: 8000
+    access:
+      mode: tcp

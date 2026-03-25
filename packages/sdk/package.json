@@ -1,7 +1,7 @@
 {
   "name": "@privateconnect/sdk",
-  "version": "0.7.5",
-  "description": "TypeScript SDK for Private Connect - programmatic access to services and agent orchestration",
+  "version": "0.7.7",
+  "description": "Define your connections in pconnect.yml. Access them from anywhere.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -14,10 +14,11 @@
   },
   "keywords": [
     "private-connect",
+    "connectivity",
+    "manifest",
+    "infrastructure",
     "tunnel",
-    "networking",
-    "orchestration",
-    "agent"
+    "orchestration"
   ],
   "license": "FSL-1.1-MIT",
   "repository": {
@@ -26,8 +27,11 @@
     "directory": "packages/sdk"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.1"
   }
 }
-

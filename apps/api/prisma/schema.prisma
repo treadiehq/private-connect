@@ -107,6 +107,7 @@ model Agent {
   services    Service[]
   sourceDiagnostics DiagnosticResult[] @relation("SourceAgent")
   sessions    Session[]
+  resourceSessions ResourceSession[]
   tokenAuditLogs AgentTokenAuditLog[]
   capabilities AgentCapability[]
   sentMessages AgentMessage[] @relation("SentMessages")
@@ -226,6 +227,30 @@ model Session {
 
   @@index([serviceId])
   @@index([sourceAgentId])
+}
+
+// ResourceSession: tracks resource access sessions from `connect resource`
+model ResourceSession {
+  id            String    @id @default(uuid())
+  workspaceId   String
+  agentId       String
+  resourceName  String
+  resourceType  String    // postgres | mysql | redis | http | generic-tcp
+  endpoint      String    // e.g., postgres://127.0.0.1:5432
+  protocol      String    // tcp | http
+  localPort     Int
+  targetHost    String
+  targetPort    Int
+  status        String    @default("active") // active | closed | expired
+  createdAt     DateTime  @default(now())
+  expiresAt     DateTime
+  closedAt      DateTime?
+
+  agent         Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([agentId])
+  @@index([status])
 }
 
 // AgentTokenAuditLog: audit trail for agent token usage (security monitoring)

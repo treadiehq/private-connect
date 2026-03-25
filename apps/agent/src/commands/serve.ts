@@ -1,7 +1,11 @@
 import chalk from 'chalk';
 import { loadConfig } from '../config';
 import { exposeCommand } from './expose';
-import { findProjectConfig, loadProjectConfig } from './dev';
+import {
+  findProjectConfig,
+  parseResourceConfig,
+  ConfigValidationError,
+} from '../resources/parser';
 
 interface ServeOptions {
   hub: string;
@@ -24,7 +28,6 @@ export async function serveCommand(options: ServeOptions) {
     process.exit(1);
   }
 
-  // Find project config
   const configPath = options.file || findProjectConfig();
   
   if (!configPath) {
@@ -40,9 +43,18 @@ export async function serveCommand(options: ServeOptions) {
     process.exit(1);
   }
 
-  const projectConfig = loadProjectConfig(configPath);
-  
-  if (!projectConfig || !projectConfig.expose || projectConfig.expose.length === 0) {
+  let projectConfig;
+  try {
+    projectConfig = parseResourceConfig(configPath);
+  } catch (err) {
+    if (err instanceof ConfigValidationError) {
+      console.error(chalk.red(`\n[x] ${err.message}\n`));
+      process.exit(1);
+    }
+    throw err;
+  }
+
+  if (projectConfig.expose.length === 0) {
     console.error(chalk.red('\n[x] No expose entries in config.\n'));
     console.log(chalk.gray('  Add an expose section to your pconnect.yml:\n'));
     console.log(chalk.cyan('    expose:'));

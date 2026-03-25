@@ -76,6 +76,47 @@ connect shell && connect share
 
 They open `privateconnect.co/terminal`, enter the code, and get a live terminal.
 
+## Agent-Native Resource Access
+
+Private Connect can expose private resources as named, ephemeral endpoints for humans and AI agents.
+
+Define resources in `pconnect.yml`, connect instantly, get a usable endpoint:
+
+```yaml
+# pconnect.yml
+resources:
+  staging-db:
+    type: postgres
+    host: internal-db
+    port: 5432
+    access:
+      mode: tcp
+```
+
+```bash
+connect resources                    # List all resources
+connect resource staging-db          # Get postgres://127.0.0.1:5432
+connect resource staging-db --json   # Stable JSON for AI agents
+```
+
+JSON output for agent workflows (Cursor, Claude Code, Codex):
+
+```json
+{
+  "ok": true,
+  "session": {
+    "id": "sess_a1b2c3d4",
+    "resource": "staging-db",
+    "type": "postgres",
+    "endpoint": "postgres://127.0.0.1:5432",
+    "expiresAt": "2026-03-25T12:00:00.000Z",
+    "expiresInSeconds": 900
+  }
+}
+```
+
+See [examples/pconnect-resources.yml](examples/pconnect-resources.yml) and [docs/detailed.md](docs/detailed.md#agent-native-resource-access).
+
 ## AI agent access
 
 Grant an AI agent temporary, scoped access to a private resource. No credentials in prompts, no exposing services publicly.

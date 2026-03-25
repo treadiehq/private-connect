@@ -1,174 +1,192 @@
 # Private Connect SDK
 
-TypeScript SDK for Private Connect - programmatic access to services and agent orchestration.
+Define your connections in `pconnect.yml`. Access them from anywhere — your app, CI, an AI agent.
 
-## Installation
+## Install
 
 ```bash
 npm install @privateconnect/sdk
-# or
-pnpm add @privateconnect/sdk
 ```
 
 ## Quick Start
 
-```typescript
-import { PrivateConnect, connect } from '@privateconnect/sdk';
+**1. Create `pconnect.yml` in your project root:**
 
-// Quick connect to a service
-const db = await connect('postgres-prod');
-console.log(db.connectionString); // postgres://localhost:5432/...
-
-// Or use the full client
-const pc = new PrivateConnect({ 
-  apiKey: process.env.PRIVATECONNECT_API_KEY 
-});
-
-// List available services
-const services = await pc.services.list();
-
-// Connect to a specific service
-const redis = await pc.connect('redis-cache');
-console.log(redis.connectionString); // redis://localhost:6379
+```yaml
+resources:
+  staging-db:
+    type: postgres
+    host: internal-db
+    port: 5432
+    access:
+      mode: tcp
+  redis-cache:
+    type: redis
+    host: redis.internal
+    port: 6379
+    access:
+      mode: tcp
 ```
 
-## Agent Orchestration
-
-The SDK enables multi-agent orchestration - coordinating work across agents running on different machines.
-
-### List Agents
+**2. Use it in your code:**
 
 ```typescript
-// Get all agents in your workspace
-const agents = await pc.agents.list();
+import { PrivateConnect } from '@privateconnect/sdk';
 
-// Get only online agents
-const online = await pc.agents.list({ onlineOnly: true });
+const pc = PrivateConnect.fromManifest();
 
-// Find agents with specific capabilities
+const db = pc.resource('staging-db');
+console.log(db.connectionString); // postgres://internal-db:5432
+console.log(db.envVar);           // DATABASE_URL
+
+const cache = pc.resource('redis-cache');
+console.log(cache.connectionString); // redis://redis.internal:6379
+```
+
+**3. Run `connect dev` to make it live:**
+
+```bash
+connect dev
+# → Provisions tunnels for every resource in pconnect.yml
+# → Your app's connection strings now resolve to live services
+```
+
+That's it. Your app declares what it connects to. `connect dev` makes it work. An AI agent (or a teammate) can modify `pconnect.yml` to change the topology — without touching application code.
+
+## Why This Matters
+
+The `pconnect.yml` file is a diffable, reviewable, mergeable description of your project's connectivity. When an AI modifies it — adding a read replica, changing a TTL, switching an access mode — that's a PR you can review and merge. The SDK reads the manifest; the agent provisions it.
+
+## Manifest API
+
+### `PrivateConnect.fromManifest(path?, config?)`
+
+Load a manifest and return a configured client. Auto-discovers `pconnect.yml` in the current directory (or parents) if no path is given.
+
+```typescript
+// Auto-discover
+const pc = PrivateConnect.fromManifest();
+
+// Explicit path
+const pc = PrivateConnect.fromManifest('./infra/pconnect.yml');
+
+// With hub API access (for grants, orchestration, etc.)
+const pc = PrivateConnect.fromManifest('./pconnect.yml', {
+  apiKey: process.env.PRIVATECONNECT_API_KEY,
+});
+```
+
+### `pc.resource(name)`
+
+Get a resource by name. Returns its resolved type, host, port, connection string, and suggested environment variable.
+
+```typescript
+const db = pc.resource('staging-db');
+// {
+//   name: 'staging-db',
+//   type: 'postgres',
+//   host: 'internal-db',
+//   port: 5432,
+//   connectionString: 'postgres://internal-db:5432',
+//   envVar: 'DATABASE_URL',
+//   accessMode: 'tcp',
+//   via: 'direct'
+// }
+```
+
+### `pc.resources()`
+
+List all resources declared in the manifest.
+
+```typescript
+const all = pc.resources();
+all.forEach(r => console.log(`${r.name}: ${r.connectionString}`));
+```
+
+### `pc.envBlock()`
+
+Generate a `.env`-compatible block for all resources.
+
+```typescript
+console.log(pc.envBlock());
+// DATABASE_URL=postgres://internal-db:5432
+// REDIS_URL=redis://redis.internal:6379
+// API_URL=http://payments.service.internal:3000
+```
+
+## Hub API
+
+When you pass an API key, you also get access to the hub APIs for grants, agents, and services.
+
+### Grants
+
+Grant an AI agent temporary, scoped access to a private resource.
+
+```typescript
+const pc = PrivateConnect.fromManifest('./pconnect.yml', {
+  apiKey: process.env.PRIVATECONNECT_API_KEY,
+});
+
+const grant = await pc.grants.create({
+  agentLabel: 'claude',
+  resourceType: 'db',
+  resourceName: 'postgres',
+  ttl: '5m',
+});
+console.log(grant.token); // gnt_...
+```
+
+### Agent Orchestration
+
+Coordinate agents across machines.
+
+```typescript
+const agents = await pc.agents.list({ onlineOnly: true });
 const gpuAgents = await pc.agents.findByCapability('gpu');
-```
 
-### Register Capabilities
-
-Tell other agents what you can do:
-
-```typescript
-await pc.agents.registerCapabilities([
-  { name: 'database', metadata: { type: 'postgres', version: '15' } },
-  { name: 'gpu', metadata: { model: 'A100', memory: '80GB' } },
-]);
-```
-
-### Agent Messaging
-
-Coordinate with other agents:
-
-```typescript
-// Send a message to a specific agent
-await pc.agents.sendMessage(targetAgentId, {
-  action: 'run-migration',
-  database: 'users',
+await pc.agents.sendMessage(gpuAgents[0].id, {
+  action: 'run-training',
+  dataset: 'v2',
 });
-
-// Broadcast to all agents
-await pc.agents.broadcast({
-  type: 'deployment-starting',
-  service: 'api',
-});
-
-// Get your messages
-const messages = await pc.agents.getMessages({ unreadOnly: true });
-for (const msg of messages) {
-  console.log(`From ${msg.from.name}: ${JSON.stringify(msg.payload)}`);
-}
 ```
 
-### Orchestration Sessions
+### Services
 
-Create ephemeral sessions for coordinated workflows:
+Query hub-registered services directly.
 
 ```typescript
-// Create a session
-const session = await pc.sessions.create('deploy-v2.1', {
-  ttlMinutes: 30,
-  metadata: { version: '2.1.0' },
-});
-
-// ... coordinate agents ...
-
-// End the session
-await pc.sessions.end(session.id);
+const services = await pc.services.list();
+const conn = await pc.connect('prod-db');
+console.log(conn.connectionString);
 ```
 
-## Connection Strings
+## Manifest Format
 
-Get properly formatted connection strings for common services:
+The `pconnect.yml` file supports the following resource types:
 
-```typescript
-const db = await pc.connect('postgres-prod');
-// db.connectionString = 'postgres://localhost:5432/postgres'
-// db.envVar = 'DATABASE_URL'
+| Type | Default Port | Connection String | Env Var |
+|------|-------------|-------------------|---------|
+| `postgres` | 5432 | `postgres://host:port` | `DATABASE_URL` |
+| `mysql` | 3306 | `mysql://host:port` | `DATABASE_URL` |
+| `redis` | 6379 | `redis://host:port` | `REDIS_URL` |
+| `http` | 80 | `http://host:port` | `API_URL` |
+| `generic-tcp` | — | `tcp://host:port` | `<NAME>_URL` |
 
-const cache = await pc.connect('redis-cache');
-// cache.connectionString = 'redis://localhost:6379'
-// cache.envVar = 'REDIS_URL'
+Access modes:
+- `tcp` — direct TCP tunnel (databases, Redis, generic)
+- `http` — HTTP-level proxying
 
-const api = await pc.connect('internal-api');
-// api.connectionString = 'http://localhost:8080'
-// api.envVar = 'API_URL'
-```
+Transport:
+- `direct` (default) — connect directly to the target
+- `hub` — route through the Private Connect hub when the target isn't directly reachable
 
 ## Environment Variables
 
-The SDK can read configuration from environment variables:
-
-```bash
-export PRIVATECONNECT_API_KEY=your-api-key
-```
-
-```typescript
-// API key automatically read from env
-const connection = await connect('my-service');
-```
-
-## API Reference
-
-### `PrivateConnect`
-
-Main client class.
-
-```typescript
-const pc = new PrivateConnect({
-  apiKey: string,        // Required: Your API key
-  hubUrl?: string,       // Optional: Hub URL (default: https://api.privateconnect.co)
-  agentId?: string,      // Optional: Agent ID (auto-detected)
-});
-```
-
-### `pc.services`
-
-- `list()` - List all services
-- `get(name)` - Get a service by name
-- `getConnection(name)` - Get connection details for a service
-
-### `pc.agents`
-
-- `list(options?)` - List all agents
-- `findByCapability(capability)` - Find agents by capability
-- `registerCapabilities(capabilities)` - Register this agent's capabilities
-- `sendMessage(toAgentId, payload, options?)` - Send a message
-- `broadcast(payload, options?)` - Broadcast to all agents
-- `getMessages(options?)` - Get received messages
-- `markRead(messageIds)` - Mark messages as read
-
-### `pc.sessions`
-
-- `create(name, options?)` - Create an orchestration session
-- `end(sessionId)` - End a session
-- `getActive()` - Get active sessions
+| Variable | Purpose |
+|----------|---------|
+| `PRIVATECONNECT_API_KEY` | API key for hub access (grants, orchestration) |
+| `CONNECT_HUB_URL` | Hub URL (default: `https://api.privateconnect.co`) |
 
 ## License
 
 [FSL-1.1-MIT](LICENSE)
-
