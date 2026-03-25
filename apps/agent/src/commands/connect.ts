@@ -84,7 +84,7 @@ async function handleExpose(target: string, port: number, options: ConnectOption
   }
 
   // Check if the target is actually reachable locally
-  const [host, portStr] = target.split(':');
+  const [host] = target.split(':');
   const isReachable = await isLocallyReachable(host, port);
   
   if (!isReachable) {
@@ -345,7 +345,7 @@ async function createShareLink(
     console.log();
     console.log(chalk.gray('────────────────────────────────────────'));
     console.log();
-  } catch (error) {
+  } catch (_error) {
     console.log(chalk.yellow('\n[!] Could not create share link'));
   }
 }

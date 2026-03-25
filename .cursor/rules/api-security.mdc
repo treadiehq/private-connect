@@ -1,7 +1,6 @@
 ---
-description: Security conventions for the NestJS API server
-globs: apps/api/**/*.ts
-alwaysApply: false
+description: Security conventions for the codebase
+alwaysApply: true
 ---
 
 # API Security Conventions
@@ -59,3 +58,20 @@ alwaysApply: false
 
 - Never leak stack traces, file paths, or DB errors to clients
 - Use `HttpException` subclasses with user-safe messages
+
+## Docs, Rules, and Committed Files
+
+This is a public open-source repo. Never commit:
+
+- Real API keys, tokens, passwords, or connection strings — use placeholders (`pc_xxx`, `gnt_...`, `YOUR_API_KEY`)
+- Real workspace IDs, agent IDs, or user IDs — use RFC 4122 example UUIDs or obviously fake values
+- Internal hostnames, non-RFC 1918 IPs, or private infrastructure URLs
+- `.env` files, `credentials.json`, or any file containing live secrets
+- Real rate limit bypass techniques, vulnerability details, or unpatched exploit info
+
+When writing docs or Cursor rules:
+
+- Env var names are fine (`DATABASE_URL`, `CORS_ORIGINS`) — values are not
+- Public endpoints can be listed (they're in Swagger already) — auth bypass patterns cannot
+- Architecture descriptions are fine — implementation-specific security weaknesses are not
+- Use `process.env.VAR` in code examples, never inline secret values

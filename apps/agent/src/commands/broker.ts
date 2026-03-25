@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
-import { spawn, execSync, SpawnOptions, spawnSync } from 'child_process';
+import { spawn, SpawnOptions, spawnSync } from 'child_process';
 import chalk from 'chalk';
 import {
   loadPolicy,
@@ -9,8 +9,6 @@ import {
   evaluateFileWrite,
   evaluateCommand,
   evaluateGitOperation,
-  generatePolicyYaml,
-  getDefaultPolicy,
   Action,
   Policy,
 } from '../broker/policy';
@@ -22,7 +20,6 @@ import {
   getAuditStats,
   formatAuditEntry,
   getAuditPath,
-  AuditEntry,
 } from '../broker/audit';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -38,7 +35,7 @@ const SHELL_METACHARACTERS = /[;&|`$(){}[\]<>!\\'"*?~\n\r]/;
  * Check if a command or its arguments contain shell metacharacters
  * that could bypass policy enforcement
  */
-function containsShellMetacharacters(args: string[]): boolean {
+function _containsShellMetacharacters(args: string[]): boolean {
   return args.some(arg => SHELL_METACHARACTERS.test(arg));
 }
 
@@ -433,12 +430,11 @@ export async function brokerGitCheckCommand(hookType: 'pre-commit' | 'pre-push',
   
   // For pre-push, check if it's a force push by parsing stdin
   if (hookType === 'pre-push') {
-    let isForce = false;
+    let isForce: boolean;
     
     try {
-      // Parse stdin to detect force pushes (more reliable than checking args)
       isForce = await detectForcePush(workingDir);
-    } catch (err) {
+    } catch (_err) {
       // SECURITY: If force detection fails, assume it might be a force push
       console.error(chalk.yellow(`\n[!] Could not determine push type, treating as force-push for safety`));
       isForce = true;
@@ -1037,15 +1033,17 @@ export async function brokerCommand(
       }
       return brokerExecCommand(args, options);
     
-    case 'check':
+    case 'check': {
       if (args.length === 0) {
         console.error(chalk.red('\n[x] No file path provided'));
         process.exit(1);
       }
       const allowed = await brokerCheckFileCommand(args[0], options);
       process.exit(allowed ? 0 : 1);
+      break;
+    }
     
-    case 'git-check':
+    case 'git-check': {
       const hookType = args[0] as 'pre-commit' | 'pre-push';
       if (!hookType || !['pre-commit', 'pre-push'].includes(hookType)) {
         console.error(chalk.red('\n[x] Invalid hook type'));
@@ -1053,6 +1051,7 @@ export async function brokerCommand(
         process.exit(1);
       }
       return brokerGitCheckCommand(hookType, options);
+    }
     
     case 'hooks':
       return brokerHooksCommand(options);

@@ -20,7 +20,7 @@ Clawd: ✓ Connected to clawdbot gateway
 
 This is the **easiest secure alternative to Tailscale/ngrok** for remote Clawdbot access. No VPN setup, no public URLs, no firewall changes.
 
-See the [full remote access guide](../../docs/clawdbot-remote-access.md) for details.
+See the [full OpenClaw remote access guide](../../docs/openclaw-remote-access.md) for details.
 
 ---
 

@@ -672,8 +672,9 @@ curl -H "Authorization: Bearer <session_token>" https://api.privateconnect.co/v1
 
 | Endpoint Type | Limit |
 |---------------|-------|
-| Public (auth, shares) | 100 requests/minute |
-| Authenticated | 1000 requests/minute |
+| Short burst | 10 requests/second |
+| Sustained | 100 requests/minute |
+| Hourly | 1000 requests/hour |
 
 ### Tunnels API
 

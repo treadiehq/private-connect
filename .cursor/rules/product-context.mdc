@@ -1,0 +1,88 @@
+---
+description: Product context and architecture for Private Connect
+alwaysApply: true
+---
+
+# Private Connect — Product Context
+
+## What it is
+
+A hub-and-spoke connectivity platform. Agents run on machines, expose local services, and reach remote services by name. All traffic is E2E encrypted (X25519 + AES-256-GCM). No VPN, no open ports.
+
+## Monorepo structure
+
+| Path | What | Stack |
+|------|------|-------|
+| `apps/api` | Hub API server | NestJS, Prisma, PostgreSQL, Socket.IO |
+| `apps/web` | Dashboard SPA | Nuxt 3 (SPA mode), Vue 3, Tailwind v4 |
+| `apps/agent` | CLI + daemon | Node.js, compiled to binary via `pkg` |
+| `packages/cli` | `npx private-connect` commands | Node.js (no auth required) |
+| `packages/sdk` | `@privateconnect/sdk` | TypeScript |
+| `integrations/` | OpenClaw, Clawdbot skills | Markdown + config |
+| `docs/` | All documentation | Markdown |
+
+## Key concepts
+
+- **Workspace** — tenant boundary. All resources (agents, services, API keys, shares) belong to one workspace. Isolated by RLS + application-level scoping.
+- **Agent** — a machine running the CLI (`connect up`). Authenticates with a 256-bit token (SHA-256 hashed at rest). Tokens expire after 30 days.
+- **Service** — a `host:port` exposed by an agent (`connect expose`). Reached by name (`connect reach`).
+- **Temporary tunnel** — `npx private-connect tunnel <port>`. No auth. 2h default, 24h max. Separate from authenticated tunnels.
+- **Share** — `connect share` / `connect join <code>`. Shares all services from one agent to another.
+- **Grant** — scoped, time-limited API access for AI agents (`connect grant`).
+- **Debug session** — real-time traffic inspection with AI copilot (`connect expose --debug`).
+
+## CLI commands (authenticated)
+
+`connect up`, `connect expose`, `connect reach`, `connect share`, `connect join`, `connect clone`, `connect link`, `connect delete`, `connect proxy`, `connect daemon`, `connect dev`, `connect serve`, `connect dns`, `connect mcp`, `connect broker`, `connect shell`, `connect grant`, `connect status`, `connect doctor`, `connect whoami`, `connect update`, `connect logout`
+
+## CLI commands (npx, no auth)
+
+`npx private-connect tunnel <port>`, `npx private-connect up <ports...>`, `npx private-connect join <code>`, `npx private-connect test <target>`, `npx private-connect <provider> <port>`
+
+## API rate limits (ThrottlerGuard, global)
+
+| Tier | Limit |
+|------|-------|
+| Short | 10 req/sec |
+| Medium | 100 req/min |
+| Long | 1000 req/hour |
+
+WebSocket gateways, `/health`, and `/v1/status` are `@SkipThrottle()`.
+
+## Auth patterns
+
+- User: passwordless magic links, HTTP-only session cookies
+- Agent: 256-bit token via `connect up` or `POST /v1/agents/provision`
+- API: `pc_` prefixed keys, `x-api-key` header
+- Guards: `AuthGuard` (session), `ApiKeyGuard`, `CombinedAuthGuard` (either), `AdminGuard`
+
+## Public endpoints (no auth)
+
+`/health`, `/v1/status`, `/docs`, `/openapi.json`, `/v1/auth/*`, `/v1/device/*`, `/v1/tunnels/temporary/*`, `/v1/ask`, `/share/*`, `/t/*`, `/v1/debug/public/*`
+
+## Environment variables (important)
+
+| Var | Where | Purpose |
+|-----|-------|---------|
+| `DATABASE_URL` | API | PostgreSQL connection |
+| `CORS_ORIGINS` | API | Comma-separated WebSocket origin allowlist |
+| `CONNECT_HUB_URL` | Agent/SDK | Hub URL (default: `https://api.privateconnect.co`) |
+| `PRIVATECONNECT_API_KEY` | SDK/CI | API key for programmatic access |
+| `MAX_TEMP_TUNNEL_TTL_MINUTES` | API | Max temporary tunnel TTL (default: 1440 = 24h) |
+
+## Docs index
+
+| File | Topic |
+|------|-------|
+| `README.md` | Overview + quick start |
+| `DETAILED.md` | Full CLI reference, API reference, all features |
+| `USE_CASES.md` | Real-world scenarios |
+| `docs/security.md` | Security architecture, E2E encryption, threat model |
+| `docs/AI.md` | AI integration (MCP, broker, orchestration, SDK) |
+| `docs/debugging.md` | Live traffic debugging + AI copilot |
+| `docs/mcp.md` | MCP setup for Cursor/Claude |
+| `docs/broker.md` | Agent permission broker |
+| `docs/terminal.md` | Remote shell via share codes |
+| `docs/free-tier.md` | Unauthenticated tunnel limits |
+| `packages/cli/README.md` | npx CLI docs |
+| `packages/sdk/README.md` | SDK API reference |

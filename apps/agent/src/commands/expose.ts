@@ -101,9 +101,8 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
   }
 
   // Create debug session if --debug flag is set
-  let debugSession: { id: string; token: string; url: string } | null = null;
   if (options.debug) {
-    debugSession = await createDebugSession(
+    const debugSession = await createDebugSession(
       service.id,
       config.agentId,
       options.name,

@@ -283,8 +283,18 @@ Production logs automatically redact:
 
 ### Rate Limiting
 
-- Service shares support per-minute rate limits
-- API endpoints should be rate-limited at the load balancer level
+- `ThrottlerGuard` is registered as a global `APP_GUARD` with three tiers: 10/sec, 100/min, 1000/hour
+- WebSocket gateways and health endpoints are exempted via `@SkipThrottle()`
+- Service shares support additional per-minute rate limits
+
+### Input Validation
+
+- A global `ValidationPipe` enforces DTO validation on all HTTP endpoints (`whitelist`, `forbidNonWhitelisted`, `transform`)
+
+### CORS
+
+- WebSocket gateways use an env-driven origin allowlist (`CORS_ORIGINS`) — never `origin: '*'`
+- Defaults to `https://app.privateconnect.co,https://privateconnect.co` when unset
 
 ## Threat Model
 

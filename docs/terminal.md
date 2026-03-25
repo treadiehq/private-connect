@@ -68,5 +68,5 @@ Use this when the joiner doesn’t have the CLI installed or prefers not to use 
 
 ## See also
 
-- [Share and join](README.md) — environment sharing
+- [Share and join](../README.md) — environment sharing
 <!-- - [Free tier](free-tier.md) — no-signup tunnels -->

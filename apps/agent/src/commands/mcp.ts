@@ -860,7 +860,7 @@ export async function mcpServeCommand(options: McpOptions) {
               throw new Error('Failed to fetch agents');
             }
           } catch (err) {
-            throw new Error(`Failed to list agents: ${(err as Error).message}`);
+            throw new Error(`Failed to list agents: ${(err as Error).message}`, { cause: err });
           }
           break;
         }
@@ -888,7 +888,7 @@ export async function mcpServeCommand(options: McpOptions) {
               throw new Error('Failed to register capabilities');
             }
           } catch (err) {
-            throw new Error(`Failed to register capabilities: ${(err as Error).message}`);
+            throw new Error(`Failed to register capabilities: ${(err as Error).message}`, { cause: err });
           }
           break;
         }
@@ -922,7 +922,7 @@ export async function mcpServeCommand(options: McpOptions) {
               throw new Error(error.message || 'Failed to send message');
             }
           } catch (err) {
-            throw new Error(`Failed to send message: ${(err as Error).message}`);
+            throw new Error(`Failed to send message: ${(err as Error).message}`, { cause: err });
           }
           break;
         }

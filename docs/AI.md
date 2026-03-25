@@ -309,7 +309,7 @@ const url = await pc.services.getConnectionString("prod-db");
 | PostgreSQL | `DATABASE_URL` |
 | MySQL | `DATABASE_URL` |
 | Redis | `REDIS_URL` |
-| MongoDB | `MONGODB_URL` |
+| MongoDB | `MONGODB_URI` |
 | HTTP API | `API_URL` |
 
 ---

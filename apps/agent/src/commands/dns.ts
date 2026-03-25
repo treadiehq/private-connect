@@ -278,7 +278,7 @@ export async function serveDns(options: DnsOptions) {
   const apiKey = config.apiKey;
 
   // Cache for service -> port mappings
-  let serviceCache: Map<string, number> = new Map();
+  const serviceCache: Map<string, number> = new Map();
   let lastFetch = 0;
   const CACHE_TTL = 5000; // 5 seconds
 
@@ -439,7 +439,7 @@ function sendDnsResponse(
   
   // QCLASS
   response[offset++] = query[qOffset++];
-  response[offset++] = query[qOffset++];
+  response[offset++] = query[qOffset];
   
   // Add answer if we have one
   if (ip) {

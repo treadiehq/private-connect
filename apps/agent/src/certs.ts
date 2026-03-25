@@ -330,7 +330,7 @@ function generateServerCert(paths: CertPaths): void {
   const { privateKey, publicKeyDER } = generateKeyPair();
 
   const caKeyPem = fs.readFileSync(paths.caKeyPath, 'utf-8');
-  const caCertPem = fs.readFileSync(paths.caCertPath, 'utf-8');
+  const _caCertPem = fs.readFileSync(paths.caCertPath, 'utf-8');
 
   // Extract issuer name from CA cert (simplified: reuse the CA CN)
   const issuer = buildName(CA_COMMON_NAME);
