@@ -1,6 +1,6 @@
 {
   "name": "private-connect",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "private": true,
   "description": "Private Connect - Secure tunneling for internal services",
   "packageManager": "pnpm@9.15.1",
@@ -27,5 +27,8 @@
     "@oxc-parser/binding-darwin-arm64": "^0.103.0",
     "@oxc-resolver/binding-darwin-arm64": "^11.16.0",
     "@oxc-transform/binding-darwin-arm64": "^0.103.0"
+  },
+  "dependencies": {
+    "pg": "^8.13.0"
   }
 }

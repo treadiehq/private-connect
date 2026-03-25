@@ -70,7 +70,7 @@ function parsePort(value: string, defaultValue?: number): number {
  */
 function parseTimeout(value: string): number {
   const timeout = parseInt(value, 10);
-  if (isNaN(timeout) || timeout < 0) {
+  if (isNaN(timeout) || timeout <= 0) {
     throw new InvalidArgumentError(`Invalid timeout: "${value}" (must be a positive number)`);
   }
   return timeout;

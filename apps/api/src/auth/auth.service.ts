@@ -8,6 +8,10 @@ function hashApiKey(key: string): string {
   return createHash('sha256').update(key).digest('hex');
 }
 
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
 // Reserved workspace names that cannot be used
 const RESERVED_WORKSPACE_NAMES = [
   'admin',
@@ -136,13 +140,12 @@ export class AuthService {
       await this.prisma.magicLink.create({
         data: {
           userId: user.id,
-          token,
+          token: hashToken(token),
           type: 'REGISTER',
           expiresAt,
         },
       });
 
-      // Send magic link email
       await this.emailService.sendMagicLink({
         to: normalizedEmail,
         token,
@@ -190,13 +193,12 @@ export class AuthService {
       await this.prisma.magicLink.create({
         data: {
           userId: user.id,
-          token,
+          token: hashToken(token),
           type: 'LOGIN',
           expiresAt,
         },
       });
 
-      // Send magic link email
       await this.emailService.sendMagicLink({
         to: normalizedEmail,
         token,
@@ -222,9 +224,8 @@ export class AuthService {
       try {
         // Perform all validation and updates inside transaction to prevent TOCTOU race
         const result = await this.prisma.$transaction(async (tx) => {
-          // Fetch magic link with fresh data inside transaction
           const magicLink = await tx.magicLink.findUnique({
-            where: { token },
+            where: { token: hashToken(token) },
             include: { user: { include: { workspaces: { include: { apiKeys: { where: { revokedAt: null }, take: 1 } } } } } },
           });
 
@@ -263,11 +264,10 @@ export class AuthService {
             });
           }
 
-          // Create auth session
           await tx.authSession.create({
             data: {
               userId: magicLink.userId,
-              token: sessionToken,
+              token: hashToken(sessionToken),
               expiresAt: sessionExpiresAt,
               userAgent,
               ipAddress,
@@ -313,7 +313,7 @@ export class AuthService {
     // Session validation runs before workspace context is established — bypass RLS
     return this.prisma.withoutRls(async () => {
       const session = await this.prisma.authSession.findUnique({
-        where: { token },
+        where: { token: hashToken(token) },
         include: { user: { include: { workspaces: true } } },
       });
 
@@ -344,14 +344,11 @@ export class AuthService {
     });
   }
 
-  // Logout: invalidate session
   async logout(token: string): Promise<void> {
     await this.prisma.withoutRls(() =>
       this.prisma.authSession.delete({
-        where: { token },
-      }).catch(() => {
-        // Ignore if session doesn't exist
-      })
+        where: { token: hashToken(token) },
+      }).catch(() => {})
     );
   }
 

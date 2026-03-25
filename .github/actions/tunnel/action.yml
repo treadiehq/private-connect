@@ -62,26 +62,45 @@ runs:
       env:
         CONNECT_HUB_URL: ${{ inputs.hub-url }}
         PRIVATECONNECT_API_KEY: ${{ inputs.api-key }}
+        INPUT_PORT: ${{ inputs.port }}
+        INPUT_NAME: ${{ inputs.name }}
+        INPUT_PROTOCOL: ${{ inputs.protocol }}
+        INPUT_TTL: ${{ inputs.ttl }}
       run: |
-        ARGS="${{ inputs.port }}"
+        # Validate port is numeric
+        if ! [[ "$INPUT_PORT" =~ ^[0-9]+$ ]]; then
+          echo "::error::Port must be a number"
+          exit 1
+        fi
+        ARGS="$INPUT_PORT"
 
-        if [ -n "${{ inputs.name }}" ]; then
-          ARGS="$ARGS --slug ${{ inputs.name }}"
+        # Validate name is alphanumeric/dash only
+        if [ -n "$INPUT_NAME" ]; then
+          if ! [[ "$INPUT_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+            echo "::error::Name must be alphanumeric, dashes, or underscores only"
+            exit 1
+          fi
+          ARGS="$ARGS --slug $INPUT_NAME"
         fi
 
-        if [ "${{ inputs.protocol }}" = "tcp" ]; then
-          ARGS="$ARGS --tcp"
-        elif [ "${{ inputs.protocol }}" = "udp" ]; then
-          ARGS="$ARGS --udp"
-        fi
+        case "$INPUT_PROTOCOL" in
+          tcp)  ARGS="$ARGS --tcp" ;;
+          udp)  ARGS="$ARGS --udp" ;;
+          http) ;;
+          *)    echo "::error::Protocol must be http, tcp, or udp"; exit 1 ;;
+        esac
 
-        TTL_MINUTES=$(echo "${{ inputs.ttl }}" | sed -E 's/^([0-9]+)m$/\1/; s/^([0-9]+)h$/\1*60/' | bc)
+        # Validate TTL format (e.g. 30m, 1h, 2h)
+        if ! [[ "$INPUT_TTL" =~ ^[0-9]+[mh]$ ]]; then
+          echo "::error::TTL must be in format like 30m or 1h"
+          exit 1
+        fi
+        TTL_MINUTES=$(echo "$INPUT_TTL" | sed -E 's/^([0-9]+)m$/\1/; s/^([0-9]+)h$/\1*60/' | bc)
         ARGS="$ARGS --ttl $TTL_MINUTES"
 
         OUTPUT=$(npx private-connect tunnel $ARGS 2>&1)
         echo "$OUTPUT"
 
-        # Parse the public URL from output
         URL=$(echo "$OUTPUT" | grep -oE 'https?://[^ ]+' | head -1)
         SUBDOMAIN=$(echo "$URL" | sed -E 's|.*/w/([^/]+).*|\1|')
         TUNNEL_ID=$(echo "$OUTPUT" | grep -oE '[a-f0-9-]{36}' | head -1)
@@ -102,23 +121,24 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github-token }}
-        URL: ${{ steps.tunnel.outputs.url }}
+        TUNNEL_URL: ${{ steps.tunnel.outputs.url }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
+        INPUT_TTL: ${{ inputs.ttl }}
+        GH_REPO: ${{ github.repository }}
       run: |
         COMMENT_MARKER="<!-- private-connect-preview -->"
         BODY="${COMMENT_MARKER}
-        **Preview** $URL
+        **Preview** ${TUNNEL_URL}
 
-        Tunnel expires in \`${{ inputs.ttl }}\`. Created by [Private Connect](https://privateconnect.co)."
+        Tunnel expires in \`${INPUT_TTL}\`. Created by [Private Connect](https://privateconnect.co)."
 
-        # Update existing comment or create new one
-        EXISTING=$(gh api repos/${{ github.repository }}/issues/${PR_NUMBER}/comments \
+        EXISTING=$(gh api "repos/${GH_REPO}/issues/${PR_NUMBER}/comments" \
           --jq ".[] | select(.body | contains(\"${COMMENT_MARKER}\")) | .id" 2>/dev/null | head -1)
 
         if [ -n "$EXISTING" ]; then
-          gh api repos/${{ github.repository }}/issues/comments/${EXISTING} \
+          gh api "repos/${GH_REPO}/issues/comments/${EXISTING}" \
             -X PATCH -f body="$BODY"
         else
-          gh api repos/${{ github.repository }}/issues/${PR_NUMBER}/comments \
+          gh api "repos/${GH_REPO}/issues/${PR_NUMBER}/comments" \
             -f body="$BODY"
         fi

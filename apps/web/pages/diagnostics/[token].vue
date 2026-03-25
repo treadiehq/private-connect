@@ -87,24 +87,38 @@
       </div>
     </div>
 
-    <!-- Not Found -->
-    <div v-else class="text-center py-20">
+    <!-- Not Found (404) -->
+    <div v-else-if="notFound" class="text-center py-20">
       <h2 class="text-2xl font-bold mb-2">Diagnostic not found</h2>
       <p class="text-gray-400">This diagnostic result may have expired or doesn't exist.</p>
+    </div>
+
+    <!-- Error State -->
+    <div v-else class="text-center py-20">
+      <svg class="w-10 h-10 text-red-400/60 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+      </svg>
+      <h2 class="text-lg font-semibold text-red-300 mb-1">Failed to load diagnostic</h2>
+      <p class="text-sm text-gray-500 mb-4">{{ fetchError }}</p>
+      <button @click="retryFetch" class="px-4 py-2 text-xs font-medium text-white bg-red-500/20 hover:bg-red-500/30 border border-red-500/20 rounded-lg transition-colors">
+        Retry
+      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { DiagnosticResult } from '~/types';
+import { ApiError } from '~/composables/useApi';
 
 const route = useRoute();
 const { fetchDiagnosticByShareToken } = useApi();
 
 const diagnostic = ref<DiagnosticResult | null>(null);
 const loading = ref(true);
+const notFound = ref(false);
+const fetchError = ref('');
 
-// Dynamic page title
 const pageTitle = computed(() => 
   diagnostic.value?.service?.name 
     ? `${diagnostic.value.service.name} Diagnostic - Private Connect` 
@@ -112,15 +126,24 @@ const pageTitle = computed(() =>
 )
 useHead({ title: pageTitle })
 
-onMounted(async () => {
+const retryFetch = async () => {
+  loading.value = true;
+  fetchError.value = '';
+  notFound.value = false;
   try {
     diagnostic.value = await fetchDiagnosticByShareToken(route.params.token as string);
-  } catch (error) {
-    console.error('Failed to fetch diagnostic:', error);
+  } catch (error: any) {
+    if (error instanceof ApiError && error.status === 404) {
+      notFound.value = true;
+    } else {
+      fetchError.value = error.message || 'Could not reach the server. Check your connection.';
+    }
   } finally {
     loading.value = false;
   }
-});
+};
+
+onMounted(retryFetch);
 
 const formatTime = (date: string) => {
   const d = new Date(date);

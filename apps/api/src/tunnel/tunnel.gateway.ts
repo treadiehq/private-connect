@@ -15,9 +15,12 @@ import { SecureLogger, extractClientIp, maskIpAddress } from '../common/security
 @WebSocketGateway({
   namespace: '/agent',
   cors: {
-    origin: '*',
+    origin: (process.env.CORS_ORIGINS || 'https://app.privateconnect.co,https://privateconnect.co')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean),
   },
-  maxHttpBufferSize: 200e6, // 200MB - large game assets, binary transport
+  maxHttpBufferSize: 10e6, // 10MB
   pingTimeout: 120000,
   pingInterval: 25000,
   transports: ['websocket'],

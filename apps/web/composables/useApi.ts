@@ -1,5 +1,15 @@
 import type { WorkspaceUsage, Agent } from '~/types';
 
+class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+export { ApiError };
+
 export function useApi() {
   const config = useRuntimeConfig();
   const baseUrl = config.public.apiUrl;
@@ -37,7 +47,7 @@ export function useApi() {
 
   const fetchService = async (id: string) => {
     const response = await fetch(`${baseUrl}/v1/services/${id}`, fetchOptions());
-    if (!response.ok) throw new Error('Failed to fetch service');
+    if (!response.ok) throw new ApiError('Failed to fetch service', response.status);
     return response.json();
   };
 
@@ -75,13 +85,13 @@ export function useApi() {
 
   const fetchAgents = async (): Promise<Agent[]> => {
     const response = await fetch(`${baseUrl}/v1/agents`, fetchOptions());
-    if (!response.ok) throw new Error('Failed to fetch agents');
+    if (!response.ok) throw new ApiError('Failed to fetch agents', response.status);
     return response.json();
   };
 
   const fetchAgent = async (id: string): Promise<Agent> => {
     const response = await fetch(`${baseUrl}/v1/agents/${id}`, fetchOptions());
-    if (!response.ok) throw new Error('Failed to fetch agent');
+    if (!response.ok) throw new ApiError('Failed to fetch agent', response.status);
     return response.json();
   };
 
@@ -90,7 +100,7 @@ export function useApi() {
       method: 'DELETE',
       ...fetchOptions(),
     });
-    if (!response.ok) throw new Error('Failed to delete agent');
+    if (!response.ok) throw new ApiError('Failed to delete agent', response.status);
     return response.json();
   };
 
@@ -108,7 +118,7 @@ export function useApi() {
 
   const fetchDiagnosticByShareToken = async (token: string) => {
     const response = await fetch(`${baseUrl}/v1/diagnostics/share/${token}`);
-    if (!response.ok) throw new Error('Failed to fetch diagnostic');
+    if (!response.ok) throw new ApiError('Failed to fetch diagnostic', response.status);
     return response.json();
   };
 

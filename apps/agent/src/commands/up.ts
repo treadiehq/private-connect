@@ -304,6 +304,10 @@ function connectToHub(config: AgentConfig): Socket {
   socket.on('disconnect', (reason: string) => {
     const timestamp = new Date().toLocaleTimeString();
     console.log(chalk.yellow(`[${timestamp}] Disconnected: ${reason}`));
+    connections.forEach((conn, id) => {
+      conn.socket.destroy();
+      connections.delete(id);
+    });
   });
 
   socket.on('reconnect', (attempt: number) => {
@@ -321,19 +325,6 @@ function connectToHub(config: AgentConfig): Socket {
   socket.on('connect_error', (err: Error) => {
     const timestamp = new Date().toLocaleTimeString();
     console.log(chalk.red(`[${timestamp}] Connection error: ${err.message}`));
-  });
-
-  socket.on('disconnect', (reason) => {
-    console.log(chalk.yellow(`[!] Disconnected: ${reason}`));
-    // Close all active connections
-    connections.forEach((conn, id) => {
-      conn.socket.destroy();
-      connections.delete(id);
-    });
-  });
-
-  socket.on('connect_error', (error) => {
-    console.log(chalk.red(`[x] Connection error: ${error.message}`));
   });
 
   // Handle auth errors

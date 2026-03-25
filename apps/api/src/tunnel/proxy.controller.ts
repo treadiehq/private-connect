@@ -7,14 +7,16 @@ import { TunnelService } from '../tunnel/tunnel.service';
 import { DebugService } from '../debug/debug.service';
 import { GrantsService } from '../grants/grants.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { proxyRateLimiter, proxySubdomainLimiter } from '../common/rate-limiter';
+import { proxyRateLimiter, proxySubdomainLimiter, RateLimiter } from '../common/rate-limiter';
+
+const grantRateLimiter = new RateLimiter(60000, 300);
 import { 
   resilientRequest, 
   classifyNetworkError, 
   NetworkErrorType,
   NETWORK_CONFIG,
 } from '../common/network';
-import { SecureLogger } from '../common/security';
+import { SecureLogger, escapeHtml } from '../common/security';
 
 // Security limits - packet capture enabled
 const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10MB
@@ -57,7 +59,7 @@ function generateTunnelWidget(subdomain: string, debugSessionId?: string): strin
 ">
   <div style="display: flex; align-items: center; gap: 8px;">
     <div style="width: 8px; height: 8px; border-radius: 50%; background: #6ee7b7; animation: pc-pulse 2s infinite;"></div>
-    <span style="color: #d1d5db;">${subdomain}</span>
+    <span style="color: #d1d5db;">${escapeHtml(subdomain)}</span>
   </div>
   <div style="width: 1px; height: 16px; background: rgba(107, 114, 128, 0.3);"></div>
   <a href="${inspectorUrl}" target="_blank" style="color: #93c5fd; text-decoration: none; transition: color 0.15s;" onmouseover="this.style.color='#bfdbfe'" onmouseout="this.style.color='#93c5fd'">
@@ -144,6 +146,10 @@ export class ProxyController {
     const clientIp = req.ip || req.headers['x-forwarded-for']?.toString().split(',')[0] || 'unknown';
     const userAgent = req.headers['user-agent'] || undefined;
 
+    if (!grantRateLimiter.isAllowed(clientIp)) {
+      return res.status(429).json({ error: 'Too many requests' });
+    }
+
     const authHeader = req.headers['authorization'];
     const tokenFromHeader = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
     const tokenFromQuery = req.query['token'] as string | undefined;
@@ -152,9 +158,15 @@ export class ProxyController {
     if (!grantToken) {
       return res.status(401).json({
         error: 'Grant token required',
-        message: 'Provide a grant token via Authorization: Bearer <token> or ?token=<token>',
+        message: 'Provide a grant token via Authorization: Bearer <token>',
       });
     }
+
+    if (tokenFromQuery) {
+      res.setHeader('X-Deprecation', 'Passing grant tokens via ?token= is deprecated. Use Authorization: Bearer <token> header instead.');
+    }
+
+    res.setHeader('Referrer-Policy', 'no-referrer');
 
     const grant = await this.grantsService.validateGrantToken(grantToken);
     if (!grant) {
@@ -197,8 +209,12 @@ export class ProxyController {
 
     let body: { sql?: string; params?: unknown[] };
     try {
-      const rawBody = await this.getRequestBody(req);
-      body = rawBody ? JSON.parse(rawBody) : {};
+      if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+        body = req.body;
+      } else {
+        const rawBody = await this.getRequestBody(req);
+        body = rawBody ? JSON.parse(rawBody) : {};
+      }
     } catch {
       return res.status(400).json({ error: 'Invalid JSON body' });
     }
@@ -211,10 +227,7 @@ export class ProxyController {
     }
 
     if (grant.scope === 'read-only') {
-      const normalized = body.sql.trim().toUpperCase();
-      const readOnlyPrefixes = ['SELECT', 'SHOW', 'DESCRIBE', 'DESC', 'EXPLAIN', 'WITH'];
-      const isReadOnly = readOnlyPrefixes.some(p => normalized.startsWith(p));
-      if (!isReadOnly) {
+      if (!this.isReadOnlySql(body.sql)) {
         this.grantsService.logAccess({ grantId: grant.id, requestType: 'db_query', requestSummary: body.sql, responseStatus: '403', allowed: false, ipAddress: clientIp, userAgent, latencyMs: Date.now() - startTime });
         return res.status(403).json({
           error: 'Read-only grant',
@@ -338,8 +351,18 @@ export class ProxyController {
     if (!grantToken) {
       return res.status(401).json({
         error: 'Grant token required',
-        message: 'Provide a grant token via Authorization: Bearer <token> or ?token=<token>',
+        message: 'Provide a grant token via Authorization: Bearer <token>',
       });
+    }
+
+    if (tokenFromQuery) {
+      res.setHeader('X-Deprecation', 'Passing grant tokens via ?token= is deprecated. Use Authorization: Bearer <token> header instead.');
+    }
+
+    res.setHeader('Referrer-Policy', 'no-referrer');
+
+    if (!grantRateLimiter.isAllowed(clientIp)) {
+      return res.status(429).json({ error: 'Too many requests' });
     }
 
     const grant = await this.grantsService.validateGrantToken(grantToken);
@@ -413,7 +436,6 @@ export class ProxyController {
         }
       }
 
-      res.setHeader('X-Grant-Agent', grant.agentLabel);
       res.setHeader('X-Grant-Scope', grant.scope);
       if (grant.expiresAt) {
         res.setHeader('X-Grant-Expires', grant.expiresAt.toISOString());
@@ -799,6 +821,37 @@ export class ProxyController {
 
       req.on('error', (err) => reject(err));
     });
+  }
+
+  private isReadOnlySql(sql: string): boolean {
+    const stripped = sql
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/--[^\n]*/g, ' ')
+      .trim();
+
+    if (/;/.test(stripped.slice(0, -1))) return false;
+
+    const upper = stripped.toUpperCase();
+
+    const dangerousPrefixes = [
+      'INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'TRUNCATE', 'CREATE',
+      'GRANT', 'REVOKE', 'CALL', 'DO', 'EXECUTE', 'EXEC', 'COPY', 'SET',
+      'LOCK', 'UNLOCK', 'RENAME', 'REPLACE', 'MERGE', 'UPSERT', 'VACUUM',
+      'REINDEX', 'CLUSTER', 'REFRESH', 'NOTIFY', 'LISTEN', 'PREPARE',
+      'DEALLOCATE', 'DISCARD', 'COMMENT', 'SECURITY', 'LOAD',
+    ];
+    if (dangerousPrefixes.some(p => upper.startsWith(p + ' ') || upper.startsWith(p + '('))) return false;
+
+    const readOnlyPrefixes = ['SELECT', 'SHOW', 'DESCRIBE', 'DESC', 'EXPLAIN', 'TABLE', 'VALUES'];
+    if (readOnlyPrefixes.some(p => upper.startsWith(p + ' ') || upper.startsWith(p + '('))) return true;
+
+    if (upper.startsWith('WITH ') || upper.startsWith('WITH(')) {
+      const mutationKeywords = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE|CALL|DO|EXECUTE|EXEC|COPY|SET|MERGE)\b/;
+      if (mutationKeywords.test(upper)) return false;
+      return true;
+    }
+
+    return false;
   }
 
   /**

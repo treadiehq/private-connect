@@ -44,20 +44,8 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
   
   if (!host || isNaN(port)) {
     console.error(chalk.red('[x] Invalid target format. Use host:port (e.g., 127.0.0.1:8080)'));
-    return null;
+    process.exit(1);
   }
-
-  // Warn if trying to expose Private Connect control plane
-  // const isLocalhost = host === 'localhost' || host === '127.0.0.1';
-  // if (isLocalhost && port === 3000) {
-  //   console.log(chalk.yellow('\n[!] Warning: Port 3000 is typically the Private Connect Web UI.'));
-  //   console.log(chalk.gray('  You might want to expose a different service instead.'));
-  //   console.log(chalk.gray('  Example: connect expose localhost:8080 --name my-api\n'));
-  // } else if (isLocalhost && port === 3001) {
-  //   console.log(chalk.yellow('\n[!] Warning: Port 3001 is typically the Private Connect API.'));
-  //   console.log(chalk.gray('  You might want to expose a different service instead.'));
-  //   console.log(chalk.gray('  Example: connect expose localhost:8080 --name my-api\n'));
-  // }
 
   console.log(chalk.cyan(`🔗 Exposing ${target} as "${options.name}"...`));
 
@@ -67,7 +55,7 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
     console.error(chalk.red('\n[x] API key required for first-time setup'));
     console.log(chalk.gray(`  Run ${chalk.cyan('connect login <your-api-key>')} to save it once`));
     console.log(chalk.gray(`  Or use: ${chalk.cyan('connect expose <target> --api-key <your-api-key>')}`));
-    return null;
+    process.exit(1);
   }
 
   const config = ensureConfig(options.hub, options.apiKey);
@@ -96,7 +84,7 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
   
   if (!service) {
     console.error(chalk.red('[x] Failed to register service'));
-    return null;
+    process.exit(1);
   }
 
   // Store serviceId for return value
@@ -374,7 +362,7 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
   });
 
   // Handle SQL queries forwarded through WebSocket
-  const DB_PORTS: Record<number, string> = { 5432: 'postgres', 3306: 'mysql' };
+  const DB_PORTS: Record<number, string> = { 5432: 'postgres', 5433: 'postgres', 5434: 'postgres', 3306: 'mysql', 3307: 'mysql' };
   const detectedDbProtocol = (['postgres', 'mysql'].includes(options.protocol) ? options.protocol : null) || DB_PORTS[port] || null;
 
   if (detectedDbProtocol === 'postgres' || detectedDbProtocol === 'mysql') {
@@ -390,7 +378,9 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
     }, ack?: (resp: { received: boolean }) => void) => {
       if (ack) ack({ received: true });
 
-      const dbProtocol = data.protocol || detectedDbProtocol;
+      const incomingProto = data.protocol;
+      const isDbProto = incomingProto === 'postgres' || incomingProto === 'mysql';
+      const dbProtocol = detectedDbProtocol || (isDbProto ? incomingProto : null);
 
       try {
         if (dbProtocol === 'postgres') {
@@ -542,8 +532,9 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
         console.log(chalk.green(`   [ok] E2E encrypted (${data.connectionId.substring(0, 8)})`));
         flushE2eBuffer(data.connectionId, conn);
       }
-    } catch {
-      // Handshake failed — continue unencrypted
+    } catch (err) {
+      console.warn(chalk.yellow(`   [!] E2E handshake failed for ${data.connectionId.substring(0, 8)}: ${err instanceof Error ? err.message : err}`));
+      console.warn(chalk.yellow(`       Connection will proceed WITHOUT encryption.`));
       conn.e2ePending = false;
       flushE2eBuffer(data.connectionId, conn);
     }
@@ -633,12 +624,12 @@ export async function exposeCommand(target: string, options: ExposeOptions): Pro
       if (conn) conn.connected = true;
       socket.emit('dial_success', { connectionId: data.connectionId });
 
-      // Allow a window for E2E handshake; fall back to unencrypted if it doesn't arrive
       const conn2 = connections.get(data.connectionId);
       if (conn2 && conn2.e2ePending) {
         conn2.e2eTimeout = setTimeout(() => {
           const c = connections.get(data.connectionId);
           if (c && c.e2ePending) {
+            console.warn(chalk.yellow(`   [!] E2E handshake timed out for ${data.connectionId.substring(0, 8)} — proceeding WITHOUT encryption.`));
             c.e2ePending = false;
             c.e2eTimeout = null;
             flushE2eBuffer(data.connectionId, c);

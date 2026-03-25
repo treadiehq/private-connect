@@ -32,6 +32,18 @@
       </div>
     </div>
 
+    <!-- Error State -->
+    <div v-else-if="fetchError" class="rounded-xl border border-red-500/20 bg-red-500/5 p-6 text-center">
+      <svg class="w-10 h-10 text-red-400/60 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+      </svg>
+      <p class="text-sm font-medium text-red-300 mb-1">Failed to load agents</p>
+      <p class="text-xs text-gray-500 mb-4">{{ fetchError }}</p>
+      <button @click="retryFetch" class="px-4 py-2 text-xs font-medium text-white bg-red-500/20 hover:bg-red-500/30 border border-red-500/20 rounded-lg transition-colors">
+        Retry
+      </button>
+    </div>
+
     <!-- Empty State -->
     <EmptyState
       v-else-if="agents.length === 0"
@@ -61,9 +73,9 @@
     </div>
 
     <!-- Delete Confirmation Modal -->
-    <div v-if="agentToDelete" class="fixed inset-0 z-50 flex items-center justify-center bg-[#09090b]/60 backdrop-blur-sm" @click.self="agentToDelete = null">
+    <div v-if="agentToDelete" class="fixed inset-0 z-50 flex items-center justify-center bg-[#09090b]/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-agent-title" @click.self="agentToDelete = null">
       <div class="bg-black-main border border-white/[0.08] rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
-        <h3 class="text-lg font-semibold text-white mb-2">Remove Agent</h3>
+        <h3 id="delete-agent-title" class="text-lg font-semibold text-white mb-2">Remove Agent</h3>
         <p class="text-sm text-gray-400 mb-1">
           Are you sure you want to remove <span class="text-white font-medium">{{ agentToDelete.label }}</span>?
         </p>
@@ -107,14 +119,28 @@ const { fetchAgents, deleteAgent } = useApi();
 
 const agents = ref<Agent[]>([]);
 const loading = ref(true);
+const fetchError = ref('');
 const agentToDelete = ref<Agent | null>(null);
 const deleting = ref(false);
+const { error: showError } = useToast();
+
+const retryFetch = async () => {
+  loading.value = true;
+  fetchError.value = '';
+  try {
+    agents.value = await fetchAgents();
+  } catch (error: any) {
+    fetchError.value = error.message || 'Could not reach the server. Check your connection.';
+  } finally {
+    loading.value = false;
+  }
+};
 
 onMounted(async () => {
   try {
     agents.value = await fetchAgents();
-  } catch (error) {
-    console.error('Failed to fetch agents:', error);
+  } catch (error: any) {
+    fetchError.value = error.message || 'Could not reach the server. Check your connection.';
   } finally {
     loading.value = false;
   }
@@ -131,8 +157,8 @@ const handleDelete = async () => {
     await deleteAgent(agentToDelete.value.id);
     agents.value = agents.value.filter(a => a.id !== agentToDelete.value!.id);
     agentToDelete.value = null;
-  } catch (error) {
-    console.error('Failed to delete agent:', error);
+  } catch (error: any) {
+    showError(error.message || 'Failed to delete agent');
   } finally {
     deleting.value = false;
   }

@@ -61,7 +61,7 @@ function saveMappings(data: MappingsFile): void {
  *   connect map staging-db 5432
  *   connect map staging-db              # uses default port from service
  *   connect map --remove staging-db     # removes mapping
- *   connect map --list                  # shows all mappings
+ *   connect map --status                # shows status of all mappings
  */
 export async function mapCommand(service: string | undefined, localPort: number | undefined, options: MapOptions) {
   const config = loadConfig();

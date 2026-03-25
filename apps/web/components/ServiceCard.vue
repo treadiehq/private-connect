@@ -45,7 +45,6 @@
         <span class="text-sm text-gray-300">
           {{ service.status === 'OK' ? 'Healthy' : service.status === 'FAIL' ? 'Unhealthy' : 'Unknown' }}
         </span>
-        <span v-if="service.isExternal" class="ml-2 text-xs text-gray-500">• External</span>
       </div>
       
       <!-- Latency Sparkline -->

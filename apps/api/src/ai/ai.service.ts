@@ -338,19 +338,29 @@ Be helpful, concise, and provide actionable advice.`;
     return prompt;
   }
 
-  /**
-   * Parse analysis response for structured output
-   */
   private parseAnalysisResponse(content: string): {
     analysis: string;
-    suggestions?: string[];
-    errors?: Array<{ type: string; message: string; fix?: string }>;
+    suggestions: string[];
+    errors: Array<{ type: string; message: string; fix?: string }>;
   } {
-    // For now, just return the raw analysis
-    // In the future, we could use structured output or parsing
-    return {
-      analysis: content,
-    };
+    const suggestions: string[] = [];
+    const errors: Array<{ type: string; message: string; fix?: string }> = [];
+
+    const lines = content.split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      const suggestMatch = trimmed.match(/^[-*•]\s*(?:suggestion|recommend|consider|try|fix|tip)[:.]?\s*(.+)/i);
+      if (suggestMatch) {
+        suggestions.push(suggestMatch[1].trim());
+        continue;
+      }
+      const errorMatch = trimmed.match(/^[-*•]\s*(?:error|issue|problem|bug|warning)[:.]?\s*(.+)/i);
+      if (errorMatch) {
+        errors.push({ type: 'error', message: errorMatch[1].trim() });
+      }
+    }
+
+    return { analysis: content, suggestions, errors };
   }
 
   /**
@@ -376,14 +386,14 @@ Be helpful, concise, and provide actionable advice.`;
     // Email addresses
     content = content.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[EMAIL]');
     
-    // Phone numbers (various formats)
+    // SSN (must run before phone — SSN is 3-2-4 digits with required separators)
+    content = content.replace(/\b\d{3}[-\s]\d{2}[-\s]\d{4}\b/g, '[SSN]');
+    
+    // Phone numbers (various formats — 3-3-4 digits)
     content = content.replace(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, '[PHONE]');
     
     // Credit card numbers (basic pattern)
     content = content.replace(/\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g, '[CARD]');
-    
-    // SSN
-    content = content.replace(/\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b/g, '[SSN]');
     
     // API keys and tokens (common patterns)
     content = content.replace(/\b(sk|pk|api|key|token|secret)[-_]?[a-zA-Z0-9]{20,}\b/gi, '[API_KEY]');

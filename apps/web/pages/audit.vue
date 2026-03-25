@@ -179,6 +179,17 @@
         <p class="text-sm text-gray-500 mt-3">Loading events...</p>
       </div>
 
+      <div v-else-if="fetchError" class="p-8 text-center">
+        <svg class="w-8 h-8 text-red-400/60 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+        </svg>
+        <p class="text-sm font-medium text-red-300 mb-1">Failed to load audit data</p>
+        <p class="text-xs text-gray-500 mb-3">{{ fetchError }}</p>
+        <button @click="loadData" class="px-4 py-2 text-xs font-medium text-white bg-red-500/20 hover:bg-red-500/30 border border-red-500/20 rounded-lg transition-colors">
+          Retry
+        </button>
+      </div>
+
       <div v-else-if="events.length === 0" class="p-8 text-center text-gray-500 text-sm">
         No events found for the selected filters.
       </div>
@@ -319,8 +330,11 @@ const getTimeRangeSince = (range: string): string => {
   }
 };
 
+const fetchError = ref('');
+
 const loadData = async () => {
   loading.value = true;
+  fetchError.value = '';
   try {
     const [eventsRes, statsRes, agentsRes] = await Promise.all([
       fetchAuditLog({
@@ -335,8 +349,8 @@ const loadData = async () => {
     events.value = eventsRes.events;
     stats.value = statsRes;
     agents.value = agentsRes;
-  } catch (error) {
-    console.error('Failed to load audit data:', error);
+  } catch (error: any) {
+    fetchError.value = error.message || 'Could not reach the server. Check your connection.';
   } finally {
     loading.value = false;
   }

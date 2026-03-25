@@ -25,6 +25,18 @@
       </svg>
     </div>
 
+    <!-- Error State -->
+    <div v-else-if="fetchError" class="rounded-xl border border-red-500/20 bg-red-500/5 p-6 text-center">
+      <svg class="w-10 h-10 text-red-400/60 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+      </svg>
+      <p class="text-sm font-medium text-red-300 mb-1">Failed to load API keys</p>
+      <p class="text-xs text-gray-500 mb-4">{{ fetchError }}</p>
+      <button @click="fetchApiKeys" class="px-4 py-2 text-xs font-medium text-white bg-red-500/20 hover:bg-red-500/30 border border-red-500/20 rounded-lg transition-colors">
+        Retry
+      </button>
+    </div>
+
     <!-- Empty State -->
     <div v-else-if="apiKeys.length === 0" class="bg-gray-500/10 border border-gray-500/10 rounded-lg p-12 text-center">
       <div class="w-12 h-12 mx-auto rounded-full bg-gray-500/10 flex items-center justify-center mb-4">
@@ -350,16 +362,19 @@ const editingIpRanges = ref<string[]>([]);
 const savingIp = ref(false);
 const ipError = ref('');
 
+const fetchError = ref('');
+
 const fetchApiKeys = async () => {
+  loading.value = true;
+  fetchError.value = '';
   try {
     const response = await fetch(`${baseUrl}/v1/api-keys`, {
       credentials: 'include',
     });
-    if (response.ok) {
-      apiKeys.value = await response.json();
-    }
-  } catch (e) {
-    console.error('Failed to fetch API keys:', e);
+    if (!response.ok) throw new Error(`Server returned ${response.status}`);
+    apiKeys.value = await response.json();
+  } catch (e: any) {
+    fetchError.value = e.message || 'Could not reach the server. Check your connection.';
   } finally {
     loading.value = false;
   }

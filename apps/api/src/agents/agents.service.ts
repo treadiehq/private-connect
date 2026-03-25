@@ -137,8 +137,10 @@ export class AgentsService {
       return { valid: false };
     }
 
-    // Check token hash
-    if (agent.tokenHash !== tokenHash) {
+    const hashA = Buffer.from(agent.tokenHash, 'hex');
+    const hashB = Buffer.from(tokenHash, 'hex');
+    const hashesMatch = hashA.length === hashB.length && require('crypto').timingSafeEqual(hashA, hashB);
+    if (!hashesMatch) {
       await this.logAuditEvent(agentId, AgentAuditEvent.REJECTED, clientIp, userAgent, {
         reason: 'invalid_token_hash',
       }, agent.clientType);

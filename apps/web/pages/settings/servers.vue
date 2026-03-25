@@ -7,15 +7,6 @@
         <p class="text-sm text-gray-400 mt-1">Manage local servers, and AI assistant MCP connections.</p>
       </div>
       <div class="flex items-center gap-3">
-        <!-- Health Monitoring Toggle -->
-        <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
-          <input
-            v-model="healthMonitoringEnabled"
-            type="checkbox"
-            class="w-4 h-4 rounded border-gray-500/20 bg-gray-500/10 text-blue-300 focus:ring-blue-300 focus:ring-offset-0"
-          />
-          <span>Auto-refresh</span>
-        </label>
         <!-- Discover Button -->
         <button
           @click="startDiscovery"
@@ -147,6 +138,15 @@
             <p class="text-xs text-gray-500 mt-1">Manage servers running on localhost</p>
           </div>
           <div class="flex items-center gap-2">
+            <label class="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer hover:text-gray-300 transition-colors">
+              <input
+                v-model="healthMonitoringEnabled"
+                type="checkbox"
+                class="w-3.5 h-3.5 rounded border-gray-500/20 bg-gray-500/10 text-blue-300 focus:ring-blue-300 focus:ring-offset-0"
+              />
+              Auto health-check
+            </label>
+            <span class="text-gray-600">|</span>
             <button
               @click="selectAll"
               class="text-xs text-gray-400 hover:text-white transition-colors"
@@ -862,6 +862,10 @@ watch(activeTab, (tab) => {
 
 onMounted(async () => {
   await loadServers();
+
+  if (localServers.value.length === 0) {
+    startDiscovery();
+  }
 
   // Connect to realtime updates
   const socket = connect();

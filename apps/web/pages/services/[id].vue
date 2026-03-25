@@ -606,8 +606,8 @@
       </div>
     </div>
 
-    <!-- Not Found -->
-    <div v-else class="text-center py-20">
+    <!-- Not Found (404) -->
+    <div v-else-if="notFound" class="text-center py-20">
       <div class="w-16 h-16 mx-auto mb-6 rounded-2xl bg-gray-500/10 flex items-center justify-center">
         <svg class="w-8 h-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -619,11 +619,24 @@
         ← Back to services
       </NuxtLink>
     </div>
+
+    <!-- Error State -->
+    <div v-else class="text-center py-20">
+      <svg class="w-10 h-10 text-red-400/60 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+      </svg>
+      <h2 class="text-lg font-semibold text-red-300 mb-1">Failed to load service</h2>
+      <p class="text-sm text-gray-500 mb-4">{{ fetchError }}</p>
+      <button @click="retryFetch" class="px-4 py-2 text-xs font-medium text-white bg-red-500/20 hover:bg-red-500/30 border border-red-500/20 rounded-lg transition-colors">
+        Retry
+      </button>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { Service, DiagnosticResult, Agent, Grant } from '~/types';
+import { ApiError } from '~/composables/useApi';
 
 definePageMeta({
   middleware: 'auth',
@@ -638,6 +651,8 @@ const service = ref<Service | null>(null);
 const diagnostics = ref<DiagnosticResult[]>([]);
 const onlineAgents = ref<Agent[]>([]);
 const loading = ref(true);
+const notFound = ref(false);
+const fetchError = ref('');
 const checking = ref(false);
 const showAgentDropdown = ref(false);
 const showShareModal = ref(false);
@@ -728,7 +743,10 @@ const getDiagnosticStatus = (diag: DiagnosticResult): 'OK' | 'FAIL' => {
   return 'OK';
 };
 
-onMounted(async () => {
+const retryFetch = async () => {
+  loading.value = true;
+  fetchError.value = '';
+  notFound.value = false;
   try {
     const [serviceData, diagData, agentsData] = await Promise.all([
       fetchService(route.params.id as string),
@@ -738,11 +756,19 @@ onMounted(async () => {
     service.value = serviceData;
     diagnostics.value = diagData;
     onlineAgents.value = agentsData;
-  } catch (error) {
-    console.error('Failed to fetch data:', error);
+  } catch (error: any) {
+    if (error instanceof ApiError && error.status === 404) {
+      notFound.value = true;
+    } else {
+      fetchError.value = error.message || 'Could not reach the server. Check your connection.';
+    }
   } finally {
     loading.value = false;
   }
+};
+
+onMounted(async () => {
+  await retryFetch();
 
   fetchServiceGrants(route.params.id as string)
     .then(data => { grants.value = data.grants; })

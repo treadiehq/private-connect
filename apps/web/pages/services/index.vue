@@ -22,6 +22,18 @@
     <!-- Loading State with Skeleton -->
     <ServiceListSkeleton v-if="loading" :count="3" />
 
+    <!-- Error State -->
+    <div v-else-if="fetchError" class="rounded-xl border border-red-500/20 bg-red-500/5 p-6 text-center">
+      <svg class="w-10 h-10 text-red-400/60 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+      </svg>
+      <p class="text-sm font-medium text-red-300 mb-1">Failed to load services</p>
+      <p class="text-xs text-gray-500 mb-4">{{ fetchError }}</p>
+      <button @click="retryFetch" class="px-4 py-2 text-xs font-medium text-white bg-red-500/20 hover:bg-red-500/30 border border-red-500/20 rounded-lg transition-colors">
+        Retry
+      </button>
+    </div>
+
     <!-- Empty State -->
     <EmptyState
       v-else-if="services.length === 0"
@@ -54,10 +66,10 @@
     <!-- Add External Service Modal -->
     <Teleport to="body">
       <Transition name="modal">
-        <div v-if="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center">
+        <div v-if="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="add-service-title">
           <div class="absolute inset-0 bg-[#09090b]/70 backdrop-blur-sm" @click="showAddModal = false"></div>
           <div class="relative bg-black-main border border-gray-500/20 rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4 animate-modal-in">
-            <h2 class="text-xl font-bold mb-1">Add External Service</h2>
+            <h2 id="add-service-title" class="text-xl font-bold mb-1">Add External Service</h2>
             <p class="text-gray-400 text-sm mb-6">
               Register an external endpoint to track and test connectivity.
             </p>
@@ -196,6 +208,7 @@ const { success, error: showError } = useToast();
 
 const services = ref<Service[]>([]);
 const loading = ref(true);
+const fetchError = ref('');
 const showAddModal = ref(false);
 const creating = ref(false);
 const createError = ref('');
@@ -215,11 +228,23 @@ const protocolOptions = [
 ];
 
 // Fetch services on mount
+const retryFetch = async () => {
+  loading.value = true;
+  fetchError.value = '';
+  try {
+    services.value = await fetchServices();
+  } catch (error: any) {
+    fetchError.value = error.message || 'Could not reach the server. Check your connection.';
+  } finally {
+    loading.value = false;
+  }
+};
+
 onMounted(async () => {
   try {
     services.value = await fetchServices();
-  } catch (error) {
-    console.error('Failed to fetch services:', error);
+  } catch (error: any) {
+    fetchError.value = error.message || 'Could not reach the server. Check your connection.';
   } finally {
     loading.value = false;
   }

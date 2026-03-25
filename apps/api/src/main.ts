@@ -132,10 +132,10 @@ async function bootstrap() {
     } else if (isSharedRoute) {
       // Allow shared routes to be embedded from privateconnect.co
       const webUrl = process.env.WEB_URL || 'https://app.privateconnect.co';
-      res.setHeader(
-        'Content-Security-Policy',
-        `frame-ancestors 'self' ${webUrl} http://localhost:3000`
-      );
+      const frameAncestors = isProduction
+        ? `frame-ancestors 'self' ${webUrl}`
+        : `frame-ancestors 'self' ${webUrl} http://localhost:3000`;
+      res.setHeader('Content-Security-Policy', frameAncestors);
     } else if (isProxyRoute) {
       // Proxy routes: don't override CSP - let the proxied content's headers pass through
       // This allows the origin server to control its own security policy
@@ -197,8 +197,9 @@ x-api-key: pc_your_api_key_here
 
 ## Rate Limiting
 
-- Public endpoints: 100 requests/minute
-- Authenticated endpoints: 1000 requests/minute
+- Short burst: 10 requests/second
+- Medium: 100 requests/minute
+- Long: 1000 requests/hour
 
 ## Versioning
 

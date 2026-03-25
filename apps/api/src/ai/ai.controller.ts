@@ -119,19 +119,23 @@ export class AIController {
       throw new BadRequestException('Invalid provider');
     }
 
-    // Require API key for cloud providers
-    if (['openai', 'anthropic'].includes(body.provider) && !body.apiKey) {
-      // Check if there's an existing key
-      const existing = await this.aiService.getConfig(workspaceId);
-      if (!existing?.apiKey) {
-        throw new BadRequestException(`API key required for ${body.provider}`);
+    const isMaskedKey = body.apiKey && /\.\.\.$/.test(body.apiKey) && body.apiKey.length < 20;
+
+    if (['openai', 'anthropic'].includes(body.provider)) {
+      if (!body.apiKey || isMaskedKey) {
+        const existing = await this.aiService.getConfig(workspaceId);
+        if (!existing?.apiKey) {
+          throw new BadRequestException(`API key required for ${body.provider}`);
+        }
       }
     }
 
-    await this.aiService.updateConfig(workspaceId, {
-      ...body,
-      autoAnalyze: body.autoAnalyze,
-    });
+    const updateData = { ...body, autoAnalyze: body.autoAnalyze };
+    if (isMaskedKey) {
+      delete updateData.apiKey;
+    }
+
+    await this.aiService.updateConfig(workspaceId, updateData);
 
     return { success: true };
   }
@@ -312,12 +316,25 @@ export class AIController {
       throw new BadRequestException('Workspace context required');
     }
 
+    const MAX_MESSAGES = 50;
+    const MAX_MESSAGE_LENGTH = 32_000;
+    if (!body.messages || body.messages.length === 0) {
+      throw new BadRequestException('Messages are required');
+    }
+    if (body.messages.length > MAX_MESSAGES) {
+      throw new BadRequestException(`Too many messages (max ${MAX_MESSAGES})`);
+    }
+    for (const msg of body.messages) {
+      if (msg.content && msg.content.length > MAX_MESSAGE_LENGTH) {
+        throw new BadRequestException(`Message too long (max ${MAX_MESSAGE_LENGTH} characters)`);
+      }
+    }
+
     const config = await this.aiService.getConfig(workspaceId);
     if (!config) {
       throw new BadRequestException('AI not configured');
     }
 
-    // Get session and recent packets for context
     const session = await this.prisma.debugSession.findUnique({
       where: { id: body.sessionId },
       include: {

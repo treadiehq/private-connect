@@ -14,6 +14,18 @@
       </svg>
     </div>
 
+    <!-- Error State -->
+    <div v-else-if="configError" class="rounded-xl border border-red-500/20 bg-red-500/5 p-6 text-center">
+      <svg class="w-10 h-10 text-red-400/60 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+      </svg>
+      <p class="text-sm font-medium text-red-300 mb-1">Failed to load AI configuration</p>
+      <p class="text-xs text-gray-500 mb-4">{{ configError }}</p>
+      <button @click="loadConfig" class="px-4 py-2 text-xs font-medium text-white bg-red-500/20 hover:bg-red-500/30 border border-red-500/20 rounded-lg transition-colors">
+        Retry
+      </button>
+    </div>
+
     <div v-else class="space-y-6">
       <!-- Provider Selection -->
       <div class="bg-gray-500/10 border border-gray-500/10 rounded-lg p-6">
@@ -285,7 +297,11 @@ const selectProvider = (provider: 'ollama' | 'openai' | 'anthropic') => {
   testResult.value = null;
 };
 
+const configError = ref('');
+
 const loadConfig = async () => {
+  loading.value = true;
+  configError.value = '';
   try {
     const data = await apiFetch('/v1/ai/config');
     if (data.config) {
@@ -297,8 +313,8 @@ const loadConfig = async () => {
         autoAnalyze: data.config.autoAnalyze || false,
       };
     }
-  } catch (error) {
-    console.error('Failed to load AI config:', error);
+  } catch (error: any) {
+    configError.value = error.message || 'Could not reach the server. Check your connection.';
   } finally {
     loading.value = false;
   }

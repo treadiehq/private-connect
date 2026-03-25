@@ -11,6 +11,20 @@
       <div class="animate-spin w-8 h-8 border-2 border-blue-300 border-t-transparent rounded-full"></div>
     </div>
 
+    <!-- Error State -->
+    <div v-else-if="fetchError" class="flex items-center justify-center h-96">
+      <div class="text-center">
+        <svg class="w-10 h-10 text-red-400/60 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+        </svg>
+        <p class="text-sm font-medium text-red-300 mb-1">Failed to load dashboard</p>
+        <p class="text-xs text-gray-500 mb-4">{{ fetchError }}</p>
+        <button @click="retryFetch" class="px-4 py-2 text-xs font-medium text-white bg-red-500/20 hover:bg-red-500/30 border border-red-500/20 rounded-lg transition-colors">
+          Retry
+        </button>
+      </div>
+    </div>
+
     <!-- Network Map -->
     <NetworkMap
       v-else
@@ -196,6 +210,7 @@ const { connect } = useSocket();
 const agents = ref<Agent[]>([]);
 const services = ref<Service[]>([]);
 const loading = ref(true);
+const fetchError = ref('');
 const auditLoading = ref(true);
 const recentActivity = ref<AuditEvent[]>([]);
 
@@ -260,8 +275,10 @@ const formatTimeAgo = (timestamp: string) => {
   return `${diffDays}d ago`;
 };
 
-// Fetch data
-onMounted(async () => {
+const retryFetch = async () => {
+  loading.value = true;
+  fetchError.value = '';
+  auditLoading.value = true;
   try {
     const [agentsData, servicesData] = await Promise.all([
       fetchAgents(),
@@ -269,21 +286,25 @@ onMounted(async () => {
     ]);
     agents.value = agentsData;
     services.value = servicesData;
-  } catch (error) {
-    console.error('Failed to fetch data:', error);
+  } catch (error: any) {
+    fetchError.value = error.message || 'Could not reach the server. Check your connection.';
+    loading.value = false;
+    return;
   } finally {
     loading.value = false;
   }
-
-  // Fetch recent audit events
   try {
     const auditData = await fetchAuditLog({ limit: 10 });
     recentActivity.value = auditData.events;
   } catch (error) {
-    console.error('Failed to fetch audit data:', error);
+    // Audit is non-critical, degrade gracefully
   } finally {
     auditLoading.value = false;
   }
+};
+
+onMounted(async () => {
+  await retryFetch();
 
   // Connect to realtime updates
   const socket = connect();

@@ -252,9 +252,14 @@ async function createLocalTunnel(
     console.log(chalk.green('  [ok] Connected to hub'));
   });
 
+  let connectAttempts = 0;
   socket.on('connect_error', (error) => {
-    console.error(chalk.red(`  [x] Connection error: ${error.message}`));
-    process.exit(1);
+    connectAttempts++;
+    if (connectAttempts >= 3) {
+      console.error(chalk.red(`  [x] Connection failed after ${connectAttempts} attempts: ${error.message}`));
+      process.exit(1);
+    }
+    console.log(chalk.gray(`  [.] Connection attempt ${connectAttempts}/3 failed: ${error.message}`));
   });
 
   // Handle connection ready from hub

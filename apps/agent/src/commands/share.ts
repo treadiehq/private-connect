@@ -46,17 +46,22 @@ export async function shareCommand(options: ShareOptions) {
 
   console.log(chalk.cyan('\n🤝 Creating environment share...\n'));
 
-  // Parse expiry option
+  // Parse expiry option (supports Nh, Nd, or "never")
   let expiresInHours = 24; // default
+  let neverExpires = false;
   if (options.expires) {
-    const match = options.expires.match(/^(\d+)(h|d)$/);
-    if (match) {
-      const value = parseInt(match[1], 10);
-      const unit = match[2];
-      expiresInHours = unit === 'd' ? value * 24 : value;
+    if (options.expires === 'never') {
+      neverExpires = true;
     } else {
-      console.error(chalk.red('[x] Invalid expires format. Use: 1h, 4h, 24h, 7d, etc.'));
-      process.exit(1);
+      const match = options.expires.match(/^(\d+)(h|d)$/);
+      if (match) {
+        const value = parseInt(match[1], 10);
+        const unit = match[2];
+        expiresInHours = unit === 'd' ? value * 24 : value;
+      } else {
+        console.error(chalk.red('[x] Invalid expires format. Use: 1h, 4h, 24h, 7d, or "never".'));
+        process.exit(1);
+      }
     }
   }
 
@@ -70,7 +75,7 @@ export async function shareCommand(options: ShareOptions) {
       },
       body: JSON.stringify({
         name: options.name,
-        expiresInHours,
+        ...(neverExpires ? { neverExpires: true } : { expiresInHours }),
         requireDeviceApproval: options.requireApproval ?? false,
       }),
     });

@@ -147,8 +147,8 @@ export class GrantsService {
     });
   }
 
-  async listGrantsForService(serviceId: string, includeExpired = false) {
-    const where: any = { serviceId, revokedAt: null };
+  async listGrantsForService(serviceId: string, workspaceId: string, includeExpired = false) {
+    const where: any = { serviceId, workspaceId, revokedAt: null };
     if (!includeExpired) {
       where.OR = [
         { expiresAt: null },
@@ -190,21 +190,29 @@ export class GrantsService {
     userAgent?: string;
     latencyMs?: number;
   }) {
-    return this.prisma.grantAccessLog.create({
-      data: {
-        grantId: options.grantId,
-        requestType: options.requestType,
-        requestSummary: options.requestSummary?.slice(0, 500),
-        responseStatus: options.responseStatus,
-        allowed: options.allowed,
-        ipAddress: options.ipAddress,
-        userAgent: options.userAgent,
-        latencyMs: options.latencyMs,
-      },
-    }).catch(() => {});
+    return this.prisma.withoutRls(() =>
+      this.prisma.grantAccessLog.create({
+        data: {
+          grantId: options.grantId,
+          requestType: options.requestType,
+          requestSummary: options.requestSummary?.slice(0, 500),
+          responseStatus: options.responseStatus,
+          allowed: options.allowed,
+          ipAddress: options.ipAddress,
+          userAgent: options.userAgent,
+          latencyMs: options.latencyMs,
+        },
+      })
+    ).catch(() => {});
   }
 
-  async getAccessLogs(grantId: string, limit = 50) {
+  async getAccessLogs(grantId: string, workspaceId: string, limit = 50) {
+    const grant = await this.prisma.grant.findFirst({
+      where: { id: grantId, workspaceId },
+      select: { id: true },
+    });
+    if (!grant) return [];
+
     return this.prisma.grantAccessLog.findMany({
       where: { grantId },
       orderBy: { createdAt: 'desc' },
@@ -212,9 +220,9 @@ export class GrantsService {
     });
   }
 
-  async getAccessLogsForService(serviceId: string, limit = 100) {
+  async getAccessLogsForService(serviceId: string, workspaceId: string, limit = 100) {
     return this.prisma.grantAccessLog.findMany({
-      where: { grant: { serviceId } },
+      where: { grant: { serviceId, workspaceId } },
       include: {
         grant: {
           select: { id: true, agentLabel: true, tokenPrefix: true, scope: true },
@@ -227,10 +235,12 @@ export class GrantsService {
 
   async cleanupExpiredGrants() {
     const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    return this.prisma.grant.deleteMany({
-      where: {
-        expiresAt: { lt: cutoff },
-      },
-    });
+    return this.prisma.withoutRls(() =>
+      this.prisma.grant.deleteMany({
+        where: {
+          expiresAt: { lt: cutoff },
+        },
+      })
+    );
   }
 }

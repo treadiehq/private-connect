@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { validateUrlSafeForFetch } from '../common/security';
 import type {
   AskRequest,
   AskResponse,
@@ -190,10 +191,9 @@ export class AskService {
 
   /**
    * Resolve service input (URL or hostname) into a baseUrl.
-   * - Full URL (http/https): use as-is (origin only).
-   * - No scheme: http for localhost/127.0.0.1, else https.
+   * Blocks private/internal IPs and cloud metadata endpoints (SSRF protection).
    */
-  normalizeServiceInput(service: string): string {
+  async normalizeServiceInput(service: string): Promise<string> {
     const s = (service || '').trim();
     if (!s) {
       throw new BadRequestException('Service is required');
@@ -201,13 +201,7 @@ export class AskService {
 
     let urlStr = s;
     if (!/^https?:\/\//i.test(s)) {
-      const hostPart = s.split('/')[0];
-      const isLocal =
-        hostPart === 'localhost' ||
-        hostPart.startsWith('localhost:') ||
-        hostPart === '127.0.0.1' ||
-        hostPart.startsWith('127.0.0.1:');
-      urlStr = isLocal ? `http://${s}` : `https://${s}`;
+      urlStr = `https://${s}`;
     }
 
     try {
@@ -215,10 +209,12 @@ export class AskService {
       if (url.protocol !== 'http:' && url.protocol !== 'https:') {
         throw new BadRequestException('Only http and https are allowed');
       }
+
+      await validateUrlSafeForFetch(url.origin);
       return url.origin;
     } catch (e) {
       if (e instanceof BadRequestException) throw e;
-      throw new BadRequestException('Invalid service URL or hostname');
+      throw new BadRequestException('Invalid or disallowed service URL');
     }
   }
 
@@ -421,24 +417,29 @@ Answer the question concisely based only on the above.`;
     return this.buildStubAnswer(question, receipts, reachability);
   }
 
+  private static readonly STUB_DISCLAIMER =
+    '\n\n_(Automated endpoint check — not AI analysis. Set ASK_LLM_PROVIDER for intelligent answers.)_';
+
   /**
    * Stub answer generator (fallback when LLM is not configured or fails).
+   * All responses clearly indicate this is an automated heuristic, not AI.
    */
   private buildStubAnswer(
     question: string,
     receipts: AskReceipt[],
     reachability: Reachability,
   ): string {
+    const note = AskService.STUB_DISCLAIMER;
+
     if (reachability.classification === 'UNREACHABLE_OR_PRIVATE') {
-      return `No, I can't reach this service.`;
+      return `The service could not be reached from the server.${note}`;
     }
 
     const okReceipts = receipts.filter((r) => r.ok);
     if (okReceipts.length === 0) {
-      return `No, none of the endpoints responded successfully.`;
+      return `None of the probed endpoints (${CHECK_PATHS.join(', ')}) responded successfully.${note}`;
     }
 
-    // Assertive answer based on question keywords
     const q = question.toLowerCase();
     const healthReceipt = okReceipts.find((r) => r.path === '/health' || r.path === '/healthz');
     const versionReceipt = okReceipts.find((r) => r.path === '/version');
@@ -448,32 +449,37 @@ Answer the question concisely based only on the above.`;
       const snippet = healthReceipt.bodySnippet || '';
       const statusOk =
         snippet.includes('"ok"') || snippet.includes('"status":"ok"') || snippet.includes('"healthy"');
-      return statusOk ? 'Yes — the service is healthy.' : `Yes — /health responded (${healthReceipt.status}).`;
+      const answer = statusOk
+        ? `/health returned a healthy status.`
+        : `/health responded with HTTP ${healthReceipt.status}.`;
+      return `${answer}${note}`;
     }
 
     if (q.includes('version') && versionReceipt) {
       const match = versionReceipt.bodySnippet?.match(/"version"\s*:\s*"([^"]+)"/);
-      return match ? `Version ${match[1]}.` : `Yes — /version responded (${versionReceipt.status}).`;
+      const answer = match
+        ? `/version reports version ${match[1]}.`
+        : `/version responded with HTTP ${versionReceipt.status}.`;
+      return `${answer}${note}`;
     }
 
     if (q.includes('status') && statusReceipt) {
-      return `Yes, the service reports status OK.`;
+      return `/status responded with HTTP ${statusReceipt.status}.${note}`;
     }
 
     if (q.includes('running') || q.includes('up') || q.includes('alive') || q.includes('reachable')) {
-      return `Yes, the service is running.`;
+      return `The service responded on ${okReceipts.length}/${receipts.length} probed endpoints.${note}`;
     }
 
     if (q.includes('fail') || q.includes('error') || q.includes('wrong')) {
       const failedReceipts = receipts.filter((r) => !r.ok);
       if (failedReceipts.length > 0) {
-        return `Some endpoints failed: ${failedReceipts.map((r) => `${r.path} (${r.error || r.status})`).join(', ')}.`;
+        return `${failedReceipts.length} endpoint(s) failed: ${failedReceipts.map((r) => `${r.path} (${r.error || r.status})`).join(', ')}.${note}`;
       }
-      return `No failures detected, all checked endpoints responded successfully.`;
+      return `All ${receipts.length} probed endpoints responded successfully.${note}`;
     }
 
-    // Generic assertive
-    return `Yes, the service is responding.`;
+    return `${okReceipts.length}/${receipts.length} probed endpoints responded successfully.${note}`;
   }
 
   /**
@@ -516,7 +522,7 @@ Answer the question concisely based only on the above.`;
   }
 
   async ask(body: AskRequest): Promise<AskResponse> {
-    const baseUrl = this.normalizeServiceInput(body.service);
+    const baseUrl = await this.normalizeServiceInput(body.service);
     const receipts = await this.runChecks(baseUrl);
     const reachability = this.classifyReachability(receipts);
     const blockedActions = this.inferBlockedActions(body.question);

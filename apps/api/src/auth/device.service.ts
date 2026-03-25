@@ -1,9 +1,29 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { randomBytes, randomInt, createHash } from 'crypto';
+import { randomBytes, randomInt, createHash, createCipheriv, createDecipheriv } from 'crypto';
 
 function hashApiKey(key: string): string {
   return createHash('sha256').update(key).digest('hex');
+}
+
+function encryptApiKeyForDevice(apiKey: string, deviceCode: string): string {
+  const derivedKey = createHash('sha256').update(deviceCode).digest();
+  const iv = randomBytes(16);
+  const cipher = createCipheriv('aes-256-gcm', derivedKey, iv);
+  const encrypted = Buffer.concat([cipher.update(apiKey, 'utf8'), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return Buffer.concat([iv, authTag, encrypted]).toString('base64');
+}
+
+function decryptApiKeyForDevice(ciphertext: string, deviceCode: string): string {
+  const derivedKey = createHash('sha256').update(deviceCode).digest();
+  const buf = Buffer.from(ciphertext, 'base64');
+  const iv = buf.subarray(0, 16);
+  const authTag = buf.subarray(16, 32);
+  const encrypted = buf.subarray(32);
+  const decipher = createDecipheriv('aes-256-gcm', derivedKey, iv);
+  decipher.setAuthTag(authTag);
+  return decipher.update(encrypted) + decipher.final('utf8');
 }
 
 // User code format: XXXX-XXXX (easy to type)
@@ -85,18 +105,24 @@ export class DeviceService {
     }
 
     if (device.verifiedAt && device.apiKey && device.workspaceId) {
-      // Get workspace info
       const workspace = await this.prisma.workspace.findUnique({
         where: { id: device.workspaceId },
         include: { owner: true },
       });
 
-      // Clean up used code
+      let rawApiKey: string;
+      try {
+        rawApiKey = decryptApiKeyForDevice(device.apiKey, deviceCode);
+      } catch {
+        await this.prisma.deviceCode.delete({ where: { id: device.id } }).catch(() => {});
+        return { status: 'expired' };
+      }
+
       await this.prisma.deviceCode.delete({ where: { id: device.id } }).catch(() => {});
 
       return {
         status: 'authorized',
-        apiKey: device.apiKey,
+        apiKey: rawApiKey,
         workspaceId: device.workspaceId,
         workspaceName: workspace?.name,
         userEmail: workspace?.owner.email,
@@ -171,7 +197,7 @@ export class DeviceService {
             verifiedAt: new Date(),
             userId,
             workspaceId,
-            apiKey,
+            apiKey: encryptApiKeyForDevice(apiKey, targetDevice.deviceCode),
           },
         });
 

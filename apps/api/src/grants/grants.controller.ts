@@ -119,7 +119,7 @@ export class GrantsController {
     @Query('serviceId') serviceId?: string,
   ) {
     const grants = serviceId
-      ? await this.grantsService.listGrantsForService(serviceId, includeExpired === 'true')
+      ? await this.grantsService.listGrantsForService(serviceId, req.workspace.id, includeExpired === 'true')
       : await this.grantsService.listGrants(req.workspace.id, includeExpired === 'true');
 
     return {
@@ -189,7 +189,7 @@ export class GrantsController {
         scope: grant.scope,
         persistent: grant.expiresAt === null,
         expiresAt: grant.expiresAt?.toISOString() ?? null,
-        service: grant.service,
+        service: grant.service ? { id: grant.service.id, name: grant.service.name } : null,
       },
     };
   }
@@ -201,9 +201,10 @@ export class GrantsController {
   @ApiResponse({ status: 200, description: 'Access logs' })
   async getAccessLogs(
     @Param('id') id: string,
+    @Req() req: any,
     @Query('limit') limit?: string,
   ) {
-    const logs = await this.grantsService.getAccessLogs(id, limit ? parseInt(limit, 10) : 50);
+    const logs = await this.grantsService.getAccessLogs(id, req.workspace.id, limit ? parseInt(limit, 10) : 50);
 
     return {
       success: true,
