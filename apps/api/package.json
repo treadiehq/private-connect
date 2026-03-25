@@ -7,6 +7,7 @@
     "build": "nest build",
     "start": "node dist/main",
     "start:prod": "node dist/main",
+    "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:push": ". ./.env 2>/dev/null; DATABASE_URL=${DATABASE_URL_MIGRATE:-$DATABASE_URL} prisma db push",
