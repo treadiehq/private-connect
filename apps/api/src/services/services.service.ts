@@ -257,6 +257,12 @@ export class ServicesService implements OnModuleInit {
     });
   }
 
+  async validateGroupOwnership(groupId: string, workspaceId: string) {
+    return this.prisma.serviceGroup.findFirst({
+      where: { id: groupId, workspaceId },
+    });
+  }
+
   async register(
     workspaceId: string,
     agentId: string,
@@ -265,6 +271,7 @@ export class ServicesService implements OnModuleInit {
     targetPort: number,
     protocol: string = 'auto',
     isPublic: boolean = false,
+    groupId?: string,
   ) {
     const nameCheck = this.validateName(name);
     if (!nameCheck.valid) {
@@ -321,6 +328,7 @@ export class ServicesService implements OnModuleInit {
         agentId,
         isPublic,
         publicSubdomain: isPublic ? publicSubdomain : null,
+        ...(groupId !== undefined ? { groupId } : {}),
       },
       create: {
         workspaceId,
@@ -333,6 +341,7 @@ export class ServicesService implements OnModuleInit {
         status: 'UNKNOWN',
         isPublic,
         publicSubdomain,
+        groupId: groupId || null,
       },
       include: { agent: true },
     });

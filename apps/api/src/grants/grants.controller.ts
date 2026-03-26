@@ -2,6 +2,7 @@ import { Controller, Post, Get, Delete, Body, Param, Query, UseGuards, Req, Http
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiSecurity } from '@nestjs/swagger';
 import { GrantsService } from './grants.service';
 import { CombinedAuthGuard } from '../auth/combined-auth.guard';
+import { PrismaService } from '../prisma/prisma.service';
 import { z } from 'zod';
 
 const GRANT_ENDPOINT_BASE = process.env.GRANT_ENDPOINT_BASE || 'agent.privateconnect.co';
@@ -25,15 +26,22 @@ function parseTtl(ttl: string): number {
 const CreateGrantSchema = z.object({
   agentLabel: z.string().min(1).max(100),
   resourceType: z.enum(['db', 'api', 'path']),
-  resourceName: z.string().min(1).max(200),
+  resourceName: z.string().min(1).max(200).optional(),
+  groupId: z.string().uuid().optional(),
   scope: z.enum(['read-only', 'full']).optional(),
   ttl: z.string().min(1).max(10).optional(),
-});
+}).refine(
+  (data) => data.resourceName || data.groupId,
+  { message: 'Either resourceName or groupId is required' },
+);
 
 @ApiTags('Grants')
 @Controller('v1/grants')
 export class GrantsController {
-  constructor(private grantsService: GrantsService) {}
+  constructor(
+    private grantsService: GrantsService,
+    private prisma: PrismaService,
+  ) {}
 
   @Post()
   @UseGuards(CombinedAuthGuard)
@@ -64,7 +72,7 @@ export class GrantsController {
       throw new HttpException(parsed.error.message, HttpStatus.BAD_REQUEST);
     }
 
-    const { agentLabel, resourceType, resourceName, scope, ttl } = parsed.data;
+    const { agentLabel, resourceType, resourceName, groupId, scope, ttl } = parsed.data;
 
     let ttlSeconds: number | undefined;
     if (ttl) {
@@ -73,6 +81,51 @@ export class GrantsController {
       } catch (err: any) {
         throw new HttpException(err.message, HttpStatus.BAD_REQUEST);
       }
+    }
+
+    if (groupId) {
+      const group = await this.prisma.serviceGroup.findFirst({
+        where: { id: groupId, workspaceId: req.workspace.id },
+        include: { services: { select: { name: true } } },
+      });
+      if (!group) {
+        throw new HttpException('Group not found', HttpStatus.NOT_FOUND);
+      }
+      if (group.services.length === 0) {
+        throw new HttpException('Group has no services', HttpStatus.BAD_REQUEST);
+      }
+
+      const grants = [];
+      for (const svc of group.services) {
+        const grant = await this.grantsService.createGrant({
+          workspaceId: req.workspace.id,
+          agentLabel,
+          resourceType,
+          resourceName: svc.name,
+          scope,
+          ttlSeconds,
+        });
+
+        const persistent = grant.expiresAt === null;
+        grants.push({
+          id: grant.id,
+          agentLabel: grant.agentLabel,
+          resourceType: grant.resourceType,
+          resourceName: grant.resourceName,
+          scope: grant.scope,
+          persistent,
+          expiresAt: grant.expiresAt?.toISOString() ?? null,
+          token: grant.rawToken,
+          tokenPrefix: grant.tokenPrefix,
+          endpoint: `${grant.resourceName}.${GRANT_ENDPOINT_BASE}`,
+        });
+      }
+
+      return { success: true, groupId, grants };
+    }
+
+    if (!resourceName) {
+      throw new HttpException('resourceName is required when groupId is not provided', HttpStatus.BAD_REQUEST);
     }
 
     const grant = await this.grantsService.createGrant({

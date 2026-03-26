@@ -69,6 +69,7 @@ model Workspace {
   owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   agents    Agent[]
   services  Service[]
+  groups    ServiceGroup[]
   apiKeys   ApiKey[]
   debugSessions DebugSession[]
 }
@@ -118,10 +119,26 @@ model Agent {
   @@index([tokenExpiresAt]) // For cleanup of expired tokens
 }
 
+// ServiceGroup: named collection of services for lifecycle management (per-branch, per-project)
+model ServiceGroup {
+  id          String    @id @default(uuid())
+  workspaceId String
+  name        String
+  metadata    String?   // JSON: branch name, repo URL, etc.
+  createdAt   DateTime  @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  services    Service[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
 model Service {
   id              String             @id @default(uuid())
   workspaceId     String
   agentId         String?            // null = external target service (no agent)
+  groupId         String?            // null = ungrouped service
   name            String
   targetHost      String
   targetPort      Int
@@ -136,6 +153,7 @@ model Service {
   createdAt       DateTime           @default(now())
   workspace       Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   agent           Agent?             @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  group           ServiceGroup?      @relation(fields: [groupId], references: [id], onDelete: Cascade)
   diagnostics     DiagnosticResult[]
   sessions        Session[]
   shares          ServiceShare[]
@@ -144,6 +162,7 @@ model Service {
   @@unique([workspaceId, name])
   @@index([workspaceId])
   @@index([agentId])
+  @@index([groupId])
   @@index([status]) // For filtering by status
 }
 

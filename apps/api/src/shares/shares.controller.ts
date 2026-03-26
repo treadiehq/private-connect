@@ -5,7 +5,6 @@ import {
   Delete,
   Param,
   Body,
-  Headers,
   HttpException,
   HttpStatus,
   Req,
@@ -197,26 +196,25 @@ export class SharesController {
   }
 
   @Get('v1/services/:serviceId/shares')
+  @UseGuards(CombinedAuthGuard)
+  @ApiSecurity('api-key')
   @ApiBearerAuth('bearer')
   @ApiOperation({ summary: 'List shares', description: 'Returns all shares for a service.' })
   @ApiResponse({ status: 200, description: 'List of shares' })
   async listShares(
     @Param('serviceId') serviceId: string,
-    @Headers('authorization') authHeader: string,
+    @Req() req: any,
   ) {
-    const session = await this.authService.validateSession(
-      authHeader?.replace('Bearer ', ''),
-    );
-    if (!session) {
+    const workspace = req.workspace;
+    if (!workspace) {
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
 
-    // Verify service exists and belongs to user's workspace
     const service = await this.servicesService.findById(serviceId);
     if (!service) {
       throw new HttpException('Service not found', HttpStatus.NOT_FOUND);
     }
-    if (!session.workspace || service.workspaceId !== session.workspace.id) {
+    if (service.workspaceId !== workspace.id) {
       throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
     }
 
@@ -241,27 +239,26 @@ export class SharesController {
   }
 
   @Delete('v1/shares/:shareId')
+  @UseGuards(CombinedAuthGuard)
+  @ApiSecurity('api-key')
   @ApiBearerAuth('bearer')
   @ApiOperation({ summary: 'Revoke share', description: 'Revokes a share, making it no longer usable.' })
   @ApiResponse({ status: 200, description: 'Share revoked' })
   @ApiResponse({ status: 404, description: 'Share not found' })
   async revokeShare(
     @Param('shareId') shareId: string,
-    @Headers('authorization') authHeader: string,
+    @Req() req: any,
   ) {
-    const session = await this.authService.validateSession(
-      authHeader?.replace('Bearer ', ''),
-    );
-    if (!session) {
+    const workspace = req.workspace;
+    if (!workspace) {
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
 
-    // Verify share exists and belongs to user's workspace
     const share = await this.sharesService.getShareById(shareId);
     if (!share) {
       throw new HttpException('Share not found', HttpStatus.NOT_FOUND);
     }
-    if (!session.workspace || share.service.workspaceId !== session.workspace.id) {
+    if (share.service.workspaceId !== workspace.id) {
       throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
     }
 
@@ -270,27 +267,26 @@ export class SharesController {
   }
 
   @Get('v1/shares/:shareId/logs')
+  @UseGuards(CombinedAuthGuard)
+  @ApiSecurity('api-key')
   @ApiBearerAuth('bearer')
   @ApiOperation({ summary: 'Get access logs', description: 'Returns access logs for a share.' })
   @ApiResponse({ status: 200, description: 'Access logs' })
   @ApiResponse({ status: 404, description: 'Share not found' })
   async getAccessLogs(
     @Param('shareId') shareId: string,
-    @Headers('authorization') authHeader: string,
+    @Req() req: any,
   ) {
-    const session = await this.authService.validateSession(
-      authHeader?.replace('Bearer ', ''),
-    );
-    if (!session) {
+    const workspace = req.workspace;
+    if (!workspace) {
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
 
-    // Verify share exists and belongs to user's workspace
     const share = await this.sharesService.getShareById(shareId);
     if (!share) {
       throw new HttpException('Share not found', HttpStatus.NOT_FOUND);
     }
-    if (!session.workspace || share.service.workspaceId !== session.workspace.id) {
+    if (share.service.workspaceId !== workspace.id) {
       throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
     }
 

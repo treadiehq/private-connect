@@ -21,6 +21,7 @@ const RegisterServiceSchema = z.object({
   targetPort: z.number().int().min(1).max(65535),
   protocol: z.enum(['auto', 'tcp', 'udp', 'http', 'https']).optional().default('auto'),
   isPublic: z.boolean().optional().default(false),
+  groupId: z.string().uuid().optional(),
 });
 
 const ReachSchema = z.object({
@@ -78,7 +79,14 @@ export class ServicesController {
     }
 
     const workspace = req.workspace;
-    const { agentId, name, targetHost, targetPort, protocol, isPublic } = parsed.data;
+    const { agentId, name, targetHost, targetPort, protocol, isPublic, groupId } = parsed.data;
+
+    if (groupId) {
+      const group = await this.servicesService.validateGroupOwnership(groupId, workspace.id);
+      if (!group) {
+        throw new HttpException('Group not found or does not belong to this workspace', HttpStatus.NOT_FOUND);
+      }
+    }
     
     try {
       const service = await this.servicesService.register(
@@ -89,6 +97,7 @@ export class ServicesController {
         targetPort,
         protocol,
         isPublic,
+        groupId,
       );
       
       // Notify UI

@@ -108,10 +108,83 @@ export interface Grant {
 export interface GrantCreateOptions {
   agentLabel: string;
   resourceType: 'db' | 'api' | 'path';
-  resourceName: string;
+  resourceName?: string;
+  groupId?: string;
   scope?: 'read-only' | 'full';
   /** Duration string: 60s, 5m, 1h, 1d. Omit for persistent grant. */
   ttl?: string;
+}
+
+export interface ServiceRegisterOptions {
+  agentId: string;
+  name: string;
+  targetHost: string;
+  targetPort: number;
+  protocol?: 'auto' | 'tcp' | 'udp' | 'http' | 'https';
+  isPublic?: boolean;
+  groupId?: string;
+}
+
+export interface ProvisionOptions {
+  clientType: string;
+  label?: string;
+  name?: string;
+  ttlSeconds?: number;
+}
+
+export interface ProvisionResult {
+  agentId: string;
+  token: string;
+  expiresAt: string;
+  workspaceId: string;
+  workspaceName: string;
+}
+
+export interface ShareCreateOptions {
+  name: string;
+  description?: string;
+  expiresIn?: '1h' | '24h' | '7d' | '30d' | 'never';
+  allowedPaths?: string[];
+  allowedMethods?: ('GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE')[];
+  rateLimitPerMin?: number;
+}
+
+export interface Share {
+  id: string;
+  name: string;
+  description?: string;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+  isActive: boolean;
+  shareUrl: string;
+  tokenPreview: string;
+}
+
+export interface ServiceGroup {
+  id: string;
+  name: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  services: Array<{
+    id: string;
+    name: string;
+    status: string;
+    protocol: string;
+  }>;
+}
+
+export interface GroupCreateOptions {
+  name: string;
+  metadata?: Record<string, unknown>;
+  services?: Array<{
+    agentId: string;
+    name: string;
+    targetHost: string;
+    targetPort: number;
+    protocol?: string;
+    isPublic?: boolean;
+  }>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -344,6 +417,14 @@ function detectAgentId(): string | undefined {
 export class AgentsAPI {
   constructor(private client: PrivateConnect) {}
 
+  async provision(options: ProvisionOptions): Promise<ProvisionResult> {
+    const response = await this.client.fetch('/v1/agents/provision', {
+      method: 'POST',
+      body: JSON.stringify(options),
+    });
+    return response.json();
+  }
+
   async list(options?: { onlineOnly?: boolean }): Promise<Agent[]> {
     const response = await this.client.fetch('/v1/agents/orchestration');
     const data = await response.json();
@@ -431,6 +512,15 @@ export class AgentsAPI {
 export class ServicesAPI {
   constructor(private client: PrivateConnect) {}
 
+  async register(options: ServiceRegisterOptions): Promise<Service> {
+    const response = await this.client.fetch('/v1/services/register', {
+      method: 'POST',
+      body: JSON.stringify(options),
+    });
+    const data = await response.json();
+    return data.service;
+  }
+
   async list(): Promise<Service[]> {
     const response = await this.client.fetch('/v1/services');
     return response.json();
@@ -439,6 +529,17 @@ export class ServicesAPI {
   async get(name: string): Promise<Service | null> {
     const services = await this.list();
     return services.find(s => s.name.toLowerCase() === name.toLowerCase()) || null;
+  }
+
+  async update(id: string, options: { name?: string }): Promise<void> {
+    await this.client.fetch(`/v1/services/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(options),
+    });
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.client.fetch(`/v1/services/${id}`, { method: 'DELETE' });
   }
 
   /**
@@ -561,6 +662,85 @@ export class GrantsAPI {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Shares API
+// ─────────────────────────────────────────────────────────────────────────────
+
+export class SharesAPI {
+  constructor(private client: PrivateConnect) {}
+
+  async create(serviceId: string, options: ShareCreateOptions): Promise<{ id: string; token: string; shareUrl: string; expiresAt: string | null }> {
+    const response = await this.client.fetch(`/v1/services/${serviceId}/shares`, {
+      method: 'POST',
+      body: JSON.stringify(options),
+    });
+    const data = await response.json();
+    return data.share;
+  }
+
+  async list(serviceId: string): Promise<Share[]> {
+    const response = await this.client.fetch(`/v1/services/${serviceId}/shares`);
+    const data = await response.json();
+    return data.shares || [];
+  }
+
+  async revoke(shareId: string): Promise<void> {
+    await this.client.fetch(`/v1/shares/${shareId}`, { method: 'DELETE' });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Groups API
+// ─────────────────────────────────────────────────────────────────────────────
+
+export class GroupsAPI {
+  constructor(private client: PrivateConnect) {}
+
+  async create(options: GroupCreateOptions): Promise<ServiceGroup> {
+    const response = await this.client.fetch('/v1/groups', {
+      method: 'POST',
+      body: JSON.stringify(options),
+    });
+    const data = await response.json();
+    return data.group;
+  }
+
+  async list(): Promise<ServiceGroup[]> {
+    const response = await this.client.fetch('/v1/groups');
+    const data = await response.json();
+    return data.groups || [];
+  }
+
+  async get(id: string): Promise<ServiceGroup> {
+    const response = await this.client.fetch(`/v1/groups/${id}`);
+    const data = await response.json();
+    return data.group;
+  }
+
+  async addService(groupId: string, options: Omit<ServiceRegisterOptions, 'groupId'>): Promise<Service> {
+    const response = await this.client.fetch(`/v1/groups/${groupId}/services`, {
+      method: 'POST',
+      body: JSON.stringify(options),
+    });
+    const data = await response.json();
+    return data.service;
+  }
+
+  async createShares(groupId: string, options: { name: string; description?: string; expiresIn?: string }): Promise<Array<{ id: string; token: string; serviceName: string; shareUrl: string }>> {
+    const response = await this.client.fetch(`/v1/groups/${groupId}/shares`, {
+      method: 'POST',
+      body: JSON.stringify(options),
+    });
+    const data = await response.json();
+    return data.shares || [];
+  }
+
+  async delete(id: string): Promise<{ deletedServices: number }> {
+    const response = await this.client.fetch(`/v1/groups/${id}`, { method: 'DELETE' });
+    return response.json();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main Client
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -569,14 +749,20 @@ export class PrivateConnect {
   private manifest: Map<string, ManifestResource> = new Map();
   private manifestPath?: string;
 
-  /** Agents API for discovery and orchestration */
+  /** Agents API for discovery, orchestration, and provisioning */
   public agents: AgentsAPI;
 
-  /** Services API for connecting to services */
+  /** Services API for registering, connecting to, and managing services */
   public services: ServicesAPI;
 
   /** Grants API for managing scoped access tokens (time-limited or persistent) */
   public grants: GrantsAPI;
+
+  /** Shares API for creating and managing service share links */
+  public shares: SharesAPI;
+
+  /** Groups API for managing service groups (per-branch, per-project environments) */
+  public groups: GroupsAPI;
 
   constructor(config: PrivateConnectConfig = {}) {
     this.config = {
@@ -588,6 +774,8 @@ export class PrivateConnect {
     this.agents = new AgentsAPI(this);
     this.services = new ServicesAPI(this);
     this.grants = new GrantsAPI(this);
+    this.shares = new SharesAPI(this);
+    this.groups = new GroupsAPI(this);
 
     if (!config.disableTracking) {
       trackSdkUsage(this.config.hubUrl);

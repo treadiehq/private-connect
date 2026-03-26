@@ -574,34 +574,30 @@ DATABASE_URL=postgres://prod-db.connect/myapp
 
 ---
 
-## Private Git Infrastructure with Code Storage
+## Branch-to-Environment Access with Code Storage
 
-Running [Code Storage](https://code.storage) (Pierre Computer Company) as your programmable Git layer for AI agents, agentic frameworks, or internal tooling? Keep it private and reachable by name.
+Building on [Code Storage](https://code.storage)? Private Connect creates named environments that match your branch lifecycle.
 
-**The problem:** Your Code Storage instance needs to be reachable by AI agents, CI runners, and developers — but shouldn't be exposed to the public internet.
-
-**The solution:**
+**Code Storage** keeps the code. **Private Connect** reaches the private world around it.
 
 ```bash
-# On the server running Code Storage
-connect daemon install
-connect expose localhost:3000 --name code-storage
+# Branch created → spin up environment with all services
+curl -X POST https://api.privateconnect.co/v1/groups \
+  -H "x-api-key: pc_xxx" \
+  -d '{ "name": "fix-auth-bug", "services": [...] }'
+# → fix-auth-bug.app.connect, fix-auth-bug.db.connect
 
-# From any AI agent, CI runner, or dev machine
-connect up
-connect reach code-storage --port 3000
-
-# Clone, push, and create repos via localhost
-git clone http://localhost:3000/my-org/repo
+# Branch deleted → one call tears it all down
+curl -X DELETE https://api.privateconnect.co/v1/groups/<id> \
+  -H "x-api-key: pc_xxx"
 ```
 
 **Also great for:**
-- Team access to shared Git infra via `connect share` / `connect clone`
-- Time-limited contractor access to repos
-- CI/CD pipelines pushing build artifacts without IP allowlists
-- Receiving Code Storage webhooks on your local machine during development
+- Scoped, time-limited grants for AI agents per branch
+- Preview share links for teammates (no account required)
+- Self-hosted Code Storage exposed by name, not public URL
 
-See the [full Code Storage guide](docs/code-storage-and-private-connect.md).
+See the [full Code Storage integration guide](docs/code-storage-and-private-connect.md).
 
 ---
 
