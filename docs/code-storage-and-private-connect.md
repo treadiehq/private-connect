@@ -1,4 +1,4 @@
-# Private Connect + Code Storage
+# Private Connect and Code Storage
 
 Code Storage keeps the code. Private Connect reaches the private world around it.
 
