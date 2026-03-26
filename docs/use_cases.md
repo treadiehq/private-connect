@@ -574,6 +574,37 @@ DATABASE_URL=postgres://prod-db.connect/myapp
 
 ---
 
+## Private Git Infrastructure with Code Storage
+
+Running [Code Storage](https://code.storage) (Pierre Computer Company) as your programmable Git layer for AI agents, agentic frameworks, or internal tooling? Keep it private and reachable by name.
+
+**The problem:** Your Code Storage instance needs to be reachable by AI agents, CI runners, and developers — but shouldn't be exposed to the public internet.
+
+**The solution:**
+
+```bash
+# On the server running Code Storage
+connect daemon install
+connect expose localhost:3000 --name code-storage
+
+# From any AI agent, CI runner, or dev machine
+connect up
+connect reach code-storage --port 3000
+
+# Clone, push, and create repos via localhost
+git clone http://localhost:3000/my-org/repo
+```
+
+**Also great for:**
+- Team access to shared Git infra via `connect share` / `connect clone`
+- Time-limited contractor access to repos
+- CI/CD pipelines pushing build artifacts without IP allowlists
+- Receiving Code Storage webhooks on your local machine during development
+
+See the [full Code Storage guide](docs/code-storage-and-private-connect.md).
+
+---
+
 ## Let AI Help Debug Your Infrastructure
 
 Connect your AI coding assistant to your service mesh:
