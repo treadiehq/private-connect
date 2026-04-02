@@ -111,6 +111,7 @@ export class GroupsService {
             name: true,
             targetHost: true,
             targetPort: true,
+            tunnelPort: true,
             protocol: true,
             status: true,
             isPublic: true,
@@ -154,8 +155,8 @@ export class GroupsService {
     const group = await this.get(id, workspaceId);
 
     for (const svc of group.services) {
-      if (svc.id) {
-        this.servicesService.releasePort(0);
+      if (svc.tunnelPort) {
+        this.servicesService.releasePort(svc.tunnelPort);
       }
     }
 
