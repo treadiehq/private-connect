@@ -318,7 +318,7 @@ program
   });
 
 program
-  .command('ssh <target>')
+  .command('ssh <target> [remoteCommand...]')
   .description('SSH into a machine exposing a service (e.g. connect ssh shell)')
   .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
   .option('-u, --user <user>', 'SSH username (default: current OS user)')
@@ -327,11 +327,12 @@ program
 Examples:
   $ connect ssh shell
   $ connect ssh root@shell
-  $ connect ssh mydb --user admin
+  $ connect ssh shell -- whoami
+  $ connect ssh shell -- cat /etc/hostname | claude
 `)
-  .action((target, options) => {
+  .action((target, remoteCommand, options) => {
     if (options.config) setConfigPath(options.config);
-    sshCommand(target, options);
+    sshCommand(target, remoteCommand, options);
   });
 
 program

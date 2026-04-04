@@ -1859,7 +1859,7 @@ function generateAsciiQR(_data: string): string {
 // SSH — one-command SSH via share code
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function runSshCommand(target: string): Promise<void> {
+async function runSshCommand(target: string, remoteArgs: string[] = []): Promise<void> {
   let user: string;
   let code: string;
 
@@ -1935,6 +1935,7 @@ async function runSshCommand(target: string): Promise<void> {
         '-o', 'LogLevel=ERROR',
         '-p', String(localPort),
         `${user}@127.0.0.1`,
+        ...remoteArgs,
       ],
       { stdio: 'inherit' },
     );
@@ -2173,9 +2174,12 @@ if (args[0] === 'scan') {
     console.error(`${c.red}Error: Share code required${c.reset}`);
     console.error(`Usage: npx private-connect ssh <code>`);
     console.error(`       npx private-connect ssh root@<code>`);
+    console.error(`       npx private-connect ssh <code> -- whoami`);
     process.exit(1);
   }
-  runSshCommand(args[1]).catch(console.error);
+  const dashDash = args.indexOf('--');
+  const remoteArgs = dashDash >= 0 ? args.slice(dashDash + 1) : [];
+  runSshCommand(args[1], remoteArgs).catch(console.error);
 } else if (args[0] === 'test' || args[0] === 'check') {
   if (!args[1]) {
     console.error(`${c.red}Error: Target required${c.reset}`);

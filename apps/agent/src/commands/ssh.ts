@@ -22,7 +22,7 @@ interface SshCommandOptions {
   config?: string;
 }
 
-export async function sshCommand(target: string, options: SshCommandOptions) {
+export async function sshCommand(target: string, remoteArgs: string[], options: SshCommandOptions) {
   let user: string;
   let serviceName: string;
 
@@ -99,17 +99,16 @@ export async function sshCommand(target: string, options: SshCommandOptions) {
   const localPort = (server.address() as net.AddressInfo).port;
   process.stderr.write(chalk.green(`  Connected. Launching SSH as ${chalk.bold(user)}...\n\n`));
 
-  const ssh = spawn(
-    'ssh',
-    [
-      '-o', 'StrictHostKeyChecking=no',
-      '-o', 'UserKnownHostsFile=/dev/null',
-      '-o', 'LogLevel=ERROR',
-      '-p', String(localPort),
-      `${user}@127.0.0.1`,
-    ],
-    { stdio: 'inherit' },
-  );
+  const sshArgs = [
+    '-o', 'StrictHostKeyChecking=no',
+    '-o', 'UserKnownHostsFile=/dev/null',
+    '-o', 'LogLevel=ERROR',
+    '-p', String(localPort),
+    `${user}@127.0.0.1`,
+    ...remoteArgs,
+  ];
+
+  const ssh = spawn('ssh', sshArgs, { stdio: 'inherit' });
 
   ssh.on('close', (code) => {
     server.close();
