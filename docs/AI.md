@@ -377,6 +377,16 @@ connect capabilities list
 
 # Connection Strings
 connect connection-string <service>
+
+# SSH for AI Agents
+connect ssh <service>              # SSH into a machine by service name
+connect ssh root@<service>         # SSH as a specific user
+connect ssh <service> -- <command> # Run a command, get output
+connect ssh shell -- cat /etc/hostname | claude  # Pipe to AI
+
+# SSH (no auth, share codes)
+npx private-connect ssh <code>
+npx private-connect ssh <code> -- whoami
 ```
 
 ---
