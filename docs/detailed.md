@@ -125,6 +125,23 @@ npx private-connect test vault.internal:8200
 
 Checks TCP, TLS, HTTP, latency. No signup required.
 
+### Quick SSH (No Auth)
+
+```bash
+# Host shares SSH
+npx private-connect up 22
+
+# Anyone SSHs in — one command
+npx private-connect ssh <code>
+npx private-connect ssh root@<code>
+
+# Run a remote command and pipe output
+npx private-connect ssh <code> -- whoami
+npx private-connect ssh <code> -- cat /etc/hostname | claude
+```
+
+No signup, no config. The share code is the auth.
+
 ### Quick Tunnel (No Auth)
 
 ```bash
@@ -208,6 +225,7 @@ connect <target>              # Expose if local, reach if service name
 connect up                    # Authenticate
 connect expose <host:port>    # Expose a service
 connect reach <service>       # Access a service
+connect ssh <service>         # SSH into a machine exposing a service
 connect share                 # Share environment with teammates
 connect join <code>           # Join shared environment
 connect clone <teammate>      # Clone teammate's environment
@@ -250,6 +268,9 @@ connect logout                # Clear credentials
 -t, --timeout <ms>     Timeout
 --check                Only diagnostics
 --json                 JSON output
+
+# connect ssh
+-u, --user <user>      SSH username (default: current OS user)
 
 # connect link
 -e, --expires <time>   1h, 24h, 7d, 30d, never

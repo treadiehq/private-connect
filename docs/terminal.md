@@ -29,7 +29,28 @@ connect share
 
 Make sure Remote Login (SSH) is enabled on the host (macOS: System Settings → General → Sharing → Remote Login).
 
-## Joiner: terminal from another machine
+## Joiner: one-command SSH
+
+```bash
+# One command — connects and launches SSH automatically
+connect ssh shell
+
+# Or specify a user
+connect ssh root@shell
+
+# Run a remote command
+connect ssh shell -- whoami
+connect ssh shell -- cat /etc/os-release | claude
+```
+
+### Without the CLI (npx, no auth)
+
+```bash
+npx private-connect ssh abc123
+npx private-connect ssh root@abc123
+```
+
+### Manual method
 
 ```bash
 # Join the shared environment

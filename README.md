@@ -64,6 +64,20 @@ connect join x7k9m2
 # → Same services, same ports. Done.
 ```
 
+## SSH in one command
+
+```bash
+# Authenticated (named services)
+connect ssh shell
+connect ssh root@shell
+
+# Unauthenticated (share codes, no install)
+npx private-connect ssh <code>
+
+# Run a command and pipe to AI
+connect ssh shell -- cat /etc/hostname | claude
+```
+
 ## Browser terminal
 
 Give someone shell access with just a share code, no CLI install needed on their side.

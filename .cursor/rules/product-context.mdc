@@ -33,11 +33,11 @@ A hub-and-spoke connectivity platform. Agents run on machines, expose local serv
 
 ## CLI commands (authenticated)
 
-`connect up`, `connect expose`, `connect reach`, `connect share`, `connect join`, `connect clone`, `connect link`, `connect delete`, `connect proxy`, `connect daemon`, `connect dev`, `connect dns`, `connect mcp`, `connect shell`, `connect grant`, `connect status`, `connect doctor`, `connect whoami`, `connect update`, `connect logout`
+`connect up`, `connect expose`, `connect reach`, `connect ssh`, `connect share`, `connect join`, `connect clone`, `connect link`, `connect delete`, `connect proxy`, `connect daemon`, `connect dev`, `connect dns`, `connect mcp`, `connect shell`, `connect grant`, `connect status`, `connect doctor`, `connect whoami`, `connect update`, `connect logout`
 
 ## CLI commands (npx, no auth)
 
-`npx private-connect tunnel <port>`, `npx private-connect up <ports...>`, `npx private-connect join <code>`, `npx private-connect test <target>`, `npx private-connect <provider> <port>`
+`npx private-connect tunnel <port>`, `npx private-connect up <ports...>`, `npx private-connect join <code>`, `npx private-connect ssh <code>`, `npx private-connect test <target>`, `npx private-connect <provider> <port>`
 
 ## API rate limits (ThrottlerGuard, global)
 

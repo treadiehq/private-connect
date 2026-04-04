@@ -102,6 +102,24 @@ Private Connect - Join Environment
 
 If a port is busy on the joiner's machine, it automatically picks a nearby available port.
 
+### `ssh` - SSH into a shared machine
+
+```bash
+npx private-connect ssh <code>
+```
+
+One command. Connects through the share code and launches SSH automatically.
+
+**Examples:**
+```bash
+npx private-connect ssh abc123              # SSH as current user
+npx private-connect ssh root@abc123         # SSH as root
+npx private-connect ssh abc123 -- whoami    # Run a remote command
+npx private-connect ssh abc123 -- cat /etc/hostname | claude  # Pipe to AI
+```
+
+The host shares SSH with `npx private-connect up 22`, the joiner connects with `npx private-connect ssh <code>`.
+
 ### `test` - Test connectivity
 
 ```bash
