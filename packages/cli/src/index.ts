@@ -28,6 +28,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { URL } from 'url';
 import { randomBytes } from 'crypto';
+import { spawn } from 'child_process';
 import { io } from 'socket.io-client';
 
 // Colors (no dependencies)
@@ -326,6 +327,7 @@ ${c.bold}Commands:${c.reset}
   scan               Detect private services running locally
   up <ports...>      Share local services with a join code
   join <code>        Connect to a shared environment
+  ssh <code>         SSH into a shared machine (one command)
   check <target>     Test connectivity to any service
   test <target>      Alias for check
   tunnel <port>      Create a temporary public tunnel
@@ -340,6 +342,7 @@ ${c.bold}Examples:${c.reset}
   ${c.green}npx private-connect scan${c.reset}
   ${c.green}npx private-connect up 3000 5432 6379${c.reset}
   ${c.green}npx private-connect join abc123${c.reset}
+  ${c.green}npx private-connect ssh abc123${c.reset}
   npx private-connect test vault.internal:8200
   npx private-connect tunnel 3000
   npx private-connect tunnel 4096 --tcp
@@ -431,7 +434,7 @@ const WEBHOOK_PROVIDERS: Record<string, WebhookProvider> = {
 };
 
 // Reserved CLI commands that should NOT be treated as provider names
-const RESERVED_COMMANDS = ['scan', 'test', 'check', 'tunnel', 'list', 'ls', 'close', 'kill', 'up', 'join', 'setup-openclaw', 'openclaw-setup', 'setup-moltbot', 'moltbot-setup', 'pair', 'qr', '--help', '-h'];
+const RESERVED_COMMANDS = ['scan', 'test', 'check', 'tunnel', 'list', 'ls', 'close', 'kill', 'up', 'join', 'ssh', 'setup-openclaw', 'openclaw-setup', 'setup-moltbot', 'moltbot-setup', 'pair', 'qr', '--help', '-h'];
 
 function getProviderInstructions(provider: WebhookProvider): string[] {
   return provider.instructions.map(line =>
@@ -805,6 +808,7 @@ async function runTunnelProxy(tunnelId: string, wsUrl: string, localHost: string
     });
 
     const requestDurations: number[] = [];
+    let requestCount = 0;
 
     socket.on('connect', () => {
       // Register this tunnel
@@ -1851,6 +1855,107 @@ function generateAsciiQR(_data: string): string {
   return lines.join('\n');
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SSH — one-command SSH via share code
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function runSshCommand(target: string): Promise<void> {
+  let user: string;
+  let code: string;
+
+  if (target.includes('@')) {
+    const [u, ...rest] = target.split('@');
+    user = u;
+    code = rest.join('@');
+  } else {
+    user = os.userInfo().username;
+    code = target;
+  }
+
+  process.stderr.write(`\n${c.bold}Private Connect${c.reset} ${c.dim}— SSH${c.reset}\n\n`);
+  process.stderr.write(`  Fetching ${c.cyan}${code}${c.reset}... `);
+
+  try {
+    const response = await httpRequest(`${HUB_URL}/v1/tunnels/temporary/bundle/${code}`, {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      process.stderr.write(`${fail}\n`);
+      if (response.status === 404) {
+        process.stderr.write(`\n  ${c.red}Code not found or expired${c.reset}\n\n`);
+      } else {
+        process.stderr.write(`\n  ${c.red}Error: ${response.status}${c.reset}\n\n`);
+      }
+      process.exit(1);
+    }
+
+    process.stderr.write(`${ok}\n`);
+
+    const data = JSON.parse(response.body) as {
+      code: string;
+      tcpHost: string;
+      expiresAt: string;
+      tunnels: Array<{ localPort: number; tcpPort: number; connected: boolean }>;
+    };
+
+    const sshTunnel = data.tunnels.find((t) => t.localPort === 22) || data.tunnels[0];
+
+    if (!sshTunnel) {
+      process.stderr.write(`\n  ${c.red}No services found in this share${c.reset}\n\n`);
+      process.exit(1);
+    }
+
+    const server = net.createServer((clientSocket) => {
+      const remoteSocket = net.createConnection({
+        host: data.tcpHost,
+        port: sshTunnel.tcpPort,
+      });
+      remoteSocket.on('connect', () => {
+        clientSocket.pipe(remoteSocket);
+        remoteSocket.pipe(clientSocket);
+      });
+      remoteSocket.on('error', () => clientSocket.destroy());
+      clientSocket.on('error', () => remoteSocket.destroy());
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      server.on('error', reject);
+      server.listen(0, '127.0.0.1', resolve);
+    });
+
+    const localPort = (server.address() as net.AddressInfo).port;
+    process.stderr.write(`  ${c.green}Connected. Launching SSH as ${c.bold}${user}${c.reset}${c.green}...${c.reset}\n\n`);
+
+    const ssh = spawn(
+      'ssh',
+      [
+        '-o', 'StrictHostKeyChecking=no',
+        '-o', 'UserKnownHostsFile=/dev/null',
+        '-o', 'LogLevel=ERROR',
+        '-p', String(localPort),
+        `${user}@127.0.0.1`,
+      ],
+      { stdio: 'inherit' },
+    );
+
+    ssh.on('close', (exitCode) => {
+      server.close();
+      process.exit(exitCode || 0);
+    });
+
+    ssh.on('error', (err: Error) => {
+      process.stderr.write(`  ${c.red}Failed to launch ssh: ${err.message}${c.reset}\n`);
+      server.close();
+      process.exit(1);
+    });
+  } catch (err: any) {
+    process.stderr.write(`${fail}\n`);
+    process.stderr.write(`\n  ${c.red}Error: ${err.message}${c.reset}\n\n`);
+    process.exit(1);
+  }
+}
+
 // Main
 // ─────────────────────────────────────────────────────────────────────────────
 // Scan — detect private services running locally
@@ -2063,6 +2168,14 @@ if (args[0] === 'scan') {
     process.exit(1);
   }
   runJoinCommand(args[1]).catch(console.error);
+} else if (args[0] === 'ssh') {
+  if (!args[1]) {
+    console.error(`${c.red}Error: Share code required${c.reset}`);
+    console.error(`Usage: npx private-connect ssh <code>`);
+    console.error(`       npx private-connect ssh root@<code>`);
+    process.exit(1);
+  }
+  runSshCommand(args[1]).catch(console.error);
 } else if (args[0] === 'test' || args[0] === 'check') {
   if (!args[1]) {
     console.error(`${c.red}Error: Target required${c.reset}`);

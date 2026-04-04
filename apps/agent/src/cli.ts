@@ -25,6 +25,7 @@ import { debugCommand } from './commands/debug';
 import { loginCommand } from './commands/login';
 import { resourceCommand } from './commands/resource';
 import { resourcesCommand } from './commands/resources';
+import { sshCommand } from './commands/ssh';
 import { setConfigPath } from './config';
 import { validateHubUrl } from './security';
 
@@ -314,6 +315,23 @@ program
       public: false,
       config: options.config,
     });
+  });
+
+program
+  .command('ssh <target>')
+  .description('SSH into a machine exposing a service (e.g. connect ssh shell)')
+  .option('-H, --hub <url>', 'Hub URL', DEFAULT_HUB_URL)
+  .option('-u, --user <user>', 'SSH username (default: current OS user)')
+  .option('-c, --config <path>', 'Config file path')
+  .addHelpText('after', `
+Examples:
+  $ connect ssh shell
+  $ connect ssh root@shell
+  $ connect ssh mydb --user admin
+`)
+  .action((target, options) => {
+    if (options.config) setConfigPath(options.config);
+    sshCommand(target, options);
   });
 
 program
