@@ -858,6 +858,7 @@ async function runTunnelProxy(tunnelId: string, wsUrl: string, localHost: string
       path: string;
       headers: Record<string, string>;
       body: string;
+      bodyEncoding?: string;
     }) => {
       requestCount++;
       const start = Date.now();
@@ -914,7 +915,7 @@ async function runTunnelProxy(tunnelId: string, wsUrl: string, localHost: string
 function forwardToLocal(
   host: string, 
   port: number, 
-  request: { method: string; path: string; headers: Record<string, string>; body: string }
+  request: { method: string; path: string; headers: Record<string, string>; body: string; bodyEncoding?: string }
 ): Promise<{ status: number; headers: Record<string, string>; body: string }> {
   return new Promise((resolve, reject) => {
     const options = {
@@ -954,7 +955,7 @@ function forwardToLocal(
     req.on('timeout', () => reject(new Error('Request timeout')));
 
     if (request.body) {
-      req.write(request.body);
+      req.write(request.bodyEncoding === 'base64' ? Buffer.from(request.body, 'base64') : request.body);
     }
     req.end();
   });

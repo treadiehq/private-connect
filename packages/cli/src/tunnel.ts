@@ -138,7 +138,7 @@ function httpRequest(
 function forwardHttpToLocal(
   host: string,
   port: number,
-  request: { method: string; path: string; headers: Record<string, string>; body: string },
+  request: { method: string; path: string; headers: Record<string, string>; body: string; bodyEncoding?: string },
 ): Promise<{ status: number; headers: Record<string, string>; body: Buffer }> {
   return new Promise((resolve, reject) => {
     const req = http.request(
@@ -165,7 +165,7 @@ function forwardHttpToLocal(
     );
     req.on('error', reject);
     req.on('timeout', () => reject(new Error('Request timeout')));
-    if (request.body) req.write(request.body);
+    if (request.body) req.write(request.bodyEncoding === 'base64' ? Buffer.from(request.body, 'base64') : request.body);
     req.end();
   });
 }
@@ -230,6 +230,7 @@ function runHttpProxy(
     path: string;
     headers: Record<string, string>;
     body: string;
+    bodyEncoding?: string;
   }) => {
     try {
       const response = await forwardHttpToLocal(host, port, data);
