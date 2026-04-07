@@ -231,7 +231,9 @@ connect join <code>           # Join shared environment
 connect clone <teammate>      # Clone teammate's environment
 connect link <service>        # Create public URL
 connect delete <service>      # Delete a service
+connect run <name> <cmd...>   # Run a command and expose via proxy
 connect proxy                 # Subdomain proxy (my-api.localhost:3000)
+connect hosts <action>        # Manage /etc/hosts for Safari compat (sync|clean)
 connect daemon <action>       # Background daemon (install|status|logs)
 connect dev                   # Provision resources + expose services (pconnect.yml)
 connect dns <action>          # Local DNS (*.connect domains)
@@ -280,6 +282,14 @@ connect logout                # Clear credentials
 
 # connect delete
 -f, --force            Skip confirmation prompt
+
+# connect run
+--port <port>          Use a specific port (default: auto-assign 4000+)
+--https                Ensure proxy uses HTTPS
+
+# connect proxy start
+--lan                  Bind to LAN, advertise via mDNS (connect.local)
+--wildcard             Fall back to parent route for unregistered subdomains
 
 # connect daemon
 -r, --replace          Replace existing
@@ -649,6 +659,102 @@ connect proxy start --foreground
 ```
 
 Certificates auto-renew when expiring within 30 days.
+
+### `connect run` — One-Command Dev Server
+
+Run any dev command and make it available through the proxy in one step. No auth required.
+
+```bash
+connect run api next dev
+# → Assigns port 4000+, sets PORT env var, spawns "next dev"
+# → Registers with proxy automatically
+# → https://api.localhost:3000
+
+connect run frontend vite
+# → https://frontend.localhost:3000
+
+# Override the assigned port
+connect run --port 4000 api next dev
+
+# Ensure HTTPS is enabled
+connect run --https api node server.js
+```
+
+`connect run` sets the `PORT` environment variable so most frameworks (Next.js, Express, Nuxt, Fastify) pick up the port automatically. The route is cleaned up when the process exits.
+
+Multiple services can run simultaneously — each gets its own port and subdomain.
+
+### HTTP/2
+
+When HTTPS is enabled, the proxy uses HTTP/2 with automatic HTTP/1.1 fallback. Browsers limit HTTP/1.1 to 6 concurrent connections per host, which bottlenecks unbundled dev servers (Vite, Nuxt) that serve many modules. HTTP/2 multiplexes all requests over a single connection.
+
+No configuration needed — HTTP/2 activates automatically when TLS is active.
+
+### LAN Mode
+
+Test on real devices (phones, tablets, TVs) on the same Wi-Fi network:
+
+```bash
+connect proxy start --lan
+# → Auto-detects your LAN IP
+# → Generates HTTPS certs covering *.connect.local and the LAN IP
+# → Advertises connect.local via mDNS
+# → Binds on 0.0.0.0 (reachable from the network)
+```
+
+Services become available at `https://<name>.connect.local:<port>`:
+
+```
+From this machine:
+  https://api.localhost:3000
+
+From other devices on your network:
+  https://api.connect.local:3000
+```
+
+LAN mode implies `--https`. The mDNS responder handles both `connect.local` and any subdomain of it (e.g. `api.connect.local`), so existing subdomain routing works on LAN devices too.
+
+### Wildcard Subdomains
+
+For multi-tenant apps where subdomains map to tenants:
+
+```bash
+connect proxy start --https --wildcard
+```
+
+When `--wildcard` is enabled, `tenant1.myapp.localhost` falls back to the `myapp` route if `tenant1` isn't a registered service. This lets you test multi-tenant routing locally without registering every subdomain.
+
+### `/etc/hosts` Sync (Safari Fix)
+
+Safari and some older DNS resolvers don't resolve `.localhost` subdomains. Private Connect can sync routes to `/etc/hosts`:
+
+```bash
+# Manual sync (prompts for sudo)
+connect hosts sync
+
+# Remove entries
+connect hosts clean
+```
+
+The proxy also attempts a non-interactive sync on startup (via `sudo -n`). If credentials aren't cached, it skips silently. Entries are wrapped in `# BEGIN private-connect` / `# END private-connect` markers and cleaned up on proxy shutdown.
+
+### Loop Detection
+
+If your dev server proxies API requests back through the Private Connect proxy (e.g. Vite's `server.proxy`), the proxy detects the loop and returns `508 Loop Detected` with a fix:
+
+> Set `changeOrigin: true` in your dev server proxy config.
+
+```js
+// vite.config.ts
+server: {
+  proxy: {
+    "/api": {
+      target: "https://api.localhost:3000",
+      changeOrigin: true,  // required to avoid loops
+    },
+  },
+}
+```
 
 Set `CONNECT=0` or `CONNECT=skip` to bypass Private Connect entirely (useful for CI):
 

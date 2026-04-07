@@ -1,5 +1,5 @@
 import * as http from 'http';
-import * as https from 'https';
+import * as http2 from 'http2';
 import * as net from 'net';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -14,6 +14,8 @@ import {
   getProxyLogPath, getProxyHeader,
   getDefaultProxyPort, isProxyResponding, waitForProxy,
 } from '../proxy-state';
+import { getLanIP, getLanHostname, startMdnsResponder, type MdnsResponder } from '../lan';
+import { syncHosts, cleanHosts } from '../hosts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -29,6 +31,8 @@ interface ProxyOptions {
   key?: string;
   trust?: boolean;
   foreground?: boolean;
+  lan?: boolean;
+  wildcard?: boolean;
 }
 
 interface Service {
@@ -121,9 +125,15 @@ function buildRouteTable(
   return table;
 }
 
-function findRoute(routes: Map<string, RouteTarget>, hostname: string): RouteTarget | null {
-  const subdomain = hostname.split('.')[0].split(':')[0].toLowerCase();
-  return routes.get(subdomain) || null;
+function findRoute(routes: Map<string, RouteTarget>, hostname: string, wildcard = false): RouteTarget | null {
+  const labels = hostname.split(':')[0].toLowerCase().split('.');
+  const exact = routes.get(labels[0]);
+  if (exact) return exact;
+  // Wildcard: tenant.myapp.localhost → fall back to the "myapp" route
+  if (wildcard && labels.length > 2) {
+    return routes.get(labels[1]) || null;
+  }
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -152,18 +162,14 @@ export async function proxyCommand(action: string | undefined, options: ProxyOpt
 
 async function startProxy(options: ProxyOptions) {
   const config = loadConfig();
-  if (!config) {
-    console.error(chalk.red('[x] Agent not configured'));
-    console.log(chalk.gray(`  Run ${chalk.cyan('connect up')} first to authenticate.\n`));
-    process.exit(1);
-  }
 
   if (options.trust) {
     return handleTrust();
   }
 
   const isForeground = !!options.foreground || process.env.CONNECT_PROXY_FOREGROUND === '1';
-  const wantHttps = !!options.https || !!options.cert;
+  const wantLan = !!options.lan;
+  const wantHttps = !!options.https || !!options.cert || wantLan;
 
   // Check if already running
   const existing = readProxyState();
@@ -202,6 +208,8 @@ async function startProxy(options: ProxyOptions) {
           daemonArgs.push('--https');
         }
       }
+      if (wantLan) daemonArgs.push('--lan');
+      if (options.wildcard) daemonArgs.push('--wildcard');
 
       const child = spawn(process.execPath, daemonArgs, {
         detached: true,
@@ -233,11 +241,11 @@ async function startProxy(options: ProxyOptions) {
 
   // ── Foreground mode ────────────────────────────────────────────────────
 
-  const hubUrl = config.hubUrl || options.hub;
+  const hubUrl = config?.hubUrl || options.hub;
   const preferredPort = options.port || getDefaultProxyPort();
 
   console.log(chalk.cyan('\n🌐 Starting subdomain proxy...\n'));
-  console.log(chalk.gray(`  Hub:  ${hubUrl}`));
+  if (hubUrl) console.log(chalk.gray(`  Hub:  ${hubUrl}`));
 
   // Port selection
   let actualPort = preferredPort;
@@ -268,6 +276,22 @@ async function startProxy(options: ProxyOptions) {
 
   console.log(chalk.gray(`  Port: ${actualPort}${wasAutoSelected ? chalk.yellow(' (auto-selected)') : ''}`));
 
+  // LAN mode setup
+  let lanIP: string | null = null;
+  let lanHostname: string | null = null;
+  let mdnsResponder: MdnsResponder | null = null;
+
+  if (wantLan) {
+    lanIP = getLanIP();
+    if (!lanIP) {
+      console.error(chalk.red('\n[x] Could not detect a LAN IP address.'));
+      console.error(chalk.gray('  Make sure you are connected to a Wi-Fi or Ethernet network.\n'));
+      process.exit(1);
+    }
+    lanHostname = getLanHostname();
+    console.log(chalk.gray(`  LAN:  ${lanIP} (${lanHostname})`));
+  }
+
   // TLS setup
   let tlsOptions: { cert: Buffer; key: Buffer } | null = null;
 
@@ -282,8 +306,13 @@ async function startProxy(options: ProxyOptions) {
         process.exit(1);
       }
     } else {
-      console.log(chalk.gray(`  TLS:  auto-generating certificates...`));
-      const result = ensureCerts();
+      const sanLabel = wantLan ? 'auto-generating certificates (LAN)...' : 'auto-generating certificates...';
+      console.log(chalk.gray(`  TLS:  ${sanLabel}`));
+      const extraSANs = wantLan && lanHostname && lanIP ? {
+        dnsNames: [`*.${lanHostname}`, lanHostname],
+        ips: [lanIP],
+      } : undefined;
+      const result = ensureCerts(extraSANs);
       if (result.caGenerated) console.log(chalk.green(`  [ok] Generated local CA`));
       if (result.serverGenerated) console.log(chalk.green(`  [ok] Generated server certificate`));
 
@@ -308,18 +337,31 @@ async function startProxy(options: ProxyOptions) {
 
   console.log();
 
+  // Start mDNS responder for LAN mode
+  if (wantLan && lanIP && lanHostname) {
+    try {
+      mdnsResponder = startMdnsResponder(lanHostname, lanIP);
+      console.log(chalk.green(`[ok] mDNS: ${lanHostname} \u2192 ${lanIP}`));
+    } catch {
+      console.warn(chalk.yellow('[!] Could not start mDNS responder. Devices can still connect via IP.'));
+    }
+    console.log();
+  }
+
   // Service + route state
   let hubServices: Service[] = [];
   let activeRoutes: ActiveRoute[] = [];
   let routes: Map<string, RouteTarget> = new Map();
 
   const refreshAll = async () => {
-    try {
-      const response = await fetch(`${hubUrl}/v1/services`, {
-        headers: { 'x-api-key': config.apiKey },
-      });
-      if (response.ok) hubServices = await response.json() as Service[];
-    } catch { /* keep cached */ }
+    if (config?.apiKey && hubUrl) {
+      try {
+        const response = await fetch(`${hubUrl}/v1/services`, {
+          headers: { 'x-api-key': config.apiKey },
+        });
+        if (response.ok) hubServices = await response.json() as Service[];
+      } catch { /* keep cached */ }
+    }
 
     activeRoutes = loadActiveRoutes();
     routes = buildRouteTable(hubServices, activeRoutes);
@@ -338,6 +380,18 @@ async function startProxy(options: ProxyOptions) {
     }
   }
   console.log();
+
+  // Sync /etc/hosts for Safari compatibility (best-effort, non-interactive)
+  if (routes.size > 0) {
+    const hostEntries = Array.from(routes.values()).map(r => ({
+      hostname: `${r.name}.localhost`,
+      ip: '127.0.0.1',
+    }));
+    const hostsResult = syncHosts(hostEntries);
+    if (hostsResult.synced) {
+      console.log(chalk.green('[ok] /etc/hosts synced'));
+    }
+  }
 
   const hubRefreshInterval = setInterval(refreshAll, 10000);
 
@@ -365,21 +419,33 @@ async function startProxy(options: ProxyOptions) {
   const isTls = !!tlsOptions;
   const proto = isTls ? 'https' : 'http';
   const headerName = getProxyHeader();
+  const useWildcard = !!options.wildcard;
 
   const handleRequest = (req: http.IncomingMessage, res: http.ServerResponse) => {
     res.setHeader(headerName, '1');
 
+    // Loop detection — request already passed through this proxy
+    if (req.headers[headerName]) {
+      res.writeHead(508, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: 'Loop Detected',
+        message: 'Request already passed through this proxy. Check your dev server proxy config \u2014 set changeOrigin: true.',
+      }));
+      return;
+    }
+
     const host = req.headers.host || '';
-    const route = findRoute(routes, host);
+    const route = findRoute(routes, host, useWildcard);
 
     if (!route) {
       const subdomain = host.split('.')[0];
+      const domain = lanHostname || 'localhost';
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         error: 'Service not found',
         subdomain,
         available: Array.from(routes.values()).map(r => r.name),
-        hint: `Try: ${proto}://${Array.from(routes.values())[0]?.name || 'my-service'}.localhost:${actualPort}`,
+        hint: `Try: ${proto}://${Array.from(routes.values())[0]?.name || 'my-service'}.${domain}:${actualPort}`,
       }, null, 2));
       return;
     }
@@ -414,7 +480,7 @@ async function startProxy(options: ProxyOptions) {
 
   const handleUpgrade = (req: http.IncomingMessage, socket: net.Socket, head: Buffer) => {
     const host = req.headers.host || '';
-    const route = findRoute(routes, host);
+    const route = findRoute(routes, host, useWildcard);
 
     if (!route) { socket.write('HTTP/1.1 404 Not Found\r\n\r\n'); socket.destroy(); return; }
 
@@ -457,7 +523,7 @@ async function startProxy(options: ProxyOptions) {
 
   const handleConnect = (req: http.IncomingMessage, clientSocket: net.Socket, head: Buffer) => {
     const [hostname] = (req.url || '').split(':');
-    const route = findRoute(routes, hostname);
+    const route = findRoute(routes, hostname, useWildcard);
 
     if (!route) { clientSocket.write('HTTP/1.1 404 Not Found\r\n\r\n'); clientSocket.destroy(); return; }
 
@@ -472,10 +538,13 @@ async function startProxy(options: ProxyOptions) {
     clientSocket.on('error', () => proxySocket.destroy());
   };
 
-  // Server creation
-  let server: http.Server | https.Server;
+  // Server creation — HTTP/2 when TLS is active (with HTTP/1.1 fallback)
+  let server: http.Server | http2.Http2SecureServer;
   if (tlsOptions) {
-    server = https.createServer({ cert: tlsOptions.cert, key: tlsOptions.key }, handleRequest);
+    server = http2.createSecureServer(
+      { cert: tlsOptions.cert, key: tlsOptions.key, allowHTTP1: true },
+      handleRequest as any,
+    );
   } else {
     server = http.createServer(handleRequest);
   }
@@ -493,21 +562,42 @@ async function startProxy(options: ProxyOptions) {
     process.exit(1);
   });
 
-  server.listen(actualPort, '127.0.0.1', () => {
-    // Write state so other commands can discover us
+  server.listen(actualPort, wantLan ? '0.0.0.0' : '127.0.0.1', () => {
     writeProxyState(process.pid, actualPort, isTls);
 
     const label = isTls ? 'HTTPS' : 'HTTP';
     console.log(chalk.green.bold(`[ok] ${label} proxy running on port ${actualPort}\n`));
-    console.log(chalk.white('  Access your services via subdomains:'));
-    console.log();
-    if (routes.size > 0) {
-      for (const r of routes.values()) {
-        console.log(chalk.cyan(`    ${proto}://${r.name}.localhost:${actualPort}`));
+
+    if (wantLan && lanHostname) {
+      console.log(chalk.white('  From this machine:'));
+      if (routes.size > 0) {
+        for (const r of routes.values()) {
+          console.log(chalk.gray(`    ${proto}://${r.name}.localhost:${actualPort}`));
+        }
+      } else {
+        console.log(chalk.gray(`    ${proto}://<service-name>.localhost:${actualPort}`));
+      }
+      console.log();
+      console.log(chalk.white('  From other devices on your network:'));
+      if (routes.size > 0) {
+        for (const r of routes.values()) {
+          console.log(chalk.cyan(`    ${proto}://${r.name}.${lanHostname}:${actualPort}`));
+        }
+      } else {
+        console.log(chalk.gray(`    ${proto}://<service-name>.${lanHostname}:${actualPort}`));
       }
     } else {
-      console.log(chalk.gray(`    ${proto}://<service-name>.localhost:${actualPort}`));
+      console.log(chalk.white('  Access your services via subdomains:'));
+      console.log();
+      if (routes.size > 0) {
+        for (const r of routes.values()) {
+          console.log(chalk.cyan(`    ${proto}://${r.name}.localhost:${actualPort}`));
+        }
+      } else {
+        console.log(chalk.gray(`    ${proto}://<service-name>.localhost:${actualPort}`));
+      }
     }
+
     console.log();
     console.log(chalk.gray('  Press Ctrl+C to stop\n'));
   });
@@ -520,6 +610,8 @@ async function startProxy(options: ProxyOptions) {
     clearInterval(hubRefreshInterval);
     if (routeDebounce) clearTimeout(routeDebounce);
     if (routeWatcher) routeWatcher.close();
+    if (mdnsResponder) mdnsResponder.stop();
+    cleanHosts();
     clearProxyState();
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 2000).unref();
@@ -650,9 +742,6 @@ export async function ensureProxyRunning(options?: { https?: boolean }): Promise
   }
 
   // Auto-start
-  const config = loadConfig();
-  if (!config) return null;
-
   const port = getDefaultProxyPort();
   const wantHttps = !!options?.https;
   const logPath = getProxyLogPath();

@@ -1,8 +1,6 @@
 # Private Connect
 
-**Reach your database and private services from anywhere. No VPN, no open ports, no changing localhost to 0.0.0.0.**
-
-Your database binds to localhost. You need it from your laptop, a cloud IDE, or another machine. One command on each side connects them.
+**Reach your database or private services by name from anywhere. Grant your AI read-only access for 5 minutes. Share your environment with a code. No VPN, no open ports. For humans and agents.**
 
 ```bash
 # On the machine with the DB
@@ -203,6 +201,27 @@ Expose a local service from GitHub Actions and post a preview URL on the PR:
 ```
 
 See [the example workflow](.github/workflows/preview.yml.example) for a full setup.
+
+## Local Development
+
+Run any dev server with a named HTTPS URL. No config, no auth required:
+
+```bash
+connect run api next dev
+# → https://api.localhost:3000
+
+connect run frontend vite
+# → https://frontend.localhost:3000
+```
+
+HTTPS with HTTP/2 is enabled by default. Test on real devices with LAN mode:
+
+```bash
+connect proxy start --lan
+# → Phones and tablets on your Wi-Fi reach https://api.connect.local:3000
+```
+
+The same services are instantly reachable from a teammate's machine via `connect reach api`.
 
 ## Build from source
 

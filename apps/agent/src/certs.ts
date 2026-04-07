@@ -244,11 +244,17 @@ function fixCertOwnership(dir: string): void {
   } catch { /* best-effort */ }
 }
 
+export interface ExtraSANs {
+  dnsNames?: string[];
+  ips?: string[];
+}
+
 /**
  * Ensure a local CA and server certificate exist.
  * Generates them if missing or expiring soon. Returns paths and whether new certs were created.
+ * Pass extraSANs to include additional DNS names or IPs in the server certificate.
  */
-export function ensureCerts(): EnsureCertsResult {
+export function ensureCerts(extraSANs?: ExtraSANs): EnsureCertsResult {
   const dir = ensureCertsDir();
   const paths: CertPaths = {
     caKeyPath: path.join(dir, CA_KEY_FILE),
@@ -265,13 +271,14 @@ export function ensureCerts(): EnsureCertsResult {
     generateCA(paths);
     caGenerated = true;
     // CA changed — server cert must be re-signed
-    generateServerCert(paths);
+    generateServerCert(paths, extraSANs);
     serverGenerated = true;
   }
 
-  // Generate or regenerate server cert if missing or expiring
-  if (!serverGenerated && (!fs.existsSync(paths.serverKeyPath) || !fs.existsSync(paths.serverCertPath) || isCertExpiringSoon(paths.serverCertPath, 30))) {
-    generateServerCert(paths);
+  // Generate or regenerate server cert if missing, expiring, or extra SANs requested
+  const needsExtraSANs = !!(extraSANs?.dnsNames?.length || extraSANs?.ips?.length);
+  if (!serverGenerated && (needsExtraSANs || !fs.existsSync(paths.serverKeyPath) || !fs.existsSync(paths.serverCertPath) || isCertExpiringSoon(paths.serverCertPath, 30))) {
+    generateServerCert(paths, extraSANs);
     serverGenerated = true;
   }
 
@@ -326,7 +333,7 @@ function generateCA(paths: CertPaths): void {
   fs.writeFileSync(paths.caCertPath, toPEM(certDER, 'CERTIFICATE'), { mode: FILE_MODE });
 }
 
-function generateServerCert(paths: CertPaths): void {
+function generateServerCert(paths: CertPaths, extraSANs?: ExtraSANs): void {
   const { privateKey, publicKeyDER } = generateKeyPair();
 
   const caKeyPem = fs.readFileSync(paths.caKeyPath, 'utf-8');
@@ -353,11 +360,18 @@ function generateServerCert(paths: CertPaths): void {
     return Buffer.concat([Buffer.from([0x87, 0x04]), Buffer.from(parts)]);
   };
 
-  const sanValue = derSequence([
+  const sanEntries = [
     dnsName('*.localhost'),
     dnsName('localhost'),
     ipAddr('127.0.0.1'),
-  ]);
+  ];
+  if (extraSANs?.dnsNames) {
+    for (const name of extraSANs.dnsNames) sanEntries.push(dnsName(name));
+  }
+  if (extraSANs?.ips) {
+    for (const ip of extraSANs.ips) sanEntries.push(ipAddr(ip));
+  }
+  const sanValue = derSequence(sanEntries);
 
   const san = derSequence([
     derOID('2.5.29.17'), // subjectAltName

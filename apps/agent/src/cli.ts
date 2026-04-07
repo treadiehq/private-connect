@@ -19,6 +19,8 @@ import { shellInitCommand, shellSetupCommand } from './commands/shell';
 import { dnsCommand, serveDns } from './commands/dns';
 import { mcpCommand } from './commands/mcp';
 import { cloneCommand, cloneListCommand } from './commands/clone';
+import { runCommand } from './commands/run';
+import { hostsCommand } from './commands/hosts';
 import { grantCommand } from './commands/grant';
 import { connectCommand } from './commands/connect';
 import { debugCommand } from './commands/debug';
@@ -259,6 +261,28 @@ Examples:
   });
 
 program
+  .command('run <name> [cmd...]')
+  .enablePositionalOptions()
+  .passThroughOptions()
+  .description('Run a command and make it available via the local proxy')
+  .option('--port <port>', 'Use a specific port instead of auto-assigning', parsePort)
+  .option('--https', 'Ensure proxy uses HTTPS')
+  .addHelpText('after', `
+Examples:
+  $ connect run api next dev
+  $ connect run frontend vite
+  $ connect run --https api node server.js
+  $ connect run --port 4000 api next dev
+`)
+  .action((name, cmd, options) => {
+    if (cmd.length === 0) {
+      console.error('[x] No command specified. Usage: connect run <name> <command>');
+      process.exit(1);
+    }
+    runCommand(name, cmd, options);
+  });
+
+program
   .command('expose <target>')
   .description('Expose a local service through the tunnel (make something private available)')
   .option('-n, --name <name>', 'Service name', 'default')
@@ -368,11 +392,15 @@ program
   .option('--cert <path>', 'Path to custom TLS certificate (implies --https)')
   .option('--key <path>', 'Path to custom TLS private key (implies --https)')
   .option('--trust', 'Add the local CA to system trust store')
+  .option('--lan', 'Expose proxy on LAN with mDNS (implies --https)')
+  .option('--wildcard', 'Allow unregistered subdomains to fall back to parent route')
   .option('--foreground', 'Run in foreground (default: daemonize)')
   .addHelpText('after', `
 Examples:
   $ connect proxy start
   $ connect proxy start --https --trust
+  $ connect proxy start --lan
+  $ connect proxy start --wildcard
   $ connect proxy stop
   $ connect proxy status
 `)
@@ -697,6 +725,19 @@ Examples:
     } else {
       await dnsCommand(action, options);
     }
+  });
+
+// Hosts Management
+program
+  .command('hosts [action]')
+  .description('Manage /etc/hosts entries for Safari compatibility (sync|clean)')
+  .addHelpText('after', `
+Examples:
+  $ connect hosts sync     # Add proxy routes to /etc/hosts
+  $ connect hosts clean    # Remove Private Connect entries
+`)
+  .action(async (action) => {
+    await hostsCommand(action);
   });
 
 // AI/MCP Integration Commands
