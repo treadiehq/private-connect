@@ -121,24 +121,6 @@ export class WebhooksController {
     return this.webhooksService.list(workspace.id);
   }
 
-  @Get(':id')
-  @UseGuards(CombinedAuthGuard)
-  @ApiSecurity('api-key')
-  @ApiOperation({
-    summary: 'Get webhook',
-    description: 'Returns webhook details including recent delivery attempts.',
-  })
-  @ApiResponse({ status: 200, description: 'Webhook details' })
-  @ApiResponse({ status: 404, description: 'Webhook not found' })
-  async findOne(@Param('id') id: string, @Req() req: any) {
-    const workspace = req.workspace;
-    const webhook = await this.webhooksService.findById(id, workspace.id);
-    if (!webhook) {
-      throw new HttpException('Webhook not found', HttpStatus.NOT_FOUND);
-    }
-    return webhook;
-  }
-
   @Patch(':id')
   @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
@@ -272,5 +254,23 @@ export class WebhooksController {
         { name: 'agent.deleted', description: 'An agent was permanently removed' },
       ],
     };
+  }
+
+  @Get(':id')
+  @UseGuards(CombinedAuthGuard)
+  @ApiSecurity('api-key')
+  @ApiOperation({
+    summary: 'Get webhook',
+    description: 'Returns webhook details including recent delivery attempts.',
+  })
+  @ApiResponse({ status: 200, description: 'Webhook details' })
+  @ApiResponse({ status: 404, description: 'Webhook not found' })
+  async findOne(@Param('id') id: string, @Req() req: any) {
+    const workspace = req.workspace;
+    const webhook = await this.webhooksService.findById(id, workspace.id);
+    if (!webhook) {
+      throw new HttpException('Webhook not found', HttpStatus.NOT_FOUND);
+    }
+    return webhook;
   }
 }

@@ -220,30 +220,6 @@ export class AgentsController {
     return this.agentsService.getOnlineAgents(workspace.id);
   }
 
-  @Get(':id')
-  @UseGuards(CombinedAuthGuard)
-  @ApiSecurity('api-key')
-  @ApiOperation({ summary: 'Get agent', description: 'Returns details for a specific agent.' })
-  @ApiResponse({ status: 200, description: 'Agent details' })
-  @ApiResponse({ status: 404, description: 'Agent not found' })
-  async findOne(
-    @Param('id') id: string,
-    @Req() req: any,
-  ) {
-    const agent = await this.agentsService.findById(id);
-    if (!agent) {
-      throw new HttpException('Agent not found', HttpStatus.NOT_FOUND);
-    }
-
-    // Verify agent belongs to requester's workspace
-    const workspace = req.workspace;
-    if (agent.workspaceId !== workspace.id) {
-      throw new HttpException('Agent not found', HttpStatus.NOT_FOUND);
-    }
-
-    return agent;
-  }
-
   @Delete(':id')
   @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
@@ -356,6 +332,30 @@ export class AgentsController {
         services: agent.services,
       })),
     };
+  }
+
+  @Get(':id')
+  @UseGuards(CombinedAuthGuard)
+  @ApiSecurity('api-key')
+  @ApiOperation({ summary: 'Get agent', description: 'Returns details for a specific agent.' })
+  @ApiResponse({ status: 200, description: 'Agent details' })
+  @ApiResponse({ status: 404, description: 'Agent not found' })
+  async findOne(
+    @Param('id') id: string,
+    @Req() req: any,
+  ) {
+    const agent = await this.agentsService.findById(id);
+    if (!agent) {
+      throw new HttpException('Agent not found', HttpStatus.NOT_FOUND);
+    }
+
+    // Verify agent belongs to requester's workspace
+    const workspace = req.workspace;
+    if (agent.workspaceId !== workspace.id) {
+      throw new HttpException('Agent not found', HttpStatus.NOT_FOUND);
+    }
+
+    return agent;
   }
 
   @Get('by-capability/:capability')
