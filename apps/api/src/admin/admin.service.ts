@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { isAdminEmail } from '../common/admin';
 
 @Injectable()
 export class AdminService {
@@ -310,7 +311,7 @@ export class AdminService {
       throw new NotFoundException('User not found');
     }
 
-    if (user.isAdmin) {
+    if (isAdminEmail(user.email)) {
       throw new BadRequestException('Cannot delete admin users');
     }
 

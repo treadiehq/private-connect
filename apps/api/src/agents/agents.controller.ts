@@ -220,6 +220,45 @@ export class AgentsController {
     return this.agentsService.getOnlineAgents(workspace.id);
   }
 
+  @Get('expiring-tokens')
+  @UseGuards(CombinedAuthGuard)
+  @ApiSecurity('api-key')
+  @ApiOperation({ summary: 'Get agents with expiring tokens', description: 'Returns agents whose tokens will expire soon.' })
+  @ApiResponse({ status: 200, description: 'Agents with expiring tokens' })
+  async getExpiringTokens(@Req() req: any) {
+    const workspace = req.workspace;
+    const agents = await this.agentsService.getAgentsWithExpiringTokens(workspace.id);
+    return { agents };
+  }
+
+  // ============================================
+  // Agent Orchestration Endpoints
+  // ============================================
+
+  @Get('orchestration')
+  @UseGuards(CombinedAuthGuard)
+  @ApiSecurity('api-key')
+  @ApiOperation({ summary: 'Get agents for orchestration', description: 'Returns all agents with their capabilities and services for orchestration purposes.' })
+  @ApiResponse({ status: 200, description: 'Agents with orchestration details' })
+  async getAgentsForOrchestration(@Req() req: any) {
+    const workspace = req.workspace;
+    const agents = await this.agentsService.getAgentsForOrchestration(workspace.id);
+    return { 
+      agents: agents.map(agent => ({
+        id: agent.id,
+        name: agent.name,
+        label: agent.label,
+        isOnline: agent.isOnline,
+        lastSeenAt: agent.lastSeenAt,
+        capabilities: agent.capabilities.map(c => ({
+          name: c.name,
+          metadata: c.metadata ? JSON.parse(c.metadata) : null,
+        })),
+        services: agent.services,
+      })),
+    };
+  }
+
   @Get(':id')
   @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
@@ -317,45 +356,6 @@ export class AgentsController {
 
     const logs = await this.agentsService.getAuditLogs(id);
     return { logs };
-  }
-
-  @Get('expiring-tokens')
-  @UseGuards(CombinedAuthGuard)
-  @ApiSecurity('api-key')
-  @ApiOperation({ summary: 'Get agents with expiring tokens', description: 'Returns agents whose tokens will expire soon.' })
-  @ApiResponse({ status: 200, description: 'Agents with expiring tokens' })
-  async getExpiringTokens(@Req() req: any) {
-    const workspace = req.workspace;
-    const agents = await this.agentsService.getAgentsWithExpiringTokens(workspace.id);
-    return { agents };
-  }
-
-  // ============================================
-  // Agent Orchestration Endpoints
-  // ============================================
-
-  @Get('orchestration')
-  @UseGuards(CombinedAuthGuard)
-  @ApiSecurity('api-key')
-  @ApiOperation({ summary: 'Get agents for orchestration', description: 'Returns all agents with their capabilities and services for orchestration purposes.' })
-  @ApiResponse({ status: 200, description: 'Agents with orchestration details' })
-  async getAgentsForOrchestration(@Req() req: any) {
-    const workspace = req.workspace;
-    const agents = await this.agentsService.getAgentsForOrchestration(workspace.id);
-    return { 
-      agents: agents.map(agent => ({
-        id: agent.id,
-        name: agent.name,
-        label: agent.label,
-        isOnline: agent.isOnline,
-        lastSeenAt: agent.lastSeenAt,
-        capabilities: agent.capabilities.map(c => ({
-          name: c.name,
-          metadata: c.metadata ? JSON.parse(c.metadata) : null,
-        })),
-        services: agent.services,
-      })),
-    };
   }
 
   @Get('by-capability/:capability')

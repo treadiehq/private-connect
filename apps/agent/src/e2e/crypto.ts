@@ -61,11 +61,19 @@ export function encrypt(key: Buffer, counter: bigint, plaintext: Buffer): Buffer
   return Buffer.concat([nonce, ciphertext, tag]);
 }
 
-export function decrypt(key: Buffer, packet: Buffer): Buffer {
+export function decrypt(key: Buffer, packet: Buffer, expectedCounter: bigint): Buffer {
   if (packet.length < GCM_NONCE_BYTES + GCM_TAG_BYTES) {
     throw new Error('E2E packet too short');
   }
   const nonce = packet.subarray(0, GCM_NONCE_BYTES);
+
+  const packetCounter = nonce.readBigUInt64BE(4);
+  if (packetCounter !== expectedCounter) {
+    throw new Error(
+      `E2E replay/reorder detected: expected counter ${expectedCounter}, got ${packetCounter}`,
+    );
+  }
+
   const tag = packet.subarray(packet.length - GCM_TAG_BYTES);
   const ciphertext = packet.subarray(GCM_NONCE_BYTES, packet.length - GCM_TAG_BYTES);
 

@@ -121,6 +121,48 @@ export class WebhooksController {
     return this.webhooksService.list(workspace.id);
   }
 
+  @Get('events')
+  @ApiOperation({
+    summary: 'List available events',
+    description: 'Returns all available webhook event types.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Available events',
+    schema: {
+      type: 'object',
+      properties: {
+        events: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              description: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+  })
+  async listEvents() {
+    return {
+      events: [
+        { name: 'tunnel.created', description: 'A new tunnel was created' },
+        { name: 'tunnel.connected', description: 'An agent connected to a tunnel' },
+        { name: 'tunnel.disconnected', description: 'An agent disconnected from a tunnel' },
+        { name: 'tunnel.deleted', description: 'A tunnel was deleted' },
+        { name: 'share.created', description: 'A new share link was created' },
+        { name: 'share.accessed', description: 'A share link was accessed' },
+        { name: 'share.revoked', description: 'A share link was revoked' },
+        { name: 'agent.connected', description: 'An agent came online' },
+        { name: 'agent.disconnected', description: 'An agent went offline' },
+        { name: 'agent.registered', description: 'A new agent was registered' },
+        { name: 'agent.deleted', description: 'An agent was permanently removed' },
+      ],
+    };
+  }
+
   @Get(':id')
   @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')
@@ -232,45 +274,4 @@ export class WebhooksController {
     return this.webhooksService.test(id, workspace.id);
   }
 
-  @Get('events')
-  @ApiOperation({
-    summary: 'List available events',
-    description: 'Returns all available webhook event types.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Available events',
-    schema: {
-      type: 'object',
-      properties: {
-        events: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              name: { type: 'string' },
-              description: { type: 'string' },
-            },
-          },
-        },
-      },
-    },
-  })
-  async listEvents() {
-    return {
-      events: [
-        { name: 'tunnel.created', description: 'A new tunnel was created' },
-        { name: 'tunnel.connected', description: 'An agent connected to a tunnel' },
-        { name: 'tunnel.disconnected', description: 'An agent disconnected from a tunnel' },
-        { name: 'tunnel.deleted', description: 'A tunnel was deleted' },
-        { name: 'share.created', description: 'A new share link was created' },
-        { name: 'share.accessed', description: 'A share link was accessed' },
-        { name: 'share.revoked', description: 'A share link was revoked' },
-        { name: 'agent.connected', description: 'An agent came online' },
-        { name: 'agent.disconnected', description: 'An agent went offline' },
-        { name: 'agent.registered', description: 'A new agent was registered' },
-        { name: 'agent.deleted', description: 'An agent was permanently removed' },
-      ],
-    };
-  }
 }

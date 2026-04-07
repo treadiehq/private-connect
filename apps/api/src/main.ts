@@ -22,7 +22,7 @@ let healthServer: http.Server | null = null;
 // Only use the health server approach in production (Railway)
 // In development, just use the standard NestJS startup
 function startHealthServer(): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     healthServer = http.createServer((req, res) => {
       if (req.url === '/health' || req.url === '/healthz') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -30,6 +30,14 @@ function startHealthServer(): Promise<void> {
       } else {
         res.writeHead(503, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'starting' }));
+      }
+    });
+    healthServer.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        console.warn(`🏥 Health check port ${port} already in use, assuming server is running`);
+        resolve();
+      } else {
+        reject(err);
       }
     });
     healthServer.listen(port, '0.0.0.0', () => {
@@ -304,7 +312,7 @@ async function main() {
       console.error('=== BOOTSTRAP FAILED ===', err);
       console.log('🏥 Health server still running - will retry...');
       
-      // Restart health server since bootstrap failed
+      await stopHealthServer();
       await startHealthServer();
       
       // Retry bootstrap every 10 seconds

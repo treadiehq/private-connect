@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
-import { validateUrlSafeForFetch } from '../common/security';
+import { validateUrlSafeForFetch, type ValidatedUrl } from '../common/security';
 import type {
   AskRequest,
   AskResponse,
@@ -192,7 +192,7 @@ export class AskService {
    * Resolve service input (URL or hostname) into a baseUrl.
    * Blocks private/internal IPs and cloud metadata endpoints (SSRF protection).
    */
-  async normalizeServiceInput(service: string): Promise<string> {
+  async normalizeServiceInput(service: string): Promise<ValidatedUrl> {
     const s = (service || '').trim();
     if (!s) {
       throw new BadRequestException('Service is required');
@@ -209,8 +209,7 @@ export class AskService {
         throw new BadRequestException('Only http and https are allowed');
       }
 
-      await validateUrlSafeForFetch(url.origin);
-      return url.origin;
+      return await validateUrlSafeForFetch(url.origin);
     } catch (e) {
       if (e instanceof BadRequestException) throw e;
       throw new BadRequestException('Invalid or disallowed service URL');
@@ -221,12 +220,14 @@ export class AskService {
    * Run GET checks in order; each is timeout-capped.
    * Read-only: only GET (no writes).
    */
-  async runChecks(baseUrl: string): Promise<AskReceipt[]> {
+  async runChecks(validated: ValidatedUrl): Promise<AskReceipt[]> {
     const receipts: AskReceipt[] = [];
+    const baseFetchUrl = validated.fetchUrl.replace(/\/$/, '');
 
     for (const path of CHECK_PATHS) {
-      const url = `${baseUrl.replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
-      const receipt = await this.runOneCheck('GET', path, url);
+      const suffix = path.startsWith('/') ? path : `/${path}`;
+      const fetchUrl = `${baseFetchUrl}${suffix}`;
+      const receipt = await this.runOneCheck('GET', path, fetchUrl, validated.hostname);
       receipts.push(receipt);
     }
 
@@ -237,6 +238,7 @@ export class AskService {
     method: string,
     path: string,
     url: string,
+    hostname: string,
   ): Promise<AskReceipt> {
     const start = Date.now();
     const controller = new AbortController();
@@ -247,7 +249,10 @@ export class AskService {
         method: 'GET',
         signal: controller.signal,
         redirect: 'manual',
-        headers: { Accept: 'application/json, text/plain, */*' },
+        headers: {
+          Accept: 'application/json, text/plain, */*',
+          Host: hostname,
+        },
       });
       const latencyMs = Date.now() - start;
 
@@ -521,15 +526,15 @@ Answer the question concisely based only on the above.`;
   }
 
   async ask(body: AskRequest): Promise<AskResponse> {
-    const baseUrl = await this.normalizeServiceInput(body.service);
-    const receipts = await this.runChecks(baseUrl);
+    const validated = await this.normalizeServiceInput(body.service);
+    const receipts = await this.runChecks(validated);
     const reachability = this.classifyReachability(receipts);
     const blockedActions = this.inferBlockedActions(body.question);
     const answer = await this.buildAnswer(body.question, receipts, reachability, blockedActions);
 
     return {
       answer,
-      baseUrl,
+      baseUrl: validated.url,
       receipts,
       reachability,
       blockedActions,

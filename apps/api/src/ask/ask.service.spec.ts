@@ -26,18 +26,27 @@ describe('AskService', () => {
   });
 
   describe('normalizeServiceInput', () => {
-    it('adds https:// and returns origin for public hostnames', async () => {
-      expect(await service.normalizeServiceInput('example.com')).toBe('https://example.com');
-      expect(await service.normalizeServiceInput('api.example.com:443')).toBe('https://api.example.com');
+    it('adds https:// and returns ValidatedUrl for public hostnames', async () => {
+      const result = await service.normalizeServiceInput('example.com');
+      expect(result.url).toBe('https://example.com');
+      expect(result.fetchUrl).toBeDefined();
+      expect(result.hostname).toBe('example.com');
+
+      const result2 = await service.normalizeServiceInput('api.example.com:443');
+      expect(result2.url).toBe('https://api.example.com');
     });
 
     it('keeps full URLs and returns origin only', async () => {
-      expect(await service.normalizeServiceInput('https://example.com')).toBe('https://example.com');
-      expect(await service.normalizeServiceInput('https://example.com/path')).toBe('https://example.com');
+      const result = await service.normalizeServiceInput('https://example.com');
+      expect(result.url).toBe('https://example.com');
+
+      const result2 = await service.normalizeServiceInput('https://example.com/path');
+      expect(result2.url).toBe('https://example.com');
     });
 
     it('trims whitespace', async () => {
-      expect(await service.normalizeServiceInput('  example.com  ')).toBe('https://example.com');
+      const result = await service.normalizeServiceInput('  example.com  ');
+      expect(result.url).toBe('https://example.com');
     });
 
     it('rejects localhost (SSRF protection)', async () => {

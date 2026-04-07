@@ -16,6 +16,7 @@ export class E2ESession {
   private sendKey: Buffer | null = null;
   private recvKey: Buffer | null = null;
   private sendCounter: bigint = 0n;
+  private recvCounter: bigint = 0n;
   private _ready = false;
 
   constructor(connectionId: string, role: E2ERole) {
@@ -56,6 +57,8 @@ export class E2ESession {
 
   decrypt(data: Buffer): Buffer {
     if (!this.recvKey) throw new Error('E2E session not ready');
-    return decrypt(this.recvKey, data);
+    const plaintext = decrypt(this.recvKey, data, this.recvCounter);
+    this.recvCounter++;
+    return plaintext;
   }
 }

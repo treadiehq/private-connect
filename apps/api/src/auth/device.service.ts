@@ -148,9 +148,6 @@ export class DeviceService {
 
     const formattedCode = `${normalizedCode.slice(0, 4)}-${normalizedCode.slice(4)}`;
 
-    // Wrap in a serializable transaction to prevent race conditions where
-    // concurrent requests both pass the verifiedAt check and create
-    // duplicate API keys for the same device code.
     return this.prisma.withWorkspace(workspaceId, () =>
       this.prisma.$transaction(async (tx) => {
         const targetDevice = await tx.deviceCode.findUnique({
@@ -177,6 +174,24 @@ export class DeviceService {
           return { success: false, error: 'Workspace not found' };
         }
 
+        // Optimistic lock: only claim the device code if still unverified.
+        // Mirrors the pattern in auth.service.ts for magic link consumption.
+        const claimResult = await tx.deviceCode.updateMany({
+          where: {
+            id: targetDevice.id,
+            verifiedAt: null,
+          },
+          data: {
+            verifiedAt: new Date(),
+            userId,
+            workspaceId,
+          },
+        });
+
+        if (claimResult.count === 0) {
+          return { success: false, error: 'Code already used' };
+        }
+
         const apiKey = `pc_${randomBytes(24).toString('hex')}`;
         const keyPrefix = apiKey.substring(0, 11);
         const keyName = targetDevice.agentName || targetDevice.label || 'CLI Agent';
@@ -194,9 +209,6 @@ export class DeviceService {
         await tx.deviceCode.update({
           where: { id: targetDevice.id },
           data: {
-            verifiedAt: new Date(),
-            userId,
-            workspaceId,
             apiKey: encryptApiKeyForDevice(apiKey, targetDevice.deviceCode),
           },
         });

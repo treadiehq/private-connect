@@ -1,6 +1,6 @@
 {
   "name": "@privateconnect/sdk",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "description": "Define your connections in pconnect.yml. Access them from anywhere.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
