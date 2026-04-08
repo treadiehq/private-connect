@@ -82,6 +82,7 @@ WebSocket gateways, `/health`, and `/v1/status` are `@SkipThrottle()`.
 | `docs/debugging.md` | Live traffic debugging + AI copilot |
 | `docs/mcp.md` | MCP setup for Cursor/Claude |
 | `docs/terminal.md` | Remote shell via share codes |
+| `docs/remote-workers.md` | Embed remote worker connectivity into other products |
 | `docs/free-tier.md` | Unauthenticated tunnel limits |
 | `packages/cli/README.md` | npx CLI docs |
 | `packages/sdk/README.md` | SDK API reference |

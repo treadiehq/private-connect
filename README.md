@@ -240,6 +240,7 @@ cd apps/agent && pnpm run build:binary
 - [SDK](packages/sdk)
 - [AI agent examples](examples/)
 - [Use cases](docs/use_cases.md)
+- [Build remote workers into your product](docs/remote-workers.md)
 
 ## Community
 
