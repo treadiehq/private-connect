@@ -16,18 +16,24 @@ interface HostsOptions {
 }
 
 function removeExistingBlock(content: string): string {
-  const start = content.indexOf(BEGIN_MARKER);
-  if (start === -1) return content;
-  const end = content.indexOf(END_MARKER, start);
-  if (end === -1) return content;
+  const beginRe = new RegExp(`^${escapeRegExp(BEGIN_MARKER)}$`, 'm');
+  const endRe = new RegExp(`^${escapeRegExp(END_MARKER)}$`, 'm');
 
-  let endPos = end + END_MARKER.length;
+  const startMatch = beginRe.exec(content);
+  if (!startMatch) return content;
+  const endMatch = endRe.exec(content.slice(startMatch.index));
+  if (!endMatch) return content;
+
+  let startPos = startMatch.index;
+  let endPos = startMatch.index + endMatch.index + endMatch[0].length;
   if (content[endPos] === '\n') endPos++;
-
-  let startPos = start;
   if (startPos > 0 && content[startPos - 1] === '\n') startPos--;
 
   return content.substring(0, startPos) + content.substring(endPos);
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function writeWithSudo(content: string, options?: HostsOptions): boolean {
@@ -64,7 +70,13 @@ export function syncHosts(
     const current = fs.readFileSync(HOSTS_PATH, 'utf-8');
     const cleaned = removeExistingBlock(current);
 
-    const lines = entries.map(e => `${e.ip} ${e.hostname}`);
+    const sanitized = entries.filter(e =>
+      !e.hostname.includes('\n') && !e.hostname.includes('\r') &&
+      !e.ip.includes('\n') && !e.ip.includes('\r')
+    );
+    if (sanitized.length === 0) return { synced: true };
+
+    const lines = sanitized.map(e => `${e.ip} ${e.hostname}`);
     const block = `${BEGIN_MARKER}\n${lines.join('\n')}\n${END_MARKER}`;
     const newContent = cleaned.trimEnd() + '\n\n' + block + '\n';
 
@@ -90,7 +102,7 @@ export function cleanHosts(
 
   try {
     const current = fs.readFileSync(HOSTS_PATH, 'utf-8');
-    if (!current.includes(BEGIN_MARKER)) {
+    if (!new RegExp(`^${escapeRegExp(BEGIN_MARKER)}$`, 'm').test(current)) {
       return { cleaned: true };
     }
 

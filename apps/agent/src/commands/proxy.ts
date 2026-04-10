@@ -457,7 +457,7 @@ async function startProxy(options: ProxyOptions) {
       port: route.port,
       path: req.url,
       method: req.method,
-      headers: { ...req.headers, ...forwardedHeaders },
+      headers: { ...req.headers, ...forwardedHeaders, [headerName]: '1' },
     }, (proxyRes) => {
       res.writeHead(proxyRes.statusCode || 500, proxyRes.headers);
       proxyRes.pipe(res);
@@ -479,6 +479,12 @@ async function startProxy(options: ProxyOptions) {
   };
 
   const handleUpgrade = (req: http.IncomingMessage, socket: net.Socket, head: Buffer) => {
+    if (req.headers[headerName]) {
+      socket.write('HTTP/1.1 508 Loop Detected\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+
     const host = req.headers.host || '';
     const route = findRoute(routes, host, useWildcard);
 
@@ -487,7 +493,7 @@ async function startProxy(options: ProxyOptions) {
     const proxyReq = http.request({
       hostname: route.host, port: route.port,
       path: req.url, method: req.method,
-      headers: { ...req.headers },
+      headers: { ...req.headers, [headerName]: '1' },
     });
 
     proxyReq.on('upgrade', (proxyRes, proxySocket, proxyHead) => {
@@ -522,6 +528,12 @@ async function startProxy(options: ProxyOptions) {
   };
 
   const handleConnect = (req: http.IncomingMessage, clientSocket: net.Socket, head: Buffer) => {
+    if (req.headers[headerName]) {
+      clientSocket.write('HTTP/1.1 508 Loop Detected\r\n\r\n');
+      clientSocket.destroy();
+      return;
+    }
+
     const [hostname] = (req.url || '').split(':');
     const route = findRoute(routes, hostname, useWildcard);
 

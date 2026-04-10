@@ -82,6 +82,20 @@ function saveRoutesFile(data: ActiveRoutesFile): void {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Validation
+// ─────────────────────────────────────────────────────────────────────────────
+
+const VALID_SERVICE_NAME = /^[a-zA-Z0-9_-]+$/;
+
+function validateServiceName(name: string): void {
+  if (!VALID_SERVICE_NAME.test(name)) {
+    throw new Error(
+      `Service name "${name}" contains invalid characters. Use only letters, numbers, hyphens, and underscores.`,
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Route Management
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -93,6 +107,7 @@ export function registerRoute(
   localPort: number,
   protocol: string = 'tcp'
 ): void {
+  validateServiceName(serviceName);
   const routes = loadActiveRoutes();
 
   // Remove any existing route for the same service

@@ -70,5 +70,8 @@ export async function runCommand(name: string, cmd: string[], options: RunOption
     setTimeout(() => process.exit(0), 3000).unref();
   });
 
-  process.on('SIGTERM', cleanup);
+  process.on('SIGTERM', () => {
+    cleanup();
+    setTimeout(() => process.exit(0), 3000).unref();
+  });
 }

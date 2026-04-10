@@ -191,7 +191,8 @@ function validateDaemonAction(action: string | undefined): DaemonAction | undefi
 program
   .name('connect')
   .description('Private Connect Agent - Securely expose local services')
-  .version(VERSION);
+  .version(VERSION)
+  .enablePositionalOptions();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Default Command - The Primitive

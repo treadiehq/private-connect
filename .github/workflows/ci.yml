@@ -36,3 +36,9 @@ jobs:
         
       - name: Test API
         run: pnpm --filter api test -- --passWithNoTests
+
+      - name: Smoke test agent CLI
+        run: |
+          cd apps/agent
+          npx tsx src/cli.ts --version
+          npx tsx src/cli.ts --help
