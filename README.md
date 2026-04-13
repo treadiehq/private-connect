@@ -1,6 +1,8 @@
 # Private Connect
 
-**Reach your database or private services by name from anywhere. Grant your AI read-only access for 5 minutes. Share your environment with a code. No VPN, no open ports. For humans and agents.**
+Securely reach your database or private services by name from anywhere. Grant your AI read-only access for 5 minutes. Share your environment with a code. No VPN, no open ports. For humans and agents.
+
+> Your services are unreachable by default. No open ports, no public endpoints, nothing to discover. Connect by name, from anywhere, end-to-end encrypted.
 
 ```bash
 # On the machine with the DB
