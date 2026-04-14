@@ -399,6 +399,13 @@ export function useApi() {
     return response.json();
   };
 
+  const updateServiceHealthConfig = async (id: string, config: { enabled?: boolean; intervalSeconds?: number }) => {
+    return apiFetch(`/v1/services/${id}/health-config`, {
+      method: 'PATCH',
+      body: JSON.stringify(config),
+    });
+  };
+
   return {
     apiFetch,
     fetchWorkspace,
@@ -430,6 +437,7 @@ export function useApi() {
     checkSubdomain,
     setSubdomain,
     updateService,
+    updateServiceHealthConfig,
     // MCP status
     checkMcpStatus,
     // Audit

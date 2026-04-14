@@ -338,6 +338,54 @@ export class ServicesController {
     };
   }
 
+  @Patch(':id/health-config')
+  @UseGuards(CombinedAuthGuard)
+  @ApiSecurity('api-key')
+  @ApiOperation({ summary: 'Configure health monitoring', description: 'Enable/disable health checks and set check interval for a service.' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        enabled: { type: 'boolean', description: 'Whether health monitoring is enabled' },
+        intervalSeconds: { type: 'number', description: 'Seconds between checks (minimum 30)' },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Health config updated' })
+  @ApiResponse({ status: 404, description: 'Service not found' })
+  async updateHealthConfig(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Req() req: any,
+  ) {
+    const schema = z.object({
+      enabled: z.boolean().optional(),
+      intervalSeconds: z.number().int().min(30).max(3600).optional(),
+    }).refine(data => data.enabled !== undefined || data.intervalSeconds !== undefined, {
+      message: 'At least one of enabled or intervalSeconds must be provided',
+    });
+
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) {
+      throw new HttpException(parsed.error.issues[0].message, HttpStatus.BAD_REQUEST);
+    }
+
+    const service = await this.servicesService.findById(id);
+    if (!service) {
+      throw new HttpException('Service not found', HttpStatus.NOT_FOUND);
+    }
+
+    const workspace = req.workspace;
+    if (service.workspaceId !== workspace.id) {
+      throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
+    }
+
+    const updated = await this.servicesService.updateHealthConfig(id, parsed.data);
+    this.realtimeGateway.broadcastServiceUpdate(updated);
+
+    return { success: true, service: updated };
+  }
+
   @Post(':id/reach')
   @UseGuards(CombinedAuthGuard)
   @ApiSecurity('api-key')

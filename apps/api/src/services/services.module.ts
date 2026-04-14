@@ -4,6 +4,7 @@ import { DiagnosticsController } from './diagnostics.controller';
 import { ServicesService } from './services.service';
 import { DiagnosticsService } from './diagnostics.service';
 import { SessionsService } from './sessions.service';
+import { HealthMonitorService } from './health-monitor.service';
 import { TunnelModule } from '../tunnel/tunnel.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { WorkspaceModule } from '../workspace/workspace.module';
@@ -19,7 +20,7 @@ import { AuthModule } from '../auth/auth.module';
     AuthModule,
   ],
   controllers: [ServicesController, DiagnosticsController],
-  providers: [ServicesService, DiagnosticsService, SessionsService],
+  providers: [ServicesService, DiagnosticsService, SessionsService, HealthMonitorService],
   exports: [ServicesService, SessionsService],
 })
 export class ServicesModule {}

@@ -464,6 +464,17 @@ export class ServicesService implements OnModuleInit {
     });
   }
 
+  async updateHealthConfig(id: string, config: { enabled?: boolean; intervalSeconds?: number }) {
+    const data: Record<string, unknown> = {};
+    if (config.enabled !== undefined) data.healthCheckEnabled = config.enabled;
+    if (config.intervalSeconds !== undefined) data.healthCheckInterval = Math.max(config.intervalSeconds, 30);
+    return this.prisma.service.update({
+      where: { id },
+      data,
+      include: { agent: true, diagnostics: { orderBy: { createdAt: 'desc' }, take: 1 } },
+    });
+  }
+
   async updateStatus(id: string, status: 'OK' | 'FAIL' | 'UNKNOWN') {
     return this.prisma.service.update({
       where: { id },

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ContextModule } from './context/context.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -48,6 +49,7 @@ import { ResourceSessionsModule } from './resource-sessions/resource-sessions.mo
         limit: 1000, // 1000 requests per hour
       },
     ]),
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
     AdminModule,

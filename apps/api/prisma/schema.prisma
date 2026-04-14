@@ -149,6 +149,8 @@ model Service {
   isExternal      Boolean            @default(false)  // true = external target, reached directly
   isPublic        Boolean            @default(false)  // true = publicly accessible via subdomain
   publicSubdomain String?            @unique          // e.g., "abc123" -> abc123.privateconnect.co
+  healthCheckEnabled  Boolean          @default(true)
+  healthCheckInterval Int              @default(60)   // seconds between checks, minimum 30
   lastCheckedAt   DateTime?
   createdAt       DateTime           @default(now())
   workspace       Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

@@ -159,6 +159,8 @@ export class WebhooksController {
         { name: 'agent.disconnected', description: 'An agent went offline' },
         { name: 'agent.registered', description: 'A new agent was registered' },
         { name: 'agent.deleted', description: 'An agent was permanently removed' },
+        { name: 'service.healthy', description: 'A service recovered and is reachable again' },
+        { name: 'service.unhealthy', description: 'A service became unreachable' },
       ],
     };
   }

@@ -42,6 +42,8 @@ export interface Service {
   isExternal: boolean;     // true for external target services
   isPublic: boolean;       // true for publicly accessible via subdomain
   publicSubdomain: string | null;  // e.g., "abc123" -> abc123.privateconnect.co
+  healthCheckEnabled: boolean;
+  healthCheckInterval: number;
   lastCheckedAt: string | null;
   createdAt: string;
   agent?: Agent;

@@ -15,7 +15,9 @@ export type WebhookEventType =
   | 'agent.registered'
   | 'agent.deleted'
   | 'grant.created'
-  | 'grant.revoked';
+  | 'grant.revoked'
+  | 'service.healthy'
+  | 'service.unhealthy';
 
 export interface WebhookPayload {
   id: string;

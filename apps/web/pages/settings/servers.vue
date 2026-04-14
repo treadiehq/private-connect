@@ -257,6 +257,20 @@
               <!-- Actions -->
               <div class="flex items-center gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                 <button
+                  role="switch"
+                  :aria-checked="server.healthCheckEnabled"
+                  :aria-label="server.healthCheckEnabled ? 'Disable health monitoring' : 'Enable health monitoring'"
+                  @click="toggleHealthMonitoring(server)"
+                  class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black-main"
+                  :class="server.healthCheckEnabled ? 'bg-emerald-300/60' : 'bg-gray-500/30'"
+                  :title="server.healthCheckEnabled ? 'Health monitoring on' : 'Health monitoring off'"
+                >
+                  <span
+                    class="pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform ring-0 transition duration-200 ease-in-out"
+                    :class="server.healthCheckEnabled ? 'translate-x-4' : 'translate-x-0'"
+                  ></span>
+                </button>
+                <button
                   @click="checkServerHealth(server)"
                   :disabled="server.healthCheckInProgress"
                   class="p-1.5 text-gray-400 hover:text-blue-300 transition-colors disabled:opacity-50"
@@ -505,6 +519,7 @@ interface LocalServer {
   lastHealthCheck?: Date;
   latency?: number;
   healthCheckInProgress?: boolean;
+  healthCheckEnabled?: boolean;
 }
 
 interface DiscoveredServer {
@@ -514,7 +529,7 @@ interface DiscoveredServer {
   name?: string;
 }
 
-const { fetchServices, createExternalService, runCheck, deleteService, checkMcpStatus } = useApi();
+const { fetchServices, createExternalService, runCheck, deleteService, checkMcpStatus, updateServiceHealthConfig } = useApi();
 const { connect } = useSocket();
 const { success, error: showError } = useToast();
 
@@ -566,6 +581,7 @@ const loadServers = async () => {
         lastHealthCheck: s.lastCheckedAt ? new Date(s.lastCheckedAt) : undefined,
         latency: s.diagnostics?.[0]?.latencyMs || undefined,
         healthCheckInProgress: false,
+        healthCheckEnabled: s.healthCheckEnabled,
       }));
   } catch (error) {
     console.error('Failed to load servers:', error);
@@ -857,6 +873,21 @@ watch(healthMonitoringEnabled, (enabled) => {
     }
   }
 });
+
+const toggleHealthMonitoring = async (server: LocalServer) => {
+  const newValue = !server.healthCheckEnabled;
+  const serverIndex = localServers.value.findIndex(s => s.id === server.id);
+  if (serverIndex === -1) return;
+
+  localServers.value[serverIndex].healthCheckEnabled = newValue;
+  try {
+    await updateServiceHealthConfig(server.id, { enabled: newValue });
+    success(`Health monitoring ${newValue ? 'enabled' : 'disabled'}`);
+  } catch (err) {
+    localServers.value[serverIndex].healthCheckEnabled = !newValue;
+    showError('Failed to update health monitoring');
+  }
+};
 
 const addServer = async () => {
   if (!newServerUrl.value.trim()) return;
