@@ -475,12 +475,12 @@ export class ServicesService implements OnModuleInit {
     });
   }
 
-  async updateStatus(id: string, status: 'OK' | 'FAIL' | 'UNKNOWN') {
+  async updateStatus(id: string, status: 'OK' | 'FAIL' | 'UNKNOWN', lastCheckedAt: Date = new Date()) {
     return this.prisma.service.update({
       where: { id },
       data: { 
         status,
-        lastCheckedAt: new Date(),
+        lastCheckedAt,
       },
     });
   }
@@ -534,7 +534,7 @@ export class ServicesService implements OnModuleInit {
     else if (result.tlsStatus === 'FAIL') status = 'FAIL';
     else if (result.httpStatus === 'FAIL') status = 'FAIL';
     
-    await this.updateStatus(serviceId, status);
+    await this.updateStatus(serviceId, status, diagnostic.createdAt);
 
     return diagnostic;
   }

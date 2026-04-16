@@ -135,6 +135,7 @@ describe('ServicesService', () => {
 
   describe('saveDiagnostic', () => {
     it('should persist diagnostic with source agent info', async () => {
+      const createdAt = new Date('2026-04-16T12:00:00.000Z');
       prismaService.diagnosticResult.create.mockResolvedValue({
         id: 'diag-1',
         serviceId: 'service-1',
@@ -145,6 +146,7 @@ describe('ServicesService', () => {
         tcpStatus: 'OK',
         message: 'OK',
         shareToken: 'abc123',
+        createdAt,
       });
       prismaService.service.update.mockResolvedValue({});
 
@@ -159,9 +161,14 @@ describe('ServicesService', () => {
       expect(result.sourceLabel).toBe('aws-prod');
       expect(result.perspective).toBe('agent');
       expect(result.shareToken).toBeDefined();
+      expect(prismaService.service.update).toHaveBeenCalledWith({
+        where: { id: 'service-1' },
+        data: { status: 'OK', lastCheckedAt: createdAt },
+      });
     });
 
     it('should persist diagnostic from hub perspective when no source agent', async () => {
+      const createdAt = new Date('2026-04-16T12:00:00.000Z');
       prismaService.diagnosticResult.create.mockResolvedValue({
         id: 'diag-2',
         serviceId: 'service-1',
@@ -171,6 +178,7 @@ describe('ServicesService', () => {
         dnsStatus: 'OK',
         tcpStatus: 'OK',
         message: 'OK',
+        createdAt,
       });
       prismaService.service.update.mockResolvedValue({});
 
@@ -181,6 +189,10 @@ describe('ServicesService', () => {
 
       expect(result.sourceAgentId).toBeNull();
       expect(result.perspective).toBe('hub');
+      expect(prismaService.service.update).toHaveBeenCalledWith({
+        where: { id: 'service-1' },
+        data: { status: 'OK', lastCheckedAt: createdAt },
+      });
     });
   });
 

@@ -6,6 +6,11 @@ const BEGIN_MARKER = '# BEGIN private-connect';
 const END_MARKER = '# END private-connect';
 const HOSTS_PATH = '/etc/hosts';
 
+/** Leading UTF-8 BOM breaks `^`-anchored line regexes (position 0 is U+FEFF, not `#`). */
+export function stripLeadingUtf8Bom(content: string): string {
+  return content.replace(/^\uFEFF/, '');
+}
+
 interface HostEntry {
   hostname: string;
   ip: string;
@@ -67,7 +72,7 @@ export function syncHosts(
   if (entries.length === 0) return { synced: true };
 
   try {
-    const current = fs.readFileSync(HOSTS_PATH, 'utf-8');
+    const current = stripLeadingUtf8Bom(fs.readFileSync(HOSTS_PATH, 'utf-8'));
     const cleaned = removeExistingBlock(current);
 
     const sanitized = entries.filter(e =>
@@ -101,7 +106,7 @@ export function cleanHosts(
   }
 
   try {
-    const current = fs.readFileSync(HOSTS_PATH, 'utf-8');
+    const current = stripLeadingUtf8Bom(fs.readFileSync(HOSTS_PATH, 'utf-8'));
     if (!new RegExp(`^${escapeRegExp(BEGIN_MARKER)}$`, 'm').test(current)) {
       return { cleaned: true };
     }

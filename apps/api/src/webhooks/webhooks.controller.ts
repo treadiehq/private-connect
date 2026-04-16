@@ -22,7 +22,8 @@ import { CombinedAuthGuard } from '../auth/combined-auth.guard';
 import { WebhooksService, WebhookEventType } from './webhooks.service';
 import { z } from 'zod';
 
-const VALID_EVENTS: WebhookEventType[] = [
+/** Subscribable event names — must match {@link WebhookEventType} and `listEvents()` */
+export const VALID_EVENTS: WebhookEventType[] = [
   'tunnel.created',
   'tunnel.connected',
   'tunnel.disconnected',
@@ -36,6 +37,8 @@ const VALID_EVENTS: WebhookEventType[] = [
   'agent.deleted',
   'grant.created',
   'grant.revoked',
+  'service.healthy',
+  'service.unhealthy',
 ];
 
 const CreateWebhookSchema = z.object({
@@ -159,6 +162,8 @@ export class WebhooksController {
         { name: 'agent.disconnected', description: 'An agent went offline' },
         { name: 'agent.registered', description: 'A new agent was registered' },
         { name: 'agent.deleted', description: 'An agent was permanently removed' },
+        { name: 'grant.created', description: 'A new AI agent grant was created' },
+        { name: 'grant.revoked', description: 'A grant was revoked' },
         { name: 'service.healthy', description: 'A service recovered and is reachable again' },
         { name: 'service.unhealthy', description: 'A service became unreachable' },
       ],

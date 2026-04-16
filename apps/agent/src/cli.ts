@@ -195,6 +195,35 @@ program
   .enablePositionalOptions();
 
 // ─────────────────────────────────────────────────────────────────────────────
+// `connect run <name> <cmd>` — must register BEFORE the hidden default `run`
+// ─────────────────────────────────────────────────────────────────────────────
+// Commander resolves duplicate subcommand names by first registration. The hidden
+// default below is also named `run`; if it were first, `connect run api next dev`
+// would incorrectly route to connectCommand instead of runCommand.
+
+program
+  .command('run <name> [cmd...]')
+  .enablePositionalOptions()
+  .passThroughOptions()
+  .description('Run a command and make it available via the local proxy')
+  .option('--port <port>', 'Use a specific port instead of auto-assigning', parsePort)
+  .option('--https', 'Ensure proxy uses HTTPS')
+  .addHelpText('after', `
+Examples:
+  $ connect run api next dev
+  $ connect run frontend vite
+  $ connect run --https api node server.js
+  $ connect run --port 4000 api next dev
+`)
+  .action((name, cmd, options) => {
+    if (cmd.length === 0) {
+      console.error('[x] No command specified. Usage: connect run <name> <command>');
+      process.exit(1);
+    }
+    runCommand(name, cmd, options);
+  });
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Default Command - The Primitive
 // ─────────────────────────────────────────────────────────────────────────────
 // This is the "one command" that does the right thing contextually.
@@ -259,28 +288,6 @@ Examples:
   .action((apiKey, options) => {
     if (options.config) setConfigPath(options.config);
     loginCommand(apiKey, options);
-  });
-
-program
-  .command('run <name> [cmd...]')
-  .enablePositionalOptions()
-  .passThroughOptions()
-  .description('Run a command and make it available via the local proxy')
-  .option('--port <port>', 'Use a specific port instead of auto-assigning', parsePort)
-  .option('--https', 'Ensure proxy uses HTTPS')
-  .addHelpText('after', `
-Examples:
-  $ connect run api next dev
-  $ connect run frontend vite
-  $ connect run --https api node server.js
-  $ connect run --port 4000 api next dev
-`)
-  .action((name, cmd, options) => {
-    if (cmd.length === 0) {
-      console.error('[x] No command specified. Usage: connect run <name> <command>');
-      process.exit(1);
-    }
-    runCommand(name, cmd, options);
   });
 
 program

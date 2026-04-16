@@ -111,10 +111,6 @@ export class HealthMonitorService implements OnModuleDestroy {
         this.servicesService.saveDiagnostic(service.id, result),
       );
 
-      const newStatus = result.tcpStatus !== 'OK' || result.tlsStatus === 'FAIL' || result.httpStatus === 'FAIL'
-        ? 'FAIL'
-        : 'OK';
-
       const updatedService = await this.prisma.withoutRls(() =>
         this.servicesService.findById(service.id),
       );
@@ -123,7 +119,17 @@ export class HealthMonitorService implements OnModuleDestroy {
         this.realtimeGateway.broadcastDiagnosticResult(diagnostic, service.workspaceId);
       }
 
-      const transitioned = previousStatus !== newStatus && previousStatus !== 'UNKNOWN';
+      // Webhook payload must match persisted service.status (single source of truth).
+      const newStatus = updatedService?.status ?? 'UNKNOWN';
+      // If another instance saved a newer diagnostic, lastCheckedAt won't match ours — skip duplicate transition webhooks.
+      const ourWriteApplied =
+        !!updatedService?.lastCheckedAt &&
+        diagnostic.createdAt.getTime() === updatedService.lastCheckedAt.getTime();
+
+      const transitioned =
+        ourWriteApplied &&
+        previousStatus !== newStatus &&
+        previousStatus !== 'UNKNOWN';
       if (transitioned) {
         const event = newStatus === 'FAIL' ? 'service.unhealthy' as const : 'service.healthy' as const;
         this.logger.log(`Service ${service.name} transitioned ${previousStatus} -> ${newStatus}`);
