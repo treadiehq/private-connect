@@ -38,6 +38,8 @@ mkdir -p "$OUTPUT_DIR"
 cd "$AGENT_DIR"
 
 # Build for each platform
+# macOS: `bun build --compile` can produce a bad LC_CODE_SIGNATURE; the binary is SIGKILL'd on start.
+# CI and local (Darwin) use BUN_NO_CODESIGN_MACHO_BINARY=1, then ad-hoc codesign(1).
 PLATFORMS=(
   "linux-x64:bun-linux-x64"
   "linux-arm64:bun-linux-arm64"
@@ -53,10 +55,20 @@ for platform in "${PLATFORMS[@]}"; do
   NAME="${platform%%:*}"
   TARGET="${platform##*:}"
   OUTPUT_FILE="$OUTPUT_DIR/connect-$NAME"
-  
+
   echo -n "  Building connect-$NAME... "
-  
+
+  unset BUN_NO_CODESIGN_MACHO_BINARY
+  if [[ "$NAME" == darwin-* ]]; then
+    export BUN_NO_CODESIGN_MACHO_BINARY=1
+  fi
+
   if bun build src/cli.ts --compile --target="$TARGET" --outfile="$OUTPUT_FILE" 2>/dev/null; then
+    if [[ "$NAME" == darwin-* ]] && [[ "$(uname -s)" == "Darwin" ]]; then
+      codesign --force --sign - "$OUTPUT_FILE"
+      codesign --verify --strict "$OUTPUT_FILE"
+      "$OUTPUT_FILE" --version >/dev/null
+    fi
     SIZE=$(du -h "$OUTPUT_FILE" | cut -f1)
     echo -e "${GREEN}✓${NC} ($SIZE)"
   else

@@ -32,17 +32,35 @@ jobs:
         uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
-      
+
       - name: Install dependencies
         run: |
           cd apps/agent
           bun install
-      
+
+      # macOS: Bun can embed a truncated LC_CODE_SIGNATURE; the kernel then SIGKILLs the binary
+      # before it runs. Skip Bun's built-in sign, then ad-hoc sign so the binary is valid and runnable.
       - name: Build binary
         run: |
           cd apps/agent
+          if echo "${{ matrix.target }}" | grep -q darwin; then
+            export BUN_NO_CODESIGN_MACHO_BINARY=1
+          fi
           bun build src/cli.ts --compile --target=${{ matrix.target }} --outfile=${{ matrix.artifact }}
-      
+
+      - name: Ad-hoc sign macOS binary
+        if: contains(matrix.target, 'darwin')
+        run: |
+          cd apps/agent
+          codesign --force --sign - "${{ matrix.artifact }}"
+          codesign --verify --strict "${{ matrix.artifact }}"
+
+      - name: Smoke test binary
+        run: |
+          cd apps/agent
+          chmod +x "${{ matrix.artifact }}"
+          "./${{ matrix.artifact }}" --version
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
