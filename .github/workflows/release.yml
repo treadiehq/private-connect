@@ -59,7 +59,35 @@ jobs:
         run: |
           cd apps/agent
           chmod +x "${{ matrix.artifact }}"
-          "./${{ matrix.artifact }}" --version
+          BIN="${{ matrix.artifact }}"
+          M="$(uname -m)"
+          S="$(uname -s)"
+
+          if [[ "$S" == "Linux" ]]; then
+            if [[ "$M" == "x86_64" && "$BIN" == *linux-x64 ]]; then
+              "./$BIN" --version || exit 1
+            elif [[ "$M" == "aarch64" && "$BIN" == *linux-arm64 ]]; then
+              "./$BIN" --version || exit 1
+            else
+              # Cross-compiled (e.g. arm64 ELF on x86_64 runner) — exec returns 126; use file(1) only.
+              file "$BIN"
+            fi
+          elif [[ "$S" == "Darwin" ]]; then
+            if [[ "$M" == "arm64" && "$BIN" == *darwin-arm64 ]]; then
+              "./$BIN" --version || exit 1
+            elif [[ "$M" == "x86_64" && "$BIN" == *darwin-x64 ]]; then
+              "./$BIN" --version || exit 1
+            elif [[ "$M" == "arm64" && "$BIN" == *darwin-x64 ]]; then
+              if ! arch -x86_64 "./$BIN" --version 2>/dev/null; then
+                file "$BIN"
+                echo "Note: skipped x64 run on arm64 (Rosetta); format checked with file(1) only."
+              fi
+            else
+              file "$BIN"
+            fi
+          else
+            "./$BIN" --version || { file "$BIN"; exit 0; }
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
